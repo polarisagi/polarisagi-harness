@@ -136,6 +136,16 @@ DDL 和持续性记忆组映射表见 `internal/protocol/schema/003_episodic_mem
 
 Salience: LLM 输出 + 工具结果 → 低; 用户反馈 + 关键决策 + 失败/成功 → 高。基于 M9 SurpriseIndex 信号的边权重强化与时间衰减实现动态权重调整（见 §7.6）。
 
+**EpisodicGraphIndexer（GraphRAG 融合）**:
+`EpisodicMem.Append()` 写 SQLite 后，同步调用 `EpisodicGraphIndexer.Index(ev)` 在 SurrealDB 图谱中建立边：
+- `episodic:{id} → TRIGGERED_BY → agent:{agentID}`（事件来源追溯）
+- `episodic:{id} → IN_SESSION  → session:{taskID}`（会话聚类检索）
+- `episodic:{id} → ACTION_DONE → entity:tool:unknown`（工具调用关联，`EventActionDone` 类型）
+
+实现见 `pkg/cognition/memory/episodic_graph_bridge.go`。边写入为 best-effort（失败仅记日志，不阻断写路径）。Tier1+ 通过 `NewMemImplWithGraph(store, graph)` / `NewMemorySystemWithGraph(store, graph)` 注入；Tier 0 无 SurrealDB 图路径时 indexer=nil，跳过图桥。
+
+此设计打通 episodic↔knowledge 两个孤岛：HybridRetriever 图遍历路径（§7.3）从知识实体出发可跨越到 episodic 节点，实现 AriGraph（arXiv:2407.04363）式的情节-语义混合检索。
+
 ### 3.2 Session Compaction
 
 Session 关闭时:

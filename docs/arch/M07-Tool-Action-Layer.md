@@ -120,6 +120,14 @@ L3 平台原生 microVM (统一 SandboxProvider 接口，调用方平台无感):
 
 Tier 0 L3 不可用: 全平台 Tier 0 内存不足启动 microVM (每 L3 ≥256MB)。CapWriteNetwork/Privileged 在 Tier 0 → ErrTier0SandboxLimit。**不提供原生子进程降级**（避免突破安全底线）。
 
+**ContainerSandbox Linux 命名空间隔离**（`pkg/action/sandbox_linux.go`）:
+当 SandboxRouter 路由至 `ContainerSandbox`（Tier1+ Linux）时，`cmd.SysProcAttr` 自动注入：
+- `CLONE_NEWPID`：子进程获得独立 PID 命名空间，无法枚举/信号攻击宿主进程
+- `CLONE_NEWNS`：独立挂载命名空间，防止子进程污染全局 mount 表
+- `Pdeathsig=SIGKILL`：父进程退出时自动 SIGKILL 子进程，消灭孤儿
+非 Linux 平台（`sandbox_other.go`）返回 nil，路由层已降级至 WasmSandbox，不到达此路径。
+Landlock LSM 文件系统白名单（`LandlockRestrictSelf`）须在子进程内调用，需 reexec 模式（`POLARIS_SANDBOX_EXEC` 环境变量触发），为后续 Tier1+ 路线图项。
+
 - Tier: [Tier-0-Limit] | 平台: 全平台 | L3 主方案: 不可用（内存不足） | L2 降级: 最高支持 L2 Wasm；L3 权限需求 → ErrTier0SandboxLimit
 - Tier: [Tier-1-Limit] | 平台: Linux | L3 主方案: Firecracker（KVM 不可用 fallback gVisor，≥256MB） | L2 降级: L2 Wasm
 - Tier: [Tier-1-Limit] | 平台: macOS | L3 主方案: Virtualization.framework（≥256MB） | L2 降级: L2 Wasm

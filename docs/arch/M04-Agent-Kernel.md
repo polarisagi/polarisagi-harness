@@ -152,15 +152,20 @@ DAGExecutor 实现见 `pkg/cognition/kernel/dag_executor.go`（旧版 `pkg/cogni
 
 节点输出 `[SurpriseIndex]` >0.7 → 未执行下游子图局部重规划。已成功节点保留(防双重副作用)。若必须覆盖已执行节点: 先 Saga Compensation 成功才加入 replan。重规划在 S_EXECUTE 内部, 不跨状态机边界。
 
-### 4.5 StepScorer (Hardware-Aware Dual-Track Scorer)
+### 4.5 StepScorer + Adaptive Max-Steps
 
-接口定义见 `internal/protocol/interfaces.go:StepScorer`，实现见 `pkg/cognition/step_scorer.go`。
+实现见 `pkg/cognition/kernel/step_scorer.go`（内核包本地定义，同包调用零 import 开销）。
 
-- **Tier 0 (纯静态启发式)**: 受限内存环境仅执行启发式扣分。权重: toolSuccess=0.4, schemaCheck=0.3, latency=0.2, tokenEfficiency=0.1。Score 从 1.0 起点按四项扣分，latency/token 惩罚 cap 封顶。
-- **Tier 1+ (启发式 + 1.5B 挂载 PRM 融合)**: 在启发式规则之上，系统通过 M1 LocalProvider 加载一个极小参数量 (如 1.5B) 的 PRM (Process Reward Model)。PRM 对局部步 (intermediate steps) 给予语义打分 (+1, 0, -1)，并在总分中占 0.6 权重。如果 PRM 调用超时 (>100ms) 或内存不足，则安全降级为纯静态启发式。
+- **Tier 0 (纯静态启发式)**: 权重 toolSuccess=0.4, schemaCheck=0.3, latency=0.2, tokenEfficiency=0.1。Score 从 1.0 起点按四项扣分，latency/token 惩罚 cap 封顶。
+- **Tier 1+ (启发式 + 1.5B 挂载 PRM 融合)**: M1 LocalProvider 加载极小 PRM，对中间步语义打分 (+1,0,-1)，融合权重 0.6。PRM 超时 >100ms 或 OOM → 安全降级纯静态。
+
+**Adaptive Max-Steps 闭环**:
+- `StateContext` 持有 `StepsUsed / MaxStepsLimit`；`AgentConfig.MaxSteps` 在首次 `Run()` 时写入 `MaxStepsLimit`（0=无上限，不推荐生产）。
+- `Agent.Run()` 每轮 trigger 前计步：`StepsUsed > MaxStepsLimit` → FSM 熔断至 `S_FAILED`，错误码 `MAX_STEPS_EXCEEDED`。
+- 每次工具调用后调用 `adjustMaxSteps(current, score)`：score < 0.5 → 收紧 10%（防低质量循环），score ≥ 0.5 → 保持不变（防预算膨胀）。
 
 **Best-of-N 与 Replanning 阻断**:
-双路径输出不仅为 Best-of-N 搜索提供置信度排序，还会将低分分支标记为 MEMF 失败候选池。若某分支的累积 PRM Reward 低于警戒线，立刻触发重规划或补偿（Replanning / Saga），在早期阻断错误发散。
+双路径输出为 Best-of-N 搜索提供置信度排序，低分分支标记为 MEMF 失败候选池，累积低于警戒线立即触发重规划或 Saga 补偿。
 
 ### 4.6 ProcessRewardModel — S_PLAN 候选 DAG 选优
 
