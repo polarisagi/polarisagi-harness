@@ -285,7 +285,9 @@ func (e *ContextRefExpander) resolveURL(ctx context.Context, val string) (string
 
 	client := e.client
 	if client == nil {
-		client = http.DefaultClient
+		// http.DefaultClient 绕过 SafeDialer 的 SSRF 校验，禁止静默降级。
+		// 生产路径必须通过 NewContextRefExpander(substrate.NewSafeHTTPClient(...)) 注入。
+		return "", 0, perrors.Wrap(perrors.CodeInternal, "http client not injected: use NewSafeHTTPClient", nil)
 	}
 
 	fetchCtx, cancel := context.WithTimeout(ctx, httpFetchTimeout)

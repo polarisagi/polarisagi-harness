@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"net/http"
 	"sync"
+
+	"github.com/mrlaoliai/polaris-harness/internal/protocol"
 )
 
 // Message 平台消息标准化结构。
@@ -26,16 +28,27 @@ type Manager struct {
 	pollers    map[string]context.CancelFunc
 	wecomSends sync.Map // channelID → chan wecomMsg
 	httpClient *http.Client
+	safeDialer protocol.SafeDialer // IMAP/SMTP 等 raw-TCP 通道的 SSRF 防护拨号器
 	onMessage  MessageHandler
 }
 
 // NewManager 创建 Manager，httpClient 用于各平台 HTTP 调用，onMessage 是消息分发回调。
-func NewManager(httpClient *http.Client, onMessage MessageHandler) *Manager {
-	return &Manager{
+func NewManager(httpClient *http.Client, onMessage MessageHandler, opts ...func(*Manager)) *Manager {
+	m := &Manager{
 		pollers:    make(map[string]context.CancelFunc),
 		httpClient: httpClient,
 		onMessage:  onMessage,
 	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// WithSafeDialer 注入 SafeDialer，用于需要 raw TCP 的 channel（email IMAP 等）。
+// 未注入时 email poller 拒绝启动。
+func WithSafeDialer(sd protocol.SafeDialer) func(*Manager) {
+	return func(m *Manager) { m.safeDialer = sd }
 }
 
 // registerPoller 注册 cancel 函数，同名旧 poller 先停止。

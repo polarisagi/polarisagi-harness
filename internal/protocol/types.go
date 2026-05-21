@@ -322,21 +322,23 @@ type ToolResult struct {
 // ============================================================================
 
 type TaskEntry struct {
-	ID        string
-	Type      string
-	Priority  int
-	Status    TaskStatus
-	ClaimedBy string
-	ClaimedAt int64
-	ExpiresAt int64
-	Toxicity  int
-	Intent    []byte
-	Result    []byte
-	DependsOn []string
-	SubTasks  []string
-	Deadline  int64
-	CreatedAt int64
-	UpdatedAt int64
+	ID          string
+	Type        string
+	Priority    int
+	Status      TaskStatus
+	ClaimedBy   string
+	ClaimedAt   int64
+	ExpiresAt   int64
+	Toxicity    int
+	Intent      []byte
+	IntentTaint TaintLevel // Taint 污点随 Intent 传播，禁止跨 Agent 边界降级
+	Result      []byte
+	ResultTaint TaintLevel // Taint 污点随 Result 传播，禁止跨 Agent 边界降级
+	DependsOn   []string
+	SubTasks    []string
+	Deadline    int64
+	CreatedAt   int64
+	UpdatedAt   int64
 }
 
 type TaskStatus int

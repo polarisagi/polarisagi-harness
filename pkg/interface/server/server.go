@@ -87,7 +87,7 @@ func (s *Server) buildToolSchemas() []protocol.ToolSchema {
 
 // NewServer 创建新的 HTTP Server。
 // DEV_MODE=1 时将静态资源请求反向代理到 Vite dev server (:5173)。
-func NewServer(addr string, agent *kernel.Agent, bb protocol.Blackboard, hitlGateway protocol.HITL, db *sql.DB, registry *inference.ProviderRegistry, httpClient *http.Client) *Server {
+func NewServer(addr string, agent *kernel.Agent, bb protocol.Blackboard, hitlGateway protocol.HITL, db *sql.DB, registry *inference.ProviderRegistry, httpClient *http.Client, safeDialer protocol.SafeDialer) *Server {
 	tDir := defaultTranscriptDir()
 	go PruneTranscripts(tDir, 30) // 启动时异步清理 30 天前的 transcript
 
@@ -105,7 +105,7 @@ func NewServer(addr string, agent *kernel.Agent, bb protocol.Blackboard, hitlGat
 	s.compressor = newCompressor(db, s.hooks)
 	s.channelMgr = channels.NewManager(httpClient, func(channelType, channelID string, cfg map[string]any, msg channels.Message) {
 		s.dispatchChannelMessage(channelType, channelID, cfg, msg)
-	})
+	}, channels.WithSafeDialer(safeDialer))
 
 	mux := http.NewServeMux()
 

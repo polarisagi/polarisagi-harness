@@ -12,6 +12,8 @@ import (
 	"time"
 )
 
+type dialContextFunc func(ctx context.Context, network, address string) (net.Conn, error)
+
 func (m *Manager) startEmailPoller(channelID string, cfg map[string]any) {
 	ctx, cancel := context.WithCancel(context.Background())
 	m.registerPoller(channelID, cancel)
@@ -54,7 +56,11 @@ func (m *Manager) runEmailPoller(ctx context.Context, channelID string, cfg map[
 			return
 		case <-ticker.C:
 		}
-		msgs, err := imapFetchUnseen(imapHost+":"+imapPort, address, password)
+		if m.safeDialer == nil {
+		slog.Error("email: SafeDialer 未注入，拒绝 IMAP 连接（SSRF 防护）", "channel", channelID)
+		return
+	}
+	msgs, err := imapFetchUnseen(ctx, m.safeDialer.DialContext, imapHost+":"+imapPort, address, password)
 		if err != nil {
 			slog.Error("email: IMAP fetch failed", "err", err)
 			continue
@@ -96,11 +102,19 @@ type imapMessage struct {
 	Body      string
 }
 
-func imapFetchUnseen(addr, user, password string) ([]imapMessage, error) { //nolint:gocyclo
-	tlsCfg := &tls.Config{ServerName: strings.Split(addr, ":")[0]}
-	conn, err := tls.DialWithDialer(&net.Dialer{Timeout: 15 * time.Second}, "tcp", addr, tlsCfg)
+// imapFetchUnseen 通过调用方注入的 dialCtx 建立 TCP 连接（必须经 SafeDialer 校验），
+// 再在已校验连接上升级 TLS，防止直接调用 tls.DialWithDialer 绕过 SSRF 拦截。
+func imapFetchUnseen(ctx context.Context, dialCtx dialContextFunc, addr, user, password string) ([]imapMessage, error) { //nolint:gocyclo
+	host := strings.Split(addr, ":")[0]
+	rawConn, err := dialCtx(ctx, "tcp", addr)
 	if err != nil {
 		return nil, fmt.Errorf("imap: dial: %w", err)
+	}
+	tlsCfg := &tls.Config{ServerName: host}
+	conn := tls.Client(rawConn, tlsCfg)
+	if err := conn.HandshakeContext(ctx); err != nil {
+		rawConn.Close()
+		return nil, fmt.Errorf("imap: tls handshake: %w", err)
 	}
 	defer conn.Close()
 

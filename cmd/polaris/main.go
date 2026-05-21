@@ -511,7 +511,7 @@ func run() error { //nolint:gocyclo
 	if autoConf != nil && autoConf.Gate.State(observability.FeatureWebUI) == observability.FeatureDisabled {
 		slog.Warn("polaris: FeatureWebUI disabled by FeatureGate — serving API-only mode, dashboard unavailable")
 	}
-	httpServer := server.NewServer(fmt.Sprintf(":%d", cfg.Thresholds.M13Interface.HTTPPort), agent, blackboard, hitlGateway, store.DB(), reg, safeHTTPClient)
+	httpServer := server.NewServer(fmt.Sprintf(":%d", cfg.Thresholds.M13Interface.HTTPPort), agent, blackboard, hitlGateway, store.DB(), reg, safeHTTPClient, dialer)
 	httpServer.SetMCPManager(mcpMgr)
 	httpServer.SetToolRegistry(toolReg)
 	httpServer.SetSkillRegistry(skillRegistry)

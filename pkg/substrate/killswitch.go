@@ -7,6 +7,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/mrlaoliai/polaris-harness/pkg/substrate/observability"
 )
 
 // 全局记录当前的 KillSwitch Stage，以满足 [HE-Rule-6] State-in-DB 强制持久化要求
@@ -37,7 +39,6 @@ type KillSwitch struct {
 	stateEnteredAt time.Time
 
 	monitors struct {
-		tokenBurnRate        *BurnRateTracker
 		errorCounter         int
 		safetyViolations     int
 		fatalViolations      int
@@ -65,19 +66,10 @@ func (ks *KillSwitch) GetState() KillState {
 	return ks.state
 }
 
-func NewKillSwitch(tracker *BurnRateTracker) *KillSwitch {
+func NewKillSwitch() *KillSwitch {
 	return &KillSwitch{
 		state:          KillNormal,
 		stateEnteredAt: time.Now(),
-		monitors: struct {
-			tokenBurnRate        *BurnRateTracker
-			errorCounter         int
-			safetyViolations     int
-			fatalViolations      int
-			irreversibleAttempts int
-		}{
-			tokenBurnRate: tracker,
-		},
 	}
 }
 
@@ -136,7 +128,8 @@ func (ks *KillSwitch) executeFullStop() error {
 func (ks *KillSwitch) IsSealed() bool { return ks.state == KillFullStop }
 
 func (ks *KillSwitch) shouldThrottle() bool {
-	if ks.monitors.tokenBurnRate != nil && ks.monitors.tokenBurnRate.Stage() >= 1 {
+	// 读全局 TokenBurnRate（observability.GlobalTokenBurnRate 是唯一真相源，inference 适配器写入它）
+	if observability.GlobalTokenBurnRate.CheckThrottle() >= observability.ThrottleStage1 {
 		return true
 	}
 	return ks.monitors.errorCounter > 5
