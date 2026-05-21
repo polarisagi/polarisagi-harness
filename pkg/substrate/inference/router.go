@@ -4,7 +4,7 @@
 // 设计约束:
 //   - ProviderRegistry: 注册/注销 Provider，HealthScore 动态权重
 //   - InferenceRouter.Route(): 权重 = 可用性×0.4 + 延迟×0.3 + 成本×0.2 + 质量×0.1
-//   - CircuitBreaker: 连续 5 次失败 → Open(30s) → HalfOpen → 探测
+//   - CircuitBreaker: 连续失败 → Open(冷却) → HalfOpen → 探测（参数见 §4.5）
 //   - SSE 帧归一化: OpenAI/Anthropic/DeepSeek → 统一 StreamEvent
 //   - API Key JIT: 使用后 memclr 清零（防 heap dump 泄露）
 package inference
@@ -31,8 +31,10 @@ const (
 	circuitHalfOpen                     // 探测恢复
 )
 
-// circuitBreaker 五次失败 → Open(30s) → HalfOpen 探测。
-// 架构文档: M01 §3.2
+// circuitBreaker 连续失败 → Open(冷却期) → HalfOpen 探测。
+// 架构文档: M01 §4.5（参数权威源 spec/state.yaml §m1_router.circuit_breaker_*）
+// 常量值与 internal/config/thresholds.go DefaultThresholds.M1Router 手工同步，
+// spec_consistency_test 守护核心 SSoT。
 type circuitBreaker struct {
 	state       atomic.Int32
 	failures    atomic.Int32
@@ -42,7 +44,8 @@ type circuitBreaker struct {
 }
 
 func newCircuitBreaker() *circuitBreaker {
-	cb := &circuitBreaker{maxFailures: 5, openDur: 30 * time.Second}
+	// 数值同 spec/state.yaml §m1_router.circuit_breaker_failure_count / _cooldown_seconds
+	cb := &circuitBreaker{maxFailures: 5, openDur: 10 * time.Second}
 	cb.state.Store(int32(circuitClosed))
 	return cb
 }
