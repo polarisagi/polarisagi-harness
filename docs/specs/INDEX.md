@@ -15,6 +15,7 @@
 | 03 | `03-Agent-Pattern.md` | FSM/事件/Memory/Skill | 改 `pkg/cognition/` `pkg/swarm/` |
 | 04 | `04-Module-Boundary.md` | 边界/依赖方向/B5 契约版本化 | 新包/跨模块/契约变更 |
 | 06 | `06-Review.md` | C1~C9 审查清单 | 提交前 |
+| 08 | `08-Doc-Hygiene.md` | docs/arch/ 维护边界 H1~H9（契约/决策/实现三层判定） | 改架构文档前 |
 
 `pkg/<X>/CLAUDE.md` 进入目录时自动注入，无需手动读。
 
