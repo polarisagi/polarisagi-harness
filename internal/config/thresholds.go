@@ -21,32 +21,32 @@ type Thresholds struct {
 }
 
 type M1RouterThresholds struct {
-	CircuitBreakerFailureCount    int     `toml:"circuit_breaker.failure_count"`    // 5
-	CircuitBreakerCooldownSeconds int     `toml:"circuit_breaker.cooldown_seconds"` // 10
-	CircuitBreakerHalfOpenMax     int     `toml:"circuit_breaker.half_open_max"`    // 1
-	PreFlightCostTolerancePct     int     `toml:"pre_flight.cost_tolerance_pct"`    // 15
-	TimeoutDialSeconds            int     `toml:"timeout.dial_seconds"`             // 3
-	TimeoutTLSSeconds             int     `toml:"timeout.tls_seconds"`              // 5
-	TimeoutResponseHeaderSeconds  int     `toml:"timeout.response_header_seconds"`  // 30
-	TimeoutTotalSeconds           int     `toml:"timeout.total_seconds"`            // 120
-	MaxStreamBufferKB             int     `toml:"stream.max_buffer_kb"`             // 256
-	L1TargetHitRate               float64 `toml:"l1.target_hit_rate"`               // 0.90
-	SemanticCacheMaxEntries       int     `toml:"semantic_cache.max_entries"`       // 10000
+	CircuitBreakerFailureCount    int     `toml:"circuit_breaker.failure_count"`       // 5
+	CircuitBreakerCooldownSeconds int     `toml:"circuit_breaker.cooldown_seconds"`    // 10
+	CircuitBreakerHalfOpenMax     int     `toml:"circuit_breaker.half_open_max"`       // 1
+	PreFlightCostTolerancePct     int     `toml:"pre_flight.cost_tolerance_pct"`       // 15
+	TimeoutDialSeconds            int     `toml:"timeout.dial_seconds"`                // 3
+	TimeoutTLSSeconds             int     `toml:"timeout.tls_seconds"`                 // 5
+	TimeoutResponseHeaderSeconds  int     `toml:"timeout.response_header_seconds"`     // 30
+	TimeoutTotalSeconds           int     `toml:"timeout.total_seconds"`               // 120
+	MaxStreamBufferKB             int     `toml:"stream.max_buffer_kb"`                // 256
+	L1TargetHitRate               float64 `toml:"l1.target_hit_rate"`                  // 0.90
+	SemanticCacheMaxEntries       int     `toml:"semantic_cache.max_entries"`          // 10000
 	SemanticCacheSimilarity       float64 `toml:"semantic_cache.similarity_threshold"` // 0.95
-	SemanticCacheTTLHours         int     `toml:"semantic_cache.ttl_hours"`         // 24
+	SemanticCacheTTLHours         int     `toml:"semantic_cache.ttl_hours"`            // 24
 }
 
 type M2StorageThresholds struct {
-	SQLiteBusyTimeoutMs    int `toml:"sqlite.busy_timeout_ms"`         // 5000
-	SurrealBufferPoolMB    int `toml:"surreal.buffer_pool_mb"`         // 64 — SurrealDB-Core FFI 内存池上限
-	EventlogHotDays        int `toml:"eventlog.hot_days"`              // 7
-	EventlogWarmDays       int `toml:"eventlog.warm_days"`             // 30
-	MaxBatchSize           int `toml:"transaction.max_batch_size"`     // 64
-	MaxRowsPerTx           int `toml:"transaction.max_rows_per_tx"`    // 50
-	OutboxMaxAttempts      int `toml:"outbox.max_attempts"`            // 5
-	MutationBusChannelCap  int `toml:"mutation_bus.channel_cap"`       // 4096
-	TickerIntervalMs       int `toml:"transaction.ticker_interval_ms"` // 10
-	WALCheckpointPages     int `toml:"wal.checkpoint_pages"`           // 1000
+	SQLiteBusyTimeoutMs   int `toml:"sqlite.busy_timeout_ms"`         // 5000
+	SurrealBufferPoolMB   int `toml:"surreal.buffer_pool_mb"`         // 64 — SurrealDB-Core FFI 内存池上限
+	EventlogHotDays       int `toml:"eventlog.hot_days"`              // 7
+	EventlogWarmDays      int `toml:"eventlog.warm_days"`             // 30
+	MaxBatchSize          int `toml:"transaction.max_batch_size"`     // 64
+	MaxRowsPerTx          int `toml:"transaction.max_rows_per_tx"`    // 50
+	OutboxMaxAttempts     int `toml:"outbox.max_attempts"`            // 5
+	MutationBusChannelCap int `toml:"mutation_bus.channel_cap"`       // 4096
+	TickerIntervalMs      int `toml:"transaction.ticker_interval_ms"` // 10
+	WALCheckpointPages    int `toml:"wal.checkpoint_pages"`           // 1000
 }
 
 type M3ObservabilityThresholds struct {
@@ -57,17 +57,17 @@ type M3ObservabilityThresholds struct {
 }
 
 type M4KernelThresholds struct {
-	MaxReplanAttempts            int     `toml:"max_replan_attempts"`               // 3
-	DefaultBudget                int     `toml:"default_budget"`                    // 50000
-	MaxSteps                     int     `toml:"max_steps"`                         // 10
-	Tier0MaxConcurrent           int     `toml:"tier0_max_concurrent"`              // 4 — 同 max_concurrent_nodes
-	SuspendIdleThresholdMin      int     `toml:"suspend_idle_threshold_minutes"`    // 5
-	PlanDAGMaxNodes              int     `toml:"plan_dag.max_nodes"`                // 50
-	PlanDAGMaxDepth              int     `toml:"plan_dag.max_depth"`                // 10
-	L3WatchdogMaxPerHour         int     `toml:"l3_watchdog.max_per_hour"`          // 10
-	WorldModelSkipThreshold      float64 `toml:"world_model.skip_threshold"`        // 0.8
-	SnapshotIntervalSteps        int     `toml:"snapshot.interval_steps"`           // 1000
-	SnapshotRetentionCount       int     `toml:"snapshot.retention_count"`          // 5
+	MaxReplanAttempts       int     `toml:"max_replan_attempts"`            // 3
+	DefaultBudget           int     `toml:"default_budget"`                 // 50000
+	MaxSteps                int     `toml:"max_steps"`                      // 10
+	Tier0MaxConcurrent      int     `toml:"tier0_max_concurrent"`           // 4 — 同 max_concurrent_nodes
+	SuspendIdleThresholdMin int     `toml:"suspend_idle_threshold_minutes"` // 5
+	PlanDAGMaxNodes         int     `toml:"plan_dag.max_nodes"`             // 50
+	PlanDAGMaxDepth         int     `toml:"plan_dag.max_depth"`             // 10
+	L3WatchdogMaxPerHour    int     `toml:"l3_watchdog.max_per_hour"`       // 10
+	WorldModelSkipThreshold float64 `toml:"world_model.skip_threshold"`     // 0.8
+	SnapshotIntervalSteps   int     `toml:"snapshot.interval_steps"`        // 1000
+	SnapshotRetentionCount  int     `toml:"snapshot.retention_count"`       // 5
 }
 
 type M5MemoryThresholds struct {
@@ -79,16 +79,16 @@ type M5MemoryThresholds struct {
 }
 
 type M6SkillThresholds struct {
-	GoldCacheSize                  int `toml:"cache_size.gold"`            // 5
-	SilverCacheSize                int `toml:"cache_size.silver"`          // 20
-	BronzeCacheSize                int `toml:"cache_size.bronze"`          // 25
-	BronzeCacheTTLMin              int `toml:"cache_ttl.bronze_min"`       // 30
-	SkillExecTimeoutLowSeconds     int `toml:"skill_exec.timeout_low_s"`   // 30
-	SkillExecTimeoutMedHighSeconds int `toml:"skill_exec.timeout_mh_s"`    // 120
+	GoldCacheSize                  int `toml:"cache_size.gold"`          // 5
+	SilverCacheSize                int `toml:"cache_size.silver"`        // 20
+	BronzeCacheSize                int `toml:"cache_size.bronze"`        // 25
+	BronzeCacheTTLMin              int `toml:"cache_ttl.bronze_min"`     // 30
+	SkillExecTimeoutLowSeconds     int `toml:"skill_exec.timeout_low_s"` // 30
+	SkillExecTimeoutMedHighSeconds int `toml:"skill_exec.timeout_mh_s"`  // 120
 }
 
 type M7ToolThresholds struct {
-	DefaultSandboxLevel        int  `toml:"sandbox.default_level"`         // 2
+	DefaultSandboxLevel        int  `toml:"sandbox.default_level"` // 2
 	DryRunEnabled              bool `toml:"sandbox.dry_run_enabled"`
 	MaxWasmMemoryMB            int  `toml:"wasm.max_memory_mb"`            // 256
 	MaxWasmWallclockS          int  `toml:"wasm.max_wallclock_s"`          // 60
@@ -96,16 +96,16 @@ type M7ToolThresholds struct {
 }
 
 type M8OrchestratorThresholds struct {
-	LeaseTTLSeconds              int `toml:"lease.ttl_seconds"`              // 60
-	HeartbeatSeconds             int `toml:"heartbeat.seconds"`              // 15
-	HeartbeatJitter              int `toml:"heartbeat.jitter"`               // 5
-	ReaperScanInterval           int `toml:"reaper.scan_interval_ms"`        // 1000
-	MaxAgentsDesktop             int `toml:"agents.max_desktop"`             // 2
-	MaxAgentsServer              int `toml:"agents.max_server"`              // 3
-	AgentRestartMaxInWindow      int `toml:"supervisor.restart_max_in_window"` // 3
-	AgentRestartWindowSeconds    int `toml:"supervisor.restart_window_seconds"` // 60
-	SupervisorBackoffInitialMs   int `toml:"supervisor.backoff_initial_ms"`  // 200
-	SupervisorBackoffMaxSeconds  int `toml:"supervisor.backoff_max_seconds"` // 60
+	LeaseTTLSeconds             int `toml:"lease.ttl_seconds"`                 // 60
+	HeartbeatSeconds            int `toml:"heartbeat.seconds"`                 // 15
+	HeartbeatJitter             int `toml:"heartbeat.jitter"`                  // 5
+	ReaperScanInterval          int `toml:"reaper.scan_interval_ms"`           // 1000
+	MaxAgentsDesktop            int `toml:"agents.max_desktop"`                // 2
+	MaxAgentsServer             int `toml:"agents.max_server"`                 // 3
+	AgentRestartMaxInWindow     int `toml:"supervisor.restart_max_in_window"`  // 3
+	AgentRestartWindowSeconds   int `toml:"supervisor.restart_window_seconds"` // 60
+	SupervisorBackoffInitialMs  int `toml:"supervisor.backoff_initial_ms"`     // 200
+	SupervisorBackoffMaxSeconds int `toml:"supervisor.backoff_max_seconds"`    // 60
 }
 
 // M9SelfImproveThresholds — 后台自演化 worker 调度 + Canary rollout 参数。
@@ -128,12 +128,12 @@ type M10KnowledgeThresholds struct {
 }
 
 type M11PolicyThresholds struct {
-	CapDefaultTTLSeconds        int `toml:"capability.default_ttl_seconds"`        // 300
-	AuditRetentionDays          int `toml:"audit.retention_days"`                  // 730
-	EscalationTimeoutMinutes    int `toml:"escalation.timeout_minutes"`            // 30
-	SafeDialerDNSCacheTTLSecond int `toml:"safe_dialer.dns_cache_ttl_seconds"`     // 30
-	SafeDialerTOCTOUDelayMs     int `toml:"safe_dialer.toctou_delay_ms"`           // 50
-	SafeDialerMaxIPsThreshold   int `toml:"safe_dialer.max_ips_threshold"`         // 20
+	CapDefaultTTLSeconds        int `toml:"capability.default_ttl_seconds"`    // 300
+	AuditRetentionDays          int `toml:"audit.retention_days"`              // 730
+	EscalationTimeoutMinutes    int `toml:"escalation.timeout_minutes"`        // 30
+	SafeDialerDNSCacheTTLSecond int `toml:"safe_dialer.dns_cache_ttl_seconds"` // 30
+	SafeDialerTOCTOUDelayMs     int `toml:"safe_dialer.toctou_delay_ms"`       // 50
+	SafeDialerMaxIPsThreshold   int `toml:"safe_dialer.max_ips_threshold"`     // 20
 }
 
 // M12EvalThresholds — LLM-as-Judge + 抽样核验阈值。
@@ -143,19 +143,19 @@ type M12EvalThresholds struct {
 }
 
 type M13InterfaceThresholds struct {
-	HTTPPort                       int `toml:"http.port"`                          // 29999
-	ReadTimeoutSeconds             int `toml:"timeout.read_seconds"`               // 10
-	WriteTimeoutSeconds            int `toml:"timeout.write_seconds"`              // 60
-	IdleTimeoutSeconds             int `toml:"timeout.idle_seconds"`               // 120
-	GracefulShutdownTimeoutSeconds int `toml:"timeout.graceful_shutdown_seconds"`  // 30
-	HITLDefaultDeadlineMinUrgent   int `toml:"hitl.default_deadline_min_urgent"`   // 5
-	HITLDefaultDeadlineMinNormal   int `toml:"hitl.default_deadline_min_normal"`   // 60
-	HITLDefaultDeadlineMinLong     int `toml:"hitl.default_deadline_min_long"`     // 1440
-	WorkerIntentHandler            int `toml:"worker.intent_handler"`              // 4
-	WorkerIngest                   int `toml:"worker.ingest"`                      // 2
-	WorkerBackground               int `toml:"worker.background"`                  // 2
-	WorkerEval                     int `toml:"worker.eval"`                        // 1
-	WorkerCron                     int `toml:"worker.cron"`                        // 1
+	HTTPPort                       int `toml:"http.port"`                         // 29999
+	ReadTimeoutSeconds             int `toml:"timeout.read_seconds"`              // 10
+	WriteTimeoutSeconds            int `toml:"timeout.write_seconds"`             // 60
+	IdleTimeoutSeconds             int `toml:"timeout.idle_seconds"`              // 120
+	GracefulShutdownTimeoutSeconds int `toml:"timeout.graceful_shutdown_seconds"` // 30
+	HITLDefaultDeadlineMinUrgent   int `toml:"hitl.default_deadline_min_urgent"`  // 5
+	HITLDefaultDeadlineMinNormal   int `toml:"hitl.default_deadline_min_normal"`  // 60
+	HITLDefaultDeadlineMinLong     int `toml:"hitl.default_deadline_min_long"`    // 1440
+	WorkerIntentHandler            int `toml:"worker.intent_handler"`             // 4
+	WorkerIngest                   int `toml:"worker.ingest"`                     // 2
+	WorkerBackground               int `toml:"worker.background"`                 // 2
+	WorkerEval                     int `toml:"worker.eval"`                       // 1
+	WorkerCron                     int `toml:"worker.cron"`                       // 1
 }
 
 // DefaultThresholds 提供内置默认值（当 config/m*.toml 缺失时使用）。
