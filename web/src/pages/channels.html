@@ -1,0 +1,186 @@
+<!-- ─────── 聊天平台集成页 ───────────────────────────── -->
+    <div x-show="$store.nav.page === 'channels'" x-cloak class="page-container">
+      <div class="page-header">
+        <div>
+          <div class="page-title" x-text="$store.i18n.t('channels_title')"></div>
+          <div class="page-subtitle" x-text="$store.i18n.t('channels_subtitle')"></div>
+        </div>
+        <button class="btn btn-primary btn-sm" @click="$store.channels.openCreate()"
+                x-text="$store.i18n.t('channels_add')"></button>
+      </div>
+
+      <div x-show="$store.channels.loading" class="empty-state" x-text="$store.i18n.t('loading')"></div>
+
+      <div x-show="!$store.channels.loading && $store.channels.list.length === 0" class="empty-state">
+        <div style="font-size:32px;margin-bottom:12px">🔗</div>
+        <div x-text="$store.i18n.t('channels_empty_title')"></div>
+        <div style="font-size:13px;color:var(--color-text-dim);margin-top:4px" x-text="$store.i18n.t('channels_empty_hint')"></div>
+      </div>
+
+      <div style="display:grid;gap:12px">
+        <template x-for="c in $store.channels.list" :key="c.id">
+          <div class="provider-card" :class="{ disabled: !c.enabled }">
+            <div class="provider-card-header">
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:20px" x-text="$store.channels.typeIcon(c.type)"></span>
+                <span class="provider-type-badge" x-text="$store.channels.typeLabel(c.type)"></span>
+              </div>
+              <label class="toggle" :aria-label="c.name + ' 启用状态'">
+                <input type="checkbox" :name="'channel-toggle-' + c.id" :checked="c.enabled" @change="$store.channels.toggle(c)">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <div class="provider-name" x-text="c.name"></div>
+            <!-- Webhook URL 显示 -->
+            <div x-show="c.webhook_url" style="margin-top:8px">
+              <div style="font-size:11px;color:var(--color-text-dim);margin-bottom:4px">Webhook URL</div>
+              <div style="display:flex;align-items:center;gap:8px;background:var(--color-surface-raised);padding:6px 10px;border-radius:6px;font-family:monospace;font-size:11px;overflow:hidden">
+                <span x-text="c.webhook_url" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+                <button class="btn btn-ghost btn-sm" style="padding:2px 8px;font-size:11px;flex-shrink:0"
+                  @click="$store.channels.copyWebhook(c.webhook_url)"
+                  x-text="$store.i18n.t('channels_copy_webhook')"></button>
+              </div>
+            </div>
+            <div class="provider-card-actions">
+              <button class="btn btn-ghost btn-sm" @click="$store.channels.openEdit(c)"
+                      x-text="$store.i18n.t('channels_edit')"></button>
+              <button class="btn btn-ghost btn-sm" style="color:var(--color-error)"
+                @click="confirm($store.i18n.t('confirm_delete')) && $store.channels.remove(c.id)"
+                x-text="$store.i18n.t('channels_delete')"></button>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <!-- 集成编辑 Modal -->
+      <div class="modal-overlay" x-show="$store.channels.showModal" x-cloak @click.self="$store.channels.showModal=false">
+        <div class="modal-panel" @keydown.escape.window="$store.channels.showModal=false">
+          <div class="modal-header">
+            <span x-text="$store.channels.editMode === 'create' ? $store.i18n.t('channels_add') : $store.i18n.t('channels_edit')"></span>
+            <button class="btn btn-ghost btn-sm" @click="$store.channels.showModal=false">✕</button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label for="channel-type" class="form-label">平台类型</label>
+              <select id="channel-type" name="channel-type" class="form-select" x-model="$store.channels.form.type"
+                @change="$store.channels.form.config={}">
+                <option value="telegram">✈ Telegram</option>
+                <option value="feishu">🪁 飞书（Feishu / Lark）</option>
+                <option value="slack"># Slack</option>
+                <option value="discord">🎮 Discord</option>
+                <option value="webhook">⚡ 通用 Webhook</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="channel-name" class="form-label">集成名称</label>
+              <input id="channel-name" name="channel-name" class="form-input" type="text" x-model="$store.channels.form.name" placeholder="如：客服机器人" />
+            </div>
+
+            <!-- Telegram -->
+            <template x-if="$store.channels.form.type === 'telegram'">
+              <div>
+                <div class="form-group">
+                  <label for="tg-bot-token" class="form-label">Bot Token</label>
+                  <input id="tg-bot-token" name="tg-bot-token" class="form-input" type="password" placeholder="123456:ABC-DEF1234..."
+                    :value="$store.channels.form.config.bot_token || ''"
+                    @input="$store.channels.form.config.bot_token = $event.target.value" />
+                </div>
+                <div class="form-group">
+                  <label for="tg-allowed-users" class="form-label">允许的用户 ID（逗号分隔，留空不限制）</label>
+                  <input id="tg-allowed-users" name="tg-allowed-users" class="form-input" type="text" placeholder="123456789,987654321"
+                    :value="$store.channels.form.config.allowed_user_ids || ''"
+                    @input="$store.channels.form.config.allowed_user_ids = $event.target.value" />
+                </div>
+                <div class="form-hint">填入 Bot Token 并启用后，服务器自动通过 <strong>Long Polling</strong> 接收消息，无需公网域名或 Webhook 配置。</div>
+              </div>
+            </template>
+
+            <!-- Feishu -->
+            <template x-if="$store.channels.form.type === 'feishu'">
+              <div>
+                <div class="form-group">
+                  <label for="feishu-app-id" class="form-label">App ID</label>
+                  <input id="feishu-app-id" name="feishu-app-id" class="form-input" type="text" placeholder="cli_..."
+                    :value="$store.channels.form.config.app_id || ''"
+                    @input="$store.channels.form.config.app_id = $event.target.value" />
+                </div>
+                <div class="form-group">
+                  <label for="feishu-app-secret" class="form-label">App Secret</label>
+                  <input id="feishu-app-secret" name="feishu-app-secret" class="form-input" type="password" placeholder="App Secret"
+                    :value="$store.channels.form.config.app_secret || ''"
+                    @input="$store.channels.form.config.app_secret = $event.target.value" />
+                </div>
+                <div class="form-group">
+                  <label for="feishu-verification-token" class="form-label">Verification Token</label>
+                  <input id="feishu-verification-token" name="feishu-verification-token" class="form-input" type="text" placeholder="Verification Token"
+                    :value="$store.channels.form.config.verification_token || ''"
+                    @input="$store.channels.form.config.verification_token = $event.target.value" />
+                </div>
+                <div class="form-group">
+                  <label for="feishu-encrypt-key" class="form-label">Encrypt Key（可选）</label>
+                  <input id="feishu-encrypt-key" name="feishu-encrypt-key" class="form-input" type="password" placeholder="留空则不加密"
+                    :value="$store.channels.form.config.encrypt_key || ''"
+                    @input="$store.channels.form.config.encrypt_key = $event.target.value" />
+                </div>
+                <div class="form-hint">在飞书开发者后台 → 事件订阅 → 请求地址，填入上方 Webhook URL。</div>
+              </div>
+            </template>
+
+            <!-- Slack -->
+            <template x-if="$store.channels.form.type === 'slack'">
+              <div>
+                <div class="form-group">
+                  <label for="slack-bot-token" class="form-label">Bot Token</label>
+                  <input id="slack-bot-token" name="slack-bot-token" class="form-input" type="password" placeholder="xoxb-..."
+                    :value="$store.channels.form.config.bot_token || ''"
+                    @input="$store.channels.form.config.bot_token = $event.target.value" />
+                </div>
+                <div class="form-group">
+                  <label for="slack-signing-secret" class="form-label">Signing Secret</label>
+                  <input id="slack-signing-secret" name="slack-signing-secret" class="form-input" type="password" placeholder="Signing Secret"
+                    :value="$store.channels.form.config.signing_secret || ''"
+                    @input="$store.channels.form.config.signing_secret = $event.target.value" />
+                </div>
+                <div class="form-hint">在 Slack App → Event Subscriptions → Request URL，填入 Webhook URL。</div>
+              </div>
+            </template>
+
+            <!-- Discord -->
+            <template x-if="$store.channels.form.type === 'discord'">
+              <div>
+                <div class="form-group">
+                  <label for="discord-bot-token" class="form-label">Bot Token</label>
+                  <input id="discord-bot-token" name="discord-bot-token" class="form-input" type="password" placeholder="Discord Bot Token"
+                    :value="$store.channels.form.config.bot_token || ''"
+                    @input="$store.channels.form.config.bot_token = $event.target.value" />
+                </div>
+                <div class="form-group">
+                  <label for="discord-public-key" class="form-label">Public Key</label>
+                  <input id="discord-public-key" name="discord-public-key" class="form-input" type="text" placeholder="Application Public Key"
+                    :value="$store.channels.form.config.public_key || ''"
+                    @input="$store.channels.form.config.public_key = $event.target.value" />
+                </div>
+                <div class="form-hint">在 Discord Developer Portal → Interactions Endpoint URL，填入 Webhook URL。</div>
+              </div>
+            </template>
+
+            <!-- Generic Webhook -->
+            <template x-if="$store.channels.form.type === 'webhook'">
+              <div class="form-hint">
+                通用 Webhook：POST body 中 <code>{"content":"消息文本"}</code> 将转发给 Agent。
+              </div>
+            </template>
+
+            <label class="form-check" style="margin-top:16px">
+              <input type="checkbox" name="channel-enabled" x-model="$store.channels.form.enabled"> 启用
+            </label>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-ghost btn-sm" @click="$store.channels.showModal=false"
+                    x-text="$store.i18n.t('cancel')"></button>
+            <button class="btn btn-primary btn-sm" @click="$store.channels.save()"
+                    x-text="$store.i18n.t('save')"></button>
+          </div>
+        </div>
+      </div>
+    </div><!-- /channels -->

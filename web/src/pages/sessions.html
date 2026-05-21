@@ -1,0 +1,49 @@
+<!-- 会话页 -->
+    <div x-show="$store.nav.page === 'sessions'" x-cloak class="page-container">
+      <div class="max-w-5xl mx-auto w-full flex flex-col min-h-full">
+      <div class="page-header">
+        <div class="page-title" x-text="$store.i18n.t('sessions_title')"></div>
+        <div class="page-subtitle" x-text="`共 ${$store.sessions.list.length} 个会话`"></div>
+      </div>
+
+      <div x-show="$store.sessions.loading" class="empty-state">
+        <div class="spinner" style="width:32px;height:32px;margin:0 auto 12px"></div>
+        <p x-text="$store.i18n.t('loading')"></p>
+      </div>
+
+      <div class="empty-state" x-show="!$store.sessions.loading && $store.sessions.list.length === 0">
+        <svg fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z"/>
+        </svg>
+        <h3 x-text="$store.i18n.t('sessions_empty_title')"></h3>
+        <p x-text="$store.i18n.t('sessions_empty_hint')"></p>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <template x-for="sess in $store.sessions.list" :key="sess.id">
+          <div class="session-card">
+            <div @click="$store.sessions.openSession(sess.id)" style="flex:1;min-width:0">
+              <div style="display:flex;align-items:center;gap:6px;overflow:hidden">
+                <span x-show="sess.source && sess.source !== 'web'"
+                      x-text="$store.sessions.sourceIcon(sess.source)"
+                      style="font-size:13px;flex-shrink:0;opacity:0.75"
+                      :title="sess.source"></span>
+                <span style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+                      x-text="sess.title || sess.id"></span>
+              </div>
+              <div class="session-meta"
+                   x-text="`${sess.id.slice(0,12)}…  ·  ${sess.message_count || 0} 条消息  ·  ${new Date(sess.updated_at || sess.created_at).toLocaleString('zh-CN')}`">
+              </div>
+            </div>
+            <div style="display:flex;gap:6px;flex-shrink:0">
+              <button class="btn btn-ghost btn-sm" @click="$store.sessions.openSession(sess.id)"
+                      x-text="$store.i18n.t('sessions_continue')"></button>
+              <button class="btn btn-danger btn-sm" @click="$store.sessions.deleteSession(sess.id)"
+                      x-text="$store.i18n.t('sessions_delete')"></button>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      </div>
+    </div><!-- /sessions -->

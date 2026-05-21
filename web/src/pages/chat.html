@@ -1,0 +1,230 @@
+<!-- 对话页 -->
+    <div x-show="$store.nav.page === 'chat'" class="chat-page"
+         x-data="{
+           atBottom: true,
+           _el: null,
+           init() {
+             this.$nextTick(() => {
+               this._el = document.getElementById('message-list')
+               if (!this._el) return
+               this._el.addEventListener('scroll', () => {
+                 this.atBottom = this._el.scrollHeight - this._el.scrollTop - this._el.clientHeight < 60
+               })
+               new MutationObserver(() => {
+                 if (this.atBottom) this._el.scrollTop = this._el.scrollHeight
+               }).observe(this._el, { childList: true, subtree: true, characterData: true })
+               // 初始滚到最新消息
+               this._el.scrollTop = this._el.scrollHeight
+             })
+           },
+           scrollBottom() {
+             if (this._el) this._el.scrollTo({ top: this._el.scrollHeight, behavior: 'smooth' })
+             this.atBottom = true
+           }
+         }">
+
+      <!-- Thinking Panel -->
+      <div class="thinking-panel"
+           style="flex-shrink:0"
+           x-show="$store.chat.thinkingText"
+           x-cloak>
+        <div class="thinking-header" @click="$store.chat.thinkingOpen = !$store.chat.thinkingOpen">
+          <div class="spinner" x-show="$store.chat.state === 'THINKING'"></div>
+          <span x-text="$store.i18n.t('chat_thinking')"></span>
+          <svg style="width:12px;height:12px;margin-left:auto;transition:transform 0.2s"
+               :style="$store.chat.thinkingOpen ? {} : { transform: 'rotate(-90deg)' }"
+               fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/>
+          </svg>
+        </div>
+        <div class="thinking-body" x-show="$store.chat.thinkingOpen" x-text="$store.chat.thinkingText"></div>
+      </div>
+
+      <!-- 错误横幅 -->
+      <div class="error-banner" style="flex-shrink:0" x-show="$store.chat.state === 'ERROR'" x-cloak>
+        <span x-text="$store.chat.errorMsg"></span>
+        <button class="btn btn-ghost btn-sm" @click="$store.chat.state = 'IDLE'; $store.chat.errorMsg = ''"
+                x-text="$store.i18n.t('chat_error_clear')"></button>
+      </div>
+
+      <!-- 消息列表 + 滚动按钮包裹层 -->
+      <div class="chat-msg-area">
+      <!-- 滚动到底部按钮 -->
+      <button x-show="!atBottom" @click="scrollBottom()" x-cloak
+              style="position:absolute;bottom:12px;right:16px;z-index:20;width:34px;height:34px;border-radius:50%;background:var(--color-accent);color:white;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(0,0,0,0.5);font-size:16px;opacity:0.9">
+        ↓
+      </button>
+      <div class="message-list" style="height:100%;overflow-y:auto" id="message-list">
+        <div class="max-w-5xl mx-auto w-full flex flex-col min-h-full">
+
+        <!-- 空状态 -->
+        <div class="empty-state" x-show="$store.chat.messages.length === 0 && $store.chat.state === 'IDLE'" x-cloak>
+          <svg fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z"/>
+          </svg>
+          <h3 x-text="$store.i18n.t('chat_empty_title')"></h3>
+          <p x-text="$store.i18n.t('chat_empty_hint')"></p>
+        </div>
+
+        <!-- 消息渲染 -->
+        <template x-for="(msg, idx) in $store.chat.messages" :key="idx">
+          <div style="margin-bottom: 12px;">
+            <!-- 压缩分隔符 -->
+            <div class="compaction-divider" x-show="msg.compactionAfter" x-cloak style="margin-bottom: 12px;">
+              <span x-text="$store.i18n.t('chat_compressed')"></span>
+            </div>
+
+            <!-- 用户消息 -->
+            <template x-if="msg.role === 'user'">
+              <div class="msg-row msg-row-end">
+                <div class="message-bubble user" style="flex-shrink: 0;"
+                     x-data="{ expanded: false, isOversized: false }"
+                     x-init="$nextTick(() => {
+                       const content = $refs.content;
+                       if (!content) return;
+                       const checkSize = () => { isOversized = content.scrollHeight > 200; };
+                       checkSize();
+                       const ro = new ResizeObserver(checkSize);
+                       ro.observe(content);
+                     })">
+                  <div x-ref="content" class="bubble-content bubble-text" :class="{ 'collapsed': !expanded && isOversized }" x-text="msg.content"></div>
+                  <div class="bubble-action-bar" x-show="isOversized">
+                    <button class="btn btn-ghost btn-sm" @click="expanded = !expanded" x-text="expanded ? '收起' : '展开全部'"></button>
+                  </div>
+                </div>
+              </div>
+            </template>
+
+            <!-- Assistant 消息 -->
+            <template x-if="msg.role === 'assistant'">
+              <div class="msg-row msg-row-start">
+                <div class="message-bubble assistant" :class="{ aborted: msg.aborted }" style="flex-shrink: 0;"
+                     x-data="{ expanded: false, isOversized: false }"
+                     x-init="$nextTick(() => {
+                       const content = $refs.content;
+                       if (!content) return;
+                       const checkSize = () => { isOversized = content.scrollHeight > 200; };
+                       checkSize();
+                       const ro = new ResizeObserver(checkSize);
+                       ro.observe(content);
+                     })">
+                  <span class="aborted-badge" x-show="msg.aborted" x-text="'⚠ ' + $store.i18n.t('chat_interrupted')"></span>
+                  <div x-ref="content" class="bubble-content" :class="{ 'collapsed': !expanded && isOversized }">
+                    <!-- 工具调用卡片 -->
+                    <template x-for="(tc, ti) in msg.toolCalls" :key="ti">
+                      <div class="tool-call-card" style="margin-bottom:8px">
+                        <div class="tool-call-header">
+                          <span>⚡</span>
+                          <span x-text="tc.name"></span>
+                          <span x-show="tc.output !== null" style="margin-left:auto;font-size:10px;opacity:0.7" x-text="$store.i18n.t('chat_complete')"></span>
+                          <div class="spinner" x-show="tc.output === null"></div>
+                        </div>
+                        <div x-show="tc.output !== null" style="padding:6px 0">
+                          <template x-for="line in (tc.output || '').split('\n')" :key="line">
+                            <div class="tool-output-line">
+                              <span class="tool-prefix">┊</span>
+                              <span x-text="line"></span>
+                            </div>
+                          </template>
+                        </div>
+                      </div>
+                    </template>
+                    <!-- 文本内容（Markdown 渲染） -->
+                    <div x-html="renderMarkdown(msg.content)" class="prose bubble-text markdown-body"></div>
+                  </div>
+                  <div class="bubble-action-bar" x-show="isOversized">
+                    <button class="btn btn-ghost btn-sm" @click="expanded = !expanded" x-text="expanded ? '收起' : '展开全部'"></button>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </template>
+
+        <!-- 流式气泡 -->
+        <div class="streaming-bubble" style="margin-top: 12px;"
+             x-show="$store.chat.state === 'STREAMING' || $store.chat.state === 'TOOL_RUNNING'"
+             x-cloak>
+          <div x-html="renderMarkdown($store.chat.currentTokens)" class="prose markdown-body" style="display:inline"></div>
+          <span class="cursor-blink"></span>
+        </div>
+
+        <!-- 正在思考占位 -->
+        <div class="message-bubble assistant w-fit"
+             x-show="$store.chat.state === 'SUBMITTING' || $store.chat.state === 'THINKING'"
+             style="opacity:0.5; margin-top: 12px;"
+             x-cloak>
+          <div class="spinner" style="display:inline-block"></div>
+        </div>
+
+        </div>
+      </div><!-- /message-list -->
+      </div><!-- /消息列表包裹层 -->
+
+      <!-- 输入区 -->
+      <div class="chat-input-area" x-data="chatInput">
+        <div class="max-w-5xl mx-auto w-full">
+        <div style="position:relative">
+          <!-- 斜杠命令菜单 -->
+          <div class="slash-menu" x-show="showSlash" x-cloak>
+            <template x-for="(item, i) in slashItems" :key="item.cmd">
+              <div class="slash-menu-item" :class="{ focused: slashFocus === i }"
+                   @click="selectSlash(item)">
+                <span class="slash-cmd" x-text="item.cmd"></span>
+                <span class="slash-desc" x-text="item.desc"></span>
+              </div>
+            </template>
+          </div>
+
+          <textarea
+            class="chat-textarea"
+            name="chat-input"
+            :aria-label="$store.i18n.t('chat_input_aria')"
+            :placeholder="$store.i18n.t('chat_placeholder')"
+            x-model="input"
+            :rows="rows"
+            :disabled="$store.chat.isActive && $store.chat.state !== 'COMPLETE'"
+            @keydown="onKeydown($event)"
+            @input="$el.style.height='auto'; $el.style.height=$el.scrollHeight+'px'"
+          ></textarea>
+        </div>
+
+        <div class="input-actions">
+          <span class="input-hints" style="display:flex;align-items:center;gap:8px">
+            <button class="btn btn-ghost btn-sm"
+                    :disabled="$store.chat.isActive"
+                    @click="$store.chat.newSession()"
+                    x-text="$store.i18n.t('chat_new')"></button>
+            <!-- 权限模式选择器（对齐 Codex 设计：下拉式快速切换）-->
+            <select class="form-select"
+                    style="font-size:11px;padding:2px 6px;height:26px;border-radius:6px;min-width:80px"
+                    x-model="$store.computer.mode"
+                    @change="$store.computer.setMode($event.target.value)"
+                    :title="$store.i18n.t('computer_mode_title')">
+              <option value="default" x-text="$store.i18n.t('computer_mode_default_short')"></option>
+              <option value="auto_review" x-text="$store.i18n.t('computer_mode_auto_short')"></option>
+              <option value="full_access" x-text="$store.i18n.t('computer_mode_full_short')"></option>
+            </select>
+            <span style="color:var(--color-text-dim);font-size:11px">
+              <kbd style="font-size:10px;padding:1px 4px;border:1px solid var(--color-border);border-radius:3px">Ctrl+K</kbd> 清空 &nbsp;
+              <kbd style="font-size:10px;padding:1px 4px;border:1px solid var(--color-border);border-radius:3px">Ctrl+C</kbd> 中断
+            </span>
+          </span>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="btn btn-warn btn-sm"
+                    x-show="$store.chat.isActive"
+                    @click="$store.chat.interrupt('abort')"
+                    x-text="$store.i18n.t('chat_interrupt')">
+            </button>
+            <button class="btn btn-primary btn-sm"
+                    :disabled="!input.trim() || $store.chat.isActive"
+                    @click="submit()"
+                    x-text="$store.i18n.t('chat_send')">
+            </button>
+          </div>
+        </div>
+      </div>
+
+      </div>
+    </div><!-- /chat page -->

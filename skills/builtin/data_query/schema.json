@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "query": { "type": "string" },
+    "database": { "type": "string" },
+    "params": { "type": "array" },
+    "max_rows": { "type": "integer", "default": 1000 }
+  },
+  "required": ["query", "database"]
+}

@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "text": { "type": "string" },
+    "max_length": { "type": "integer", "default": 200 },
+    "style": { "type": "string", "enum": ["concise", "detailed", "bullets"] }
+  },
+  "required": ["text"]
+}

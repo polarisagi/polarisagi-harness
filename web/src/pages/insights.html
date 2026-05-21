@@ -1,0 +1,196 @@
+<!-- ─────── Insights 用量洞察页 ──────────────────── -->
+    <div x-show="$store.nav.page === 'insights'" x-cloak class="page-container">
+      <div class="page-header">
+        <div>
+          <div class="page-title" x-text="$store.i18n.t('insights_title')"></div>
+          <div class="page-subtitle" x-text="$store.i18n.t('insights_subtitle')"></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <select name="insights-days" aria-label="统计周期" class="form-select" style="width:auto"
+                  x-model.number="$store.insights.days" @change="$store.insights.load()">
+            <option value="7">7 天</option>
+            <option value="30">30 天</option>
+            <option value="90">90 天</option>
+          </select>
+        </div>
+      </div>
+
+      <div x-show="$store.insights.loading" class="empty-state" x-text="$store.i18n.t('loading')"></div>
+
+      <template x-if="$store.insights.data && !$store.insights.loading">
+        <div>
+          <!-- 数字汇总卡片 -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:20px">
+            <div class="metric-card">
+              <div class="metric-label" x-text="$store.i18n.t('insights_total_sessions')"></div>
+              <div class="metric-value" x-text="$store.insights.data.total_sessions.toLocaleString()"></div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label" x-text="$store.i18n.t('insights_total_messages')"></div>
+              <div class="metric-value" x-text="$store.insights.data.total_messages.toLocaleString()"></div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label" x-text="`${$store.insights.data.period_days}天 会话`"></div>
+              <div class="metric-value" x-text="$store.insights.data.period_sessions.toLocaleString()"></div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label" x-text="`${$store.insights.data.period_days}天 消息`"></div>
+              <div class="metric-value" x-text="$store.insights.data.period_messages.toLocaleString()"></div>
+            </div>
+          </div>
+
+          <!-- 角色分布 -->
+          <div style="background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:10px;padding:16px;margin-bottom:16px">
+            <div style="font-weight:600;font-size:13px;margin-bottom:12px" x-text="$store.i18n.t('insights_role_breakdown')"></div>
+            <div style="display:flex;gap:16px;flex-wrap:wrap">
+              <template x-for="[role, cnt] in Object.entries($store.insights.data.role_breakdown || {})" :key="role">
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span style="font-size:12px;padding:2px 8px;border-radius:12px;background:var(--color-surface)"
+                        x-text="role"></span>
+                  <span style="font-weight:600" x-text="cnt.toLocaleString()"></span>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- 每日趋势简易条形图 -->
+          <div style="background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:10px;padding:16px;margin-bottom:16px">
+            <div style="font-weight:600;font-size:13px;margin-bottom:12px" x-text="$store.i18n.t('insights_daily_trend')"></div>
+            <div x-show="$store.insights.data.daily_trend.length === 0"
+                 style="color:var(--color-text-dim);font-size:12px">暂无数据</div>
+            <div style="display:flex;align-items:flex-end;gap:4px;height:80px;overflow-x:auto">
+              <template x-for="d in $store.insights.data.daily_trend" :key="d.day">
+                <div style="display:flex;flex-direction:column;align-items:center;gap:2px;min-width:28px">
+                  <div style="font-size:9px;color:var(--color-text-dim)" x-text="d.count"></div>
+                  <div style="background:var(--color-primary);border-radius:3px 3px 0 0;width:18px;transition:height .2s"
+                       :style="`height:${Math.round(d.count/$store.insights.maxDailyCount()*64)+4}px`"
+                       :title="`${d.day}: ${d.count} 条`"></div>
+                  <div style="font-size:9px;color:var(--color-text-dim);writing-mode:vertical-rl;text-orientation:mixed"
+                       x-text="d.day.slice(5)"></div>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- 最活跃会话 -->
+          <div style="background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:10px;padding:16px">
+            <div style="font-weight:600;font-size:13px;margin-bottom:12px" x-text="$store.i18n.t('insights_top_sessions')"></div>
+            <div x-show="$store.insights.data.top_sessions.length === 0"
+                 style="color:var(--color-text-dim);font-size:12px">暂无数据</div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <template x-for="(sess, i) in $store.insights.data.top_sessions" :key="sess.id">
+                <div style="display:flex;align-items:center;gap:10px;cursor:pointer"
+                     @click="Alpine.store('chat').loadSession(sess.id); Alpine.store('nav').navigate('chat')">
+                  <span style="font-size:11px;color:var(--color-text-dim);width:20px;text-align:right"
+                        x-text="i+1"></span>
+                  <div style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px"
+                       x-text="sess.title || sess.id.slice(0,20)+'…'"></div>
+                  <span style="font-size:11px;padding:2px 8px;background:var(--color-surface);border-radius:10px;flex-shrink:0"
+                        x-text="`${sess.message_count} 条`"></span>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+      </template>
+      <!-- Trajectory 导出 -->
+      <div style="margin-top:16px;padding:14px 16px;background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:10px;display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-weight:600;font-size:13px">训练数据导出</div>
+          <div style="font-size:12px;color:var(--color-text-dim);margin-top:2px">将高质量对话导出为 SFT 微调数据集</div>
+        </div>
+        <div style="display:flex;gap:8px" x-data="{fmt:'sharegpt',days:30}">
+          <select name="export-format" aria-label="导出格式" class="form-select" style="width:auto;font-size:12px" x-model="fmt">
+            <option value="sharegpt">ShareGPT</option>
+            <option value="openai">OpenAI</option>
+            <option value="raw">Raw JSON</option>
+          </select>
+          <a class="btn btn-ghost btn-sm"
+             :href="`/v1/export/trajectories?format=${fmt}&days=${$store.insights.days}&min_turns=2`"
+             download="trajectories.jsonl">导出 JSONL</a>
+        </div>
+      </div>
+    </div><!-- /insights -->
+
+    <!-- ─────── 评测套件页（Eval Harness） ──────────────── -->
+    <div x-show="$store.nav.page === 'eval'" x-cloak class="page-container">
+      <div class="page-header">
+        <div>
+          <div class="page-title" x-text="$store.i18n.t('eval_title')"></div>
+          <div class="page-subtitle" x-text="$store.i18n.t('eval_subtitle')"></div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select name="eval-suite" aria-label="Suite" class="form-select" style="width:auto"
+                  x-model="$store.eval.suite">
+            <option value="training" x-text="$store.i18n.t('eval_suite_training')"></option>
+            <option value="validation" x-text="$store.i18n.t('eval_suite_validation')"></option>
+          </select>
+          <button class="btn btn-primary btn-sm" @click="$store.eval.run()"
+                  :disabled="$store.eval.running"
+                  x-text="$store.eval.running ? $store.i18n.t('eval_running') : $store.i18n.t('eval_run')"></button>
+        </div>
+      </div>
+
+      <!-- 加载中 -->
+      <div x-show="$store.eval.running && !$store.eval.report" class="empty-state">
+        <div class="spinner" style="width:32px;height:32px;margin:0 auto 12px"></div>
+        <p x-text="$store.i18n.t('eval_running')"></p>
+      </div>
+
+      <!-- 当前报告 -->
+      <template x-if="$store.eval.report">
+        <div style="background:var(--color-surface);border:1px solid var(--color-border);border-radius:8px;padding:20px;margin-bottom:16px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <span style="font-weight:600;font-size:14px" x-text="'Suite: ' + $store.eval.report.suite"></span>
+            <span :style="$store.eval.statusClass($store.eval.report.status)"
+                  x-text="$store.eval.statusLabel($store.eval.report.status)"></span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px">
+            <div class="stat-card" style="background:var(--color-surface-raised);padding:12px;border-radius:8px;text-align:center">
+              <div style="font-size:24px;font-weight:700" x-text="$store.eval.report.total_cases"></div>
+              <div style="font-size:11px;color:var(--color-text-dim);margin-top:4px" x-text="$store.i18n.t('eval_total')"></div>
+            </div>
+            <div class="stat-card" style="background:var(--color-surface-raised);padding:12px;border-radius:8px;text-align:center">
+              <div style="font-size:24px;font-weight:700;color:var(--color-success)" x-text="$store.eval.report.pass_count"></div>
+              <div style="font-size:11px;color:var(--color-text-dim);margin-top:4px" x-text="$store.i18n.t('eval_pass')"></div>
+            </div>
+            <div class="stat-card" style="background:var(--color-surface-raised);padding:12px;border-radius:8px;text-align:center">
+              <div style="font-size:24px;font-weight:700;color:var(--color-error)" x-text="$store.eval.report.fail_count"></div>
+              <div style="font-size:11px;color:var(--color-text-dim);margin-top:4px" x-text="$store.i18n.t('eval_fail')"></div>
+            </div>
+            <div class="stat-card" style="background:var(--color-surface-raised);padding:12px;border-radius:8px;text-align:center">
+              <div style="font-size:24px;font-weight:700;color:var(--color-warning)" x-text="$store.eval.report.safety_fail"></div>
+              <div style="font-size:11px;color:var(--color-text-dim);margin-top:4px" x-text="$store.i18n.t('eval_safety_fail')"></div>
+            </div>
+            <div class="stat-card" style="background:var(--color-surface-raised);padding:12px;border-radius:8px;text-align:center">
+              <div style="font-size:24px;font-weight:700" :style="'color:' + ($store.eval.passRate($store.eval.report) >= 80 ? 'var(--color-success)' : 'var(--color-error)')"
+                   x-text="$store.eval.passRate($store.eval.report) + '%'"></div>
+              <div style="font-size:11px;color:var(--color-text-dim);margin-top:4px" x-text="$store.i18n.t('eval_pass_rate')"></div>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <!-- 无结果 -->
+      <div x-show="!$store.eval.running && !$store.eval.report && $store.eval.history.length === 0" class="empty-state">
+        <div style="font-size:32px;margin-bottom:12px">🧪</div>
+        <div x-text="$store.i18n.t('eval_no_results')"></div>
+      </div>
+
+      <!-- 历史记录 -->
+      <template x-if="$store.eval.history.length > 0">
+        <div style="margin-top:16px">
+          <div style="font-weight:600;font-size:13px;margin-bottom:8px" x-text="$store.i18n.t('eval_history')"></div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <template x-for="h in $store.eval.history" :key="h._runAt">
+              <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;background:var(--color-surface);border-radius:6px;font-size:12px">
+                <span style="font-weight:600;width:80px;flex-shrink:0" x-text="h.suite"></span>
+                <span :style="$store.eval.statusClass(h.status)" x-text="$store.eval.statusLabel(h.status)"></span>
+                <span style="color:var(--color-text-dim)" x-text="h.pass_count + '/' + h.total_cases + ' passed'"></span>
+                <span style="color:var(--color-text-dim);margin-left:auto" x-text="new Date(h._runAt).toLocaleString()"></span>
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
+    </div><!-- /eval -->

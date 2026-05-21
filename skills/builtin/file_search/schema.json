@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "pattern": { "type": "string" },
+    "root_dir": { "type": "string", "default": "." },
+    "file_glob": { "type": "string", "default": "*" },
+    "max_results": { "type": "integer", "default": 100 }
+  },
+  "required": ["pattern"]
+}

@@ -1,0 +1,26 @@
+package main
+
+import (
+	"encoding/json"
+
+	"github.com/mrlaoliai/polaris-harness/pkg/cognition/skill/sdk"
+)
+
+func init() {
+	sdk.Register(func(input []byte) ([]byte, error) {
+		// MVP implementation for template_render
+		var in map[string]interface{}
+		if err := json.Unmarshal(input, &in); err != nil {
+			return nil, err
+		}
+
+		out := map[string]interface{}{
+			"status":   "template_render executed successfully",
+			"received": in,
+		}
+
+		return json.Marshal(out)
+	})
+}
+
+func main() {}

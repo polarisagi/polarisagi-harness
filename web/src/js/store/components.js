@@ -1,0 +1,96 @@
+import Alpine from 'alpinejs'
+import { authHeaders, levelGe, sanitizeContent } from '../utils.js'
+import { SLASH_COMMANDS } from './components_slash.js'
+// ── Alpine 组件：聊天输入框 ───────────────────────────────────────────────
+Alpine.data('chatInput', () => ({
+  input: '',
+  showSlash: false,
+  slashFocus: 0,
+  slashItems: [],
+  rows: 1,
+
+  init() {
+    this.$watch('input', v => {
+      this.rows = Math.min(8, (v.match(/\n/g) || []).length + 1)
+      if (v.startsWith('/')) {
+        this.slashItems = SLASH_COMMANDS.filter(c => c.cmd.startsWith(v.split(' ')[0]))
+        this.showSlash = this.slashItems.length > 0
+        this.slashFocus = 0
+      } else {
+        this.showSlash = false
+      }
+    })
+  },
+
+  onKeydown(e) {
+    // 斜杠菜单导航
+    if (this.showSlash) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); this.slashFocus = (this.slashFocus + 1) % this.slashItems.length; return }
+      if (e.key === 'ArrowUp')   { e.preventDefault(); this.slashFocus = (this.slashFocus - 1 + this.slashItems.length) % this.slashItems.length; return }
+      if (e.key === 'Tab' || e.key === 'Enter') {
+        e.preventDefault()
+        this.selectSlash(this.slashItems[this.slashFocus])
+        return
+      }
+      if (e.key === 'Escape') { this.showSlash = false; return }
+    }
+
+    // 提交
+    if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey) {
+      e.preventDefault()
+      this.submit()
+      return
+    }
+    // Ctrl+C → abort
+    if (e.key === 'c' && e.ctrlKey && Alpine.store('chat').isActive) {
+      e.preventDefault()
+      Alpine.store('chat').interrupt('abort')
+      return
+    }
+    // Ctrl+K → clear
+    if (e.key === 'k' && e.ctrlKey) {
+      e.preventDefault()
+      Alpine.store('chat').clearView()
+      return
+    }
+    // 历史导航
+    if (e.key === 'ArrowUp' && !this.input) {
+      e.preventDefault()
+      this.input = Alpine.store('chat').historyUp(this.input)
+      return
+    }
+    if (e.key === 'ArrowDown' && Alpine.store('chat')._historyIdx >= 0) {
+      e.preventDefault()
+      this.input = Alpine.store('chat').historyDown()
+      return
+    }
+  },
+
+  selectSlash(item) {
+    const nav = Alpine.store('nav')
+    switch (item.cmd) {
+      case '/sessions': nav.navigate('sessions');     Alpine.store('sessions').load(); break
+      case '/skills':   nav.navigate('capabilities'); Alpine.store('skills').load(); break
+      case '/status':   nav.navigate('monitor');                                     break
+      case '/clear':    Alpine.store('chat').clearView();                          break
+      case '/compact':  this.sendCompact();                                        break
+      default: Alpine.store('toast').show('ok', `命令 ${item.cmd} 暂未实现`)
+    }
+    this.input = ''
+    this.showSlash = false
+  },
+
+  async sendCompact() {
+    Alpine.store('toast').show('ok', '正在触发上下文压缩...')
+    // TODO: POST /v1/agent/compact
+  },
+
+  submit() {
+    const v = this.input.trim()
+    if (!v || Alpine.store('chat').isActive) return
+    Alpine.store('chat').submit(v)
+    this.input = ''
+    this.rows = 1
+  },
+}))
+

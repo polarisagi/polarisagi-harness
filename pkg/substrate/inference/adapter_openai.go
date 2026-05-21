@@ -1,0 +1,122 @@
+package inference
+
+import (
+	"context"
+	"net/http"
+	"strings"
+
+	"github.com/mrlaoliai/polaris-harness/internal/protocol"
+	"github.com/mrlaoliai/polaris-harness/pkg/substrate/observability"
+)
+
+// OpenAIAdapter 实现 protocol.Provider，对接官方 OpenAI 或任何严格兼容 OpenAI API 的服务。
+// 复用了 client.go 中通用的 OpenAICompatibleClient。
+type OpenAIAdapter struct {
+	model        string
+	credentialFn func() string
+	client       *OpenAICompatibleClient
+	caps         protocol.ProviderCapabilities
+}
+
+var _ protocol.Provider = (*OpenAIAdapter)(nil)
+
+// NewOpenAIAdapter 初始化一个 OpenAI 适配器。
+// baseURL 默认为 "https://api.openai.com/v1"（如果传入空串）。
+func NewOpenAIAdapter(baseURL, model string, credFn func() string, client *http.Client) *OpenAIAdapter {
+	if client == nil {
+		client = defaultHTTPClient
+	}
+	if baseURL == "" {
+		baseURL = "https://api.openai.com/v1"
+	}
+	baseURL = strings.TrimRight(baseURL, "/")
+
+	c := &OpenAICompatibleClient{
+		BaseURL:    baseURL,
+		HTTPClient: client,
+	}
+
+	return &OpenAIAdapter{
+		model:        model,
+		credentialFn: credFn,
+		client:       c,
+		caps: protocol.ProviderCapabilities{
+			SupportsStreaming: true,
+			SupportsTools:     true,
+			MaxContextTokens:  128000,
+			CostPer1KInput:    0.15,
+			CostPer1KOutput:   0.60,
+		},
+	}
+}
+
+func (a *OpenAIAdapter) Capabilities() protocol.ProviderCapabilities {
+	return a.caps
+}
+
+func (a *OpenAIAdapter) Tokenizer() protocol.TokenizerAdapter {
+	// MVP 暂用简单估算，或未来对接 tiktoken
+	return &simpleTokenizer{}
+}
+
+func (a *OpenAIAdapter) Infer(ctx context.Context, req *protocol.InferRequest) (*protocol.InferResponse, error) {
+	apiReq := translateRequest(req)
+	apiReq.Model = resolveOpenAIModel(a.model)
+	if req.Model != "" {
+		apiReq.Model = resolveOpenAIModel(req.Model)
+	}
+
+	apiKey := a.credentialFn()
+	defer clearString(&apiKey)
+
+	resp, err := a.client.SendRequest(ctx, apiKey, apiReq)
+	if err != nil {
+		return nil, err
+	}
+
+	out := &protocol.InferResponse{
+		Model: resp.ID,
+		Usage: protocol.Usage{
+			InputTokens:  resp.Usage.PromptTokens,
+			OutputTokens: resp.Usage.CompletionTokens,
+		},
+	}
+
+	if out.Usage.InputTokens > 0 || out.Usage.OutputTokens > 0 {
+		observability.GlobalTokenBurnRate.Add(int64(out.Usage.InputTokens + out.Usage.OutputTokens))
+	}
+
+	if len(resp.Choices) > 0 {
+		out.Content = resp.Choices[0].Message.Content
+		out.FinishReason = resp.Choices[0].FinishReason
+	}
+
+	return out, nil
+}
+
+func (a *OpenAIAdapter) StreamInfer(ctx context.Context, req *protocol.InferRequest) (<-chan protocol.StreamEvent, error) {
+	apiReq := translateRequest(req)
+	apiReq.Model = resolveOpenAIModel(a.model)
+	if req.Model != "" {
+		apiReq.Model = resolveOpenAIModel(req.Model)
+	}
+
+	apiKey := a.credentialFn()
+	defer clearString(&apiKey)
+
+	return a.client.SendStreamRequest(ctx, apiKey, apiReq)
+}
+
+func resolveOpenAIModel(requested string) string {
+	switch requested {
+	case "gpt-3.5-turbo", "gpt-4":
+		return "gpt-4o-mini"
+	case "gpt-4-turbo", "gpt-4-turbo-preview":
+		return "gpt-4o"
+	default:
+		if requested == "" {
+			return "gpt-4o-mini"
+		}
+		return requested
+	}
+}

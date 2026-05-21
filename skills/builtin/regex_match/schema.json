@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "pattern": { "type": "string" },
+    "text": { "type": "string" },
+    "flags": { "type": "array", "items": { "type": "string" } }
+  },
+  "required": ["pattern", "text"]
+}

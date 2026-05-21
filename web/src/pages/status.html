@@ -1,0 +1,119 @@
+<!-- 状态页 -->
+    <div x-show="$store.nav.page === 'status'" x-cloak class="page-container"
+         x-data="{
+           metrics: {},
+           async load() {
+             try {
+               const r = await fetch('/v1/status')
+               if (r.ok) this.metrics = await r.json()
+             } catch {}
+           },
+           init() { this.load(); setInterval(() => this.load(), 10000) }
+         }">
+      <div class="page-header">
+        <div class="page-title" x-text="$store.i18n.t('status_title')"></div>
+        <div class="page-subtitle" x-text="$store.i18n.t('status_subtitle')"></div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:24px">
+
+        <div class="metric-card">
+          <div class="metric-label" x-text="$store.i18n.t('status_conn')"></div>
+          <div class="metric-value" style="font-size:16px;margin-top:8px;display:flex;align-items:center;gap:8px">
+            <span class="status-dot" :class="$store.statusBar.connected ? 'ok' : 'error'"></span>
+            <span x-text="$store.statusBar.connected ? $store.i18n.t('status_conn_ok') : $store.i18n.t('status_conn_fail')"></span>
+          </div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-label" x-text="$store.i18n.t('status_model')"></div>
+          <div class="metric-value" style="font-size:13px;margin-top:8px;word-break:break-all"
+               x-text="$store.statusBar.modelID || metrics.model_id || '—'"></div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-label" x-text="$store.i18n.t('status_token')"></div>
+          <div class="metric-value" x-text="$store.statusBar.tokenUsed.toLocaleString()"></div>
+          <div class="metric-bar">
+            <div class="metric-bar-fill"
+                 :class="$store.statusBar.tokenPct > 0.95 ? 'error' : $store.statusBar.tokenPct > 0.80 ? 'warn' : ''"
+                 :style="`width:${Math.round($store.statusBar.tokenPct*100)}%`"></div>
+          </div>
+          <div class="metric-label" style="margin-top:4px"
+               x-text="`/ ${$store.statusBar.tokenLimit.toLocaleString()}  (${Math.round($store.statusBar.tokenPct*100)}%)`"></div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-label" x-text="$store.i18n.t('status_memory')"></div>
+          <div class="metric-value" x-text="`${$store.statusBar.memoryMB} MB`"></div>
+          <div class="metric-bar">
+            <div class="metric-bar-fill"
+                 :class="$store.statusBar.memPct > 0.9 ? 'error' : $store.statusBar.memPct > 0.75 ? 'warn' : ''"
+                 :style="`width:${Math.round($store.statusBar.memPct*100)}%`"></div>
+          </div>
+          <div class="metric-label" style="margin-top:4px"
+               x-text="`/ ${$store.statusBar.memoryLimitMB} MB  (${Math.round($store.statusBar.memPct*100)}%)`"></div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-label" x-text="$store.i18n.t('status_cost')"></div>
+          <div class="metric-value" x-text="`¥ ${$store.statusBar.costCNY.toFixed(4)}`"></div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-label" x-text="$store.i18n.t('status_service')"></div>
+          <div class="metric-value" style="font-size:13px;margin-top:8px">
+            <span x-show="$store.statusBar.sealed" style="color:var(--color-critical);font-weight:700"
+                  x-text="$store.i18n.t('status_sealed')"></span>
+            <span x-show="!$store.statusBar.sealed" style="color:var(--color-ok)"
+                  x-text="$store.i18n.t('status_running')"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Doctor 健康检查 -->
+      <div x-data="{
+             checks: [],
+             ok: true,
+             loading: false,
+             async run() {
+               this.loading = true
+               try {
+                 const r = await fetch('/v1/doctor')
+                 const d = await r.json()
+                 this.checks = d.checks || []
+                 this.ok = d.ok
+               } catch { } finally { this.loading = false }
+             },
+             init() { this.run() }
+           }"
+           style="margin-bottom:20px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="font-weight:600;font-size:13px">系统诊断</div>
+          <button class="btn btn-ghost btn-sm" @click="run()" :disabled="loading"
+                  x-text="loading ? '检查中…' : '重新检查'"></button>
+        </div>
+        <div style="display:grid;gap:6px">
+          <template x-for="c in checks" :key="c.name">
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:8px">
+              <span :style="`color:${c.ok ? 'var(--color-ok)' : 'var(--color-critical)'}`"
+                    x-text="c.ok ? '✓' : '✕'"></span>
+              <span style="font-weight:600;font-size:12px;width:100px" x-text="c.name"></span>
+              <span style="font-size:12px;color:var(--color-text-dim)" x-text="c.detail"></span>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- /metrics 原始指标（折叠） -->
+      <details style="border:1px solid var(--color-border);border-radius:8px;overflow:hidden">
+        <summary style="padding:12px 16px;cursor:pointer;background:var(--color-surface-raised);font-size:13px;font-weight:600"
+                 x-text="$store.i18n.t('status_metrics')">
+        </summary>
+        <div x-data="{ raw: '' }"
+             x-init="fetch('/metrics').then(r=>r.text()).then(t=>raw=t)"
+             style="padding:16px;overflow-x:auto">
+          <pre style="font-size:11px;color:var(--color-text-dim)" x-text="raw || $store.i18n.t('loading')"></pre>
+        </div>
+      </details>
+    </div><!-- /status -->

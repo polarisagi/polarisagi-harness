@@ -1,0 +1,92 @@
+<!-- ─────── Cron 定时任务页 ────────────────────────── -->
+    <div x-show="$store.nav.page === 'cron'" x-cloak class="page-container">
+      <div class="page-header">
+        <div>
+          <div class="page-title" x-text="$store.i18n.t('cron_title')"></div>
+          <div class="page-subtitle" x-text="$store.i18n.t('cron_subtitle')"></div>
+        </div>
+        <button class="btn btn-primary btn-sm" @click="$store.cron.openCreate()"
+                x-text="$store.i18n.t('cron_add')"></button>
+      </div>
+
+      <div x-show="$store.cron.loading" class="empty-state" x-text="$store.i18n.t('loading')"></div>
+
+      <div class="empty-state" x-show="!$store.cron.loading && $store.cron.list.length === 0">
+        <svg fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
+        </svg>
+        <h3 x-text="$store.i18n.t('cron_empty_title')"></h3>
+        <p x-text="$store.i18n.t('cron_empty_hint')"></p>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <template x-for="job in $store.cron.list" :key="job.id">
+          <div class="provider-card" :class="{ disabled: !job.enabled }">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <div style="display:flex;align-items:center;gap:10px">
+                <label class="toggle" @click.stop>
+                  <input type="checkbox" :name="'cron-job-' + job.id" :checked="job.enabled" @change="$store.cron.toggle(job)">
+                  <span class="toggle-slider"></span>
+                </label>
+                <span style="font-weight:600;font-size:13px" x-text="job.name || job.id.slice(0,12)"></span>
+                <span style="font-size:11px;background:var(--color-surface);padding:2px 8px;border-radius:12px;font-family:monospace"
+                      x-text="job.schedule"></span>
+              </div>
+              <div style="display:flex;gap:6px">
+                <button class="btn btn-ghost btn-sm" @click="$store.cron.openEdit(job)"
+                        x-text="$store.i18n.t('cron_edit')"></button>
+                <button class="btn btn-danger btn-sm" @click="$store.cron.del(job.id)"
+                        x-text="$store.i18n.t('cron_delete')"></button>
+              </div>
+            </div>
+            <div style="font-size:12px;color:var(--color-text-dim);margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+                 x-text="job.prompt"></div>
+            <div style="display:flex;gap:16px;font-size:11px;color:var(--color-text-dim)">
+              <span x-text="`上次：${job.last_run_at ? new Date(job.last_run_at).toLocaleString('zh-CN') : $store.i18n.t('cron_never')}`"></span>
+              <span x-text="`下次：${new Date(job.next_run_at).toLocaleString('zh-CN')}`"></span>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <!-- Cron Modal -->
+      <div x-show="$store.cron.showModal" x-cloak
+           style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:center;justify-content:center"
+           @click.self="$store.cron.showModal=false">
+        <div style="background:var(--color-surface-raised);border-radius:12px;padding:24px;width:480px;max-width:95vw;display:flex;flex-direction:column;gap:14px">
+          <div style="font-weight:700;font-size:15px"
+               x-text="$store.cron.editMode==='create' ? $store.i18n.t('cron_add') : $store.i18n.t('cron_edit')"></div>
+
+          <div>
+            <label for="cron-name" class="form-label" x-text="$store.i18n.t('cron_name')"></label>
+            <input type="text" id="cron-name" name="cron-name" class="form-input" x-model="$store.cron.form.name" placeholder="每日回顾" />
+          </div>
+          <div>
+            <label for="cron-schedule" class="form-label" x-text="$store.i18n.t('cron_schedule')"></label>
+            <input type="text" id="cron-schedule" name="cron-schedule" class="form-input" x-model="$store.cron.form.schedule" placeholder="@daily" />
+            <div style="font-size:11px;color:var(--color-text-dim);margin-top:4px"
+                 x-text="$store.i18n.t('cron_schedule_hint')"></div>
+          </div>
+          <div>
+            <label for="cron-prompt" class="form-label" x-text="$store.i18n.t('cron_prompt')"></label>
+            <textarea id="cron-prompt" name="cron-prompt" class="form-input" rows="4"
+                      x-model="$store.cron.form.prompt"
+                      placeholder="请总结今天的工作进展，并提出明日计划…"
+                      style="resize:vertical"></textarea>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <label class="toggle">
+              <input type="checkbox" name="cron-enabled" x-model="$store.cron.form.enabled">
+              <span class="toggle-slider"></span>
+            </label>
+            <span style="font-size:13px" x-text="$store.i18n.t('cron_enabled')"></span>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:8px">
+            <button class="btn btn-ghost btn-sm" @click="$store.cron.showModal=false"
+                    x-text="$store.i18n.t('cancel')"></button>
+            <button class="btn btn-primary btn-sm" @click="$store.cron.save()"
+                    x-text="$store.i18n.t('cron_save')"></button>
+          </div>
+        </div>
+      </div>
+    </div><!-- /cron -->

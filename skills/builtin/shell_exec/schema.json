@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "command": { "type": "string", "description": "Shell command to execute" },
+    "args": { "type": "array", "items": { "type": "string" } },
+    "workdir": { "type": "string" },
+    "timeout_ms": { "type": "integer", "default": 30000 }
+  },
+  "required": ["command"]
+}

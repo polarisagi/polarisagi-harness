@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Polaris</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='28'>⭐</text></svg>" />
+  <link rel="stylesheet" href="./css/style.css" />
+</head>
+<body>
+<div id="app" x-data>
+
+  <!-- ── 顶部状态栏（全宽）────────────────────────── -->
+  <div id="top-bar" :class="$store.statusBar.sealed ? 'sealed' : ''">
+
+    <!-- Sealed 模式 -->
+    <span x-show="$store.statusBar.sealed" x-cloak
+          style="font-weight:600;letter-spacing:0.05em">
+      ⚠ SEALED — 服务器已封印，所有操作暂停。请联系管理员解封。
+    </span>
+
+    <!-- 正常模式 -->
+    <div x-show="!$store.statusBar.sealed" style="display:flex;align-items:center;gap:12px;width:100%">
+      <span class="status-dot" :class="$store.statusBar.connCls"></span>
+      <span x-text="$store.statusBar.connected ? $store.i18n.t('status_conn_ok') : $store.i18n.t('status_conn_fail')"></span>
+      <span class="top-bar-sep">|</span>
+      <span x-text="$store.statusBar.modelID || '未知模型'"></span>
+      <template x-if="$store.statusBar.sessionID">
+        <span style="display:contents">
+          <span class="top-bar-sep">|</span>
+          <span x-text="`session: ${$store.statusBar.sessionID.slice(0,12)}`"></span>
+        </span>
+      </template>
+      <span class="top-bar-sep">|</span>
+      <span x-text="`tokens: ${$store.statusBar.tokenUsed.toLocaleString()} / ${$store.statusBar.tokenLimit.toLocaleString()}`"></span>
+      <span class="token-badge" x-show="$store.statusBar.tokenBadge"
+            :class="$store.statusBar.tokenBadge?.cls"
+            x-text="$store.statusBar.tokenBadge?.label"></span>
+      <span class="top-bar-sep">|</span>
+      <span x-text="`mem: ${$store.statusBar.memoryMB}MB`"></span>
+      <span style="margin-left:auto" x-text="`¥${$store.statusBar.costCNY.toFixed(4)}`"></span>
+    </div>
+  </div>
+
+  <!-- ── 主布局（侧边栏 + 内容区）──────────────────── -->
+  <div class="main-layout">
+
+  <!-- ── 侧边栏 ────────────────────────────────────── -->
+  <nav id="sidebar">
+    <div class="sidebar-brand">
+      <h1>⭐ POLARIS</h1>
+      <p>AI Agent Harness</p>
+    </div>
+
+    <!-- 新对话 -->
+    <a class="nav-item" :class="{ active: $store.nav.page === 'chat' }"
+       @click.prevent="$store.nav.navigate('chat')" href="/">
+      <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round"
+          d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 0 1 .865-.501 48.172 48.172 0 0 0 3.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z"/>
+      </svg>
+      <span x-text="$store.i18n.t('nav_chat')"></span>
+    </a>
+
+    <!-- 搜索 -->
+    <a class="nav-item" :class="{ active: $store.nav.page === 'search' }"
+       @click.prevent="$store.nav.navigate('search')" href="/search">
+      <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round"
+          d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/>
+      </svg>
+      <span x-text="$store.i18n.t('nav_search')"></span>
+    </a>
+
+    <!-- 会话历史 -->
+    <a class="nav-item" :class="{ active: $store.nav.page === 'sessions' }"
+       @click.prevent="$store.nav.navigate('sessions'); $store.sessions.load()" href="/sessions">
+      <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round"
+          d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 0 1-.825-.242m9.345-8.334a2.126 2.126 0 0 0-.476-.095 48.64 48.64 0 0 0-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0 0 11.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155"/>
+      </svg>
+      <span x-text="$store.i18n.t('nav_sessions')"></span>
+    </a>
+
+
+
+    <!-- 插件 -->
+    <a class="nav-item" :class="{ active: $store.nav.page === 'plugins' }"
+       @click.prevent="$store.nav.navigate('plugins')" href="/plugins">
+      <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round"
+          d="M14.25 6.087c0-.355.186-.676.401-.959.221-.29.349-.634.349-1.003 0-1.036-1.007-1.875-2.25-1.875s-2.25.84-2.25 1.875c0 .369.128.713.349 1.003.215.283.401.604.401.959v0a.64.64 0 0 1-.657.643 48.39 48.39 0 0 1-4.163-.3c.186 1.613.293 3.25.315 4.907a.656.656 0 0 1-.658.663v0c-.355 0-.676-.186-.959-.401a1.647 1.647 0 0 0-1.003-.349c-1.036 0-1.875 1.007-1.875 2.25s.84 2.25 1.875 2.25c.369 0 .713-.128 1.003-.349.283-.215.604-.401.959-.401v0c.31 0 .555.26.532.57a48.039 48.039 0 0 1-.642 5.056c1.518.19 3.058.309 4.616.354a.64.64 0 0 0 .657-.643v0c0-.355-.186-.676-.401-.959a1.647 1.647 0 0 1-.349-1.003c0-1.035 1.008-1.875 2.25-1.875 1.243 0 2.25.84 2.25 1.875 0 .369-.128.713-.349 1.003-.215.283-.4.604-.4.959v0c0 .333.277.599.61.58a48.1 48.1 0 0 0 5.427-.63 48.05 48.05 0 0 0 .582-4.717.532.532 0 0 0-.533-.57v0c-.355 0-.676.186-.959.401-.29.221-.634.349-1.003.349-1.035 0-1.875-1.007-1.875-2.25s.84-2.25 1.875-2.25c.37 0 .713.128 1.003.349.283.215.604.401.959.401v0a.656.656 0 0 0 .658-.663 48.422 48.422 0 0 0-.37-5.36c-1.886.342-3.81.574-5.766.689a.578.578 0 0 1-.61-.58v0Z"/>
+      </svg>
+      <span x-text="$store.i18n.t('nav_plugins')"></span>
+    </a>
+
+    <!-- 自动化 -->
+    <a class="nav-item" :class="{ active: $store.nav.page === 'automation' }"
+       @click.prevent="$store.nav.navigate('automation')" href="/automation">
+      <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round"
+          d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
+      </svg>
+      <span x-text="$store.i18n.t('nav_automation')"></span>
+      <span x-show="$store.approvals.list.length > 0"
+        x-text="$store.approvals.list.length"
+        class="ml-auto text-xs px-1.5 py-0.5 rounded-full font-bold"
+        style="background:var(--color-error);color:white;min-width:18px;text-align:center">
+      </span>
+    </a>
+
+
+
+    <!-- 监控（系统状态 + 用量洞察 + Agent）-->
+    <a class="nav-item" :class="{ active: $store.nav.page === 'monitor' }"
+       @click.prevent="$store.nav.navigate('monitor')" href="/monitor">
+      <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round"
+          d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"/>
+      </svg>
+      <span x-text="$store.i18n.t('nav_monitor')"></span>
+    </a>
+
+    <!-- 设置（模型厂商 + 渠道集成 + 系统配置 + 电脑操控）-->
+    <a class="nav-item" :class="{ active: $store.nav.page === 'settings' }"
+       @click.prevent="$store.nav.navigate('settings')" href="/settings">
+      <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round"
+          d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75"/>
+      </svg>
+      <span x-text="$store.i18n.t('nav_settings')"></span>
+    </a>
+
+    <!-- 评测 -->
+    <a class="nav-item" :class="{ active: $store.nav.page === 'eval' }"
+       @click.prevent="$store.nav.navigate('eval')" href="/eval">
+      <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round"
+          d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
+      </svg>
+      <span x-text="$store.i18n.t('nav_eval')"></span>
+    </a>
+
+    <!-- 侧边栏底部：主题 + 语言 -->
+    <div style="margin-top:auto;padding:12px 16px;border-top:1px solid var(--color-border);display:flex;flex-direction:column;gap:8px"
+         x-data="{
+           themes: ['system','dark','light','terminal'],
+           themeLabels: { system:'🖥', dark:'🌙', light:'☀️', terminal:'💻' },
+           curTheme: localStorage.getItem('polaris_theme') || 'system',
+           cycleTheme() {
+             const idx = (this.themes.indexOf(this.curTheme) + 1) % this.themes.length
+             this.curTheme = this.themes[idx]
+             window.applyTheme(this.curTheme)
+           }
+         }">
+      <!-- 主题切换 -->
+      <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:flex-start;gap:6px" @click="cycleTheme()">
+        <span x-text="themeLabels[curTheme]"></span>
+        <span x-text="$store.i18n.t('theme_' + curTheme)" style="font-size:11px"></span>
+      </button>
+      <!-- 语言切换 -->
+      <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:flex-start;gap:6px"
+        @click="$store.i18n.setLang($store.i18n.lang === 'zh' ? 'en' : 'zh')">
+        <span>🌐</span>
+        <span x-text="$store.i18n.lang === 'zh' ? 'English' : '中文'" style="font-size:11px"></span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ── 主内容区 ──────────────────────────────────── -->
+  <div id="content">
+
+        <page-fragment src="/pages/chat.html"></page-fragment>
+        <!-- chat 权限模式下拉由 chat.html input-actions 内联渲染，computer store 提供数据 -->
+        <page-fragment src="/pages/sessions.html"></page-fragment>
+        <page-fragment src="/pages/search.html"></page-fragment>
+        <page-fragment src="/pages/eval.html"></page-fragment>
+        <page-fragment src="/pages/monitor.html"></page-fragment>
+        <page-fragment src="/pages/settings.html"></page-fragment>
+
+        <page-fragment src="/pages/plugins.html"></page-fragment>
+        <page-fragment src="/pages/automation.html"></page-fragment>
+
+  </div><!-- /content -->
+
+  </div><!-- /main-layout -->
+
+  <!-- ── 浮动日志抽屉 ─────────────────────────────────────────── -->
+
+  <!-- FAB 按钮（固定在右下角） -->
+  <button class="log-fab" x-data @click="$store.logs.openDrawer()"
+          :class="{ 'log-fab-active': $store.logs.drawerOpen }"
+          :title="$store.i18n.t('nav_logs')">
+    <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="width:20px;height:20px">
+      <path stroke-linecap="round" stroke-linejoin="round"
+        d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 0 1 0 3.75H5.625a1.875 1.875 0 0 1 0-3.75Z"/>
+    </svg>
+    <span class="log-dot" x-show="$store.logs.entries.length > 0 && !$store.logs.drawerOpen"></span>
+  </button>
+
+  <!-- 遮罩层 -->
+  <div class="log-drawer-overlay" x-data
+       x-show="$store.logs.drawerOpen" x-cloak
+       @click="$store.logs.closeDrawer()"></div>
+
+  <!-- 抽屉面板 -->
+  <div class="log-drawer" x-data :class="{ open: $store.logs.drawerOpen }" x-cloak>
+    <div class="log-drawer-header">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-weight:600;font-size:13px" x-text="$store.i18n.t('logs_title')"></span>
+        <span x-show="$store.logs.connected" style="font-size:11px;color:var(--color-ok)">● LIVE</span>
+        <span x-show="!$store.logs.connected" style="font-size:11px;color:var(--color-text-dim)" x-text="'○ ' + $store.i18n.t('status_conn_fail')"></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <select id="logs-level-filter" name="logs-level-filter" class="form-select" style="padding:2px 8px;font-size:11px;height:28px"
+                x-model="$store.logs.levelFilter" @change="$store.logs.setLevel($store.logs.levelFilter)">
+          <option value="" x-text="$store.i18n.t('logs_filter_all', '全部')"></option>
+          <option value="debug">DEBUG+</option>
+          <option value="info">INFO+</option>
+          <option value="warn">WARN+</option>
+          <option value="error">ERROR</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" style="padding:2px 8px;font-size:11px"
+                @click="$store.logs.clear()" x-text="$store.i18n.t('logs_clear')"></button>
+        <button class="btn btn-ghost btn-sm" style="padding:2px 8px;font-size:11px"
+                @click="$store.logs.closeDrawer()">✕</button>
+      </div>
+    </div>
+
+    <div id="log-entries-drawer" style="flex:1;min-height:0;overflow-y:auto;font-family:monospace;font-size:11px;padding:8px 12px"
+         x-ref="logEntries">
+      <div x-show="$store.logs.entries.length === 0" style="color:var(--color-text-dim);padding:20px 0;text-align:center">
+        暂无日志
+      </div>
+      <template x-for="(e, idx) in $store.logs.entries" :key="idx">
+        <div style="display:flex;gap:8px;padding:2px 0;border-bottom:1px solid var(--color-border);line-height:1.5"
+             :style="e.level === 'error' ? 'color:var(--color-error)' : e.level === 'warn' ? 'color:var(--color-warn)' : ''">
+          <span style="color:var(--color-text-dim);flex-shrink:0;font-size:10px;padding-top:1px" x-text="e.ts"></span>
+          <span style="flex-shrink:0;font-weight:700;min-width:36px;font-size:10px;padding-top:1px"
+                :style="e.level === 'error' ? 'color:var(--color-error)' : e.level === 'warn' ? 'color:var(--color-warn)' : e.level === 'debug' ? 'color:var(--color-text-dim)' : 'color:var(--color-ok)'"
+                x-text="(e.level || 'info').toUpperCase()"></span>
+          <span style="flex:1;word-break:break-all" x-text="e.message || e.msg || ''"></span>
+        </div>
+      </template>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<!-- ══════════════════════════════════════════════════════════
+     Onboard Wizard Overlay（首次配置引导）
+     ══════════════════════════════════════════════════════════ -->
+<div x-show="$store.onboard.show" x-cloak class="onboard-overlay" x-data>
+  <div class="onboard-panel">
+
+    <!-- 关闭 / 跳过 -->
+    <button class="onboard-close" @click="$store.onboard.dismiss()" :title="$store.i18n.t('onboard_skip_title')">✕</button>
+
+    <!-- 步骤进度（step 2-4 显示） -->
+    <div class="onboard-progress" x-show="$store.onboard.step >= 2 && $store.onboard.step <= 4">
+      <div class="onboard-dot" :class="{ active: $store.onboard.step === 2, done: $store.onboard.step > 2 }">
+        <span x-show="$store.onboard.step <= 2">1</span><span x-show="$store.onboard.step > 2">✓</span>
+      </div>
+      <div class="onboard-line" :class="{ done: $store.onboard.step > 2 }"></div>
+      <div class="onboard-dot" :class="{ active: $store.onboard.step === 3, done: $store.onboard.step > 3 }">
+        <span x-show="$store.onboard.step <= 3">2</span><span x-show="$store.onboard.step > 3">✓</span>
+      </div>
+      <div class="onboard-line" :class="{ done: $store.onboard.step > 3 }"></div>
+      <div class="onboard-dot" :class="{ active: $store.onboard.step === 4 }">3</div>
+    </div>
+
+    <!-- ─── Step 1: 欢迎 ─────────────────────────────────────── -->
+    <div x-show="$store.onboard.step === 1" class="onboard-step">
+      <div class="onboard-hero">🚀</div>
+      <h2 class="onboard-title" x-text="$store.i18n.t('onboard_welcome')"></h2>
+      <p class="onboard-desc" x-text="$store.i18n.t('onboard_desc')"></p>
+      <div class="onboard-actions">
+        <button class="btn btn-primary" @click="$store.onboard.step = 2" x-text="$store.i18n.t('onboard_start')"></button>
+        <button class="btn btn-ghost" @click="$store.onboard.dismiss()" x-text="$store.i18n.t('onboard_skip_btn')"></button>
+      </div>
+    </div>
+
+    <!-- ─── Step 2: LLM Provider ─────────────────────────────── -->
+    <div x-show="$store.onboard.step === 2" class="onboard-step">
+      <h2 class="onboard-title" x-text="$store.i18n.t('onboard_step1')"></h2>
+      <p class="onboard-desc" x-text="$store.i18n.t('onboard_step1_desc')"></p>
+
+      <div class="form-group">
+        <label for="ob-provider-type" class="form-label" x-text="$store.i18n.t('providers_type')"></label>
+        <select id="ob-provider-type" name="ob-provider-type" class="form-select" x-model="$store.onboard.providerForm.type">
+          <option value="openai_compat" x-text="$store.i18n.t('onboard_provider_openai')"></option>
+          <option value="anthropic">Anthropic</option>
+          <option value="google_agent_platform">Google</option>
+          <option value="ollama" x-text="$store.i18n.t('onboard_provider_ollama')"></option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="ob-provider-name" class="form-label" x-text="$store.i18n.t('providers_name')"></label>
+        <input id="ob-provider-name" name="ob-provider-name" class="form-input" type="text"
+               x-model="$store.onboard.providerForm.name"
+               :placeholder="{ openai_compat: 'DeepSeek V4', anthropic: 'Claude', google_agent_platform: 'Gemini', ollama: 'Ollama 本地' }[$store.onboard.providerForm.type]" />
+      </div>
+      <template x-if="$store.onboard.providerForm.type === 'openai_compat' || $store.onboard.providerForm.type === 'ollama'">
+        <div class="form-group">
+          <label for="ob-base-url" class="form-label">Base URL</label>
+          <input id="ob-base-url" name="ob-base-url" class="form-input" type="url"
+                 x-model="$store.onboard.providerForm.base_url"
+                 :placeholder="$store.onboard.providerForm.type === 'ollama' ? 'http://localhost:11434' : 'https://api.deepseek.com'" />
+        </div>
+      </template>
+      <template x-if="$store.onboard.providerForm.type !== 'ollama'">
+        <div class="form-group">
+          <label for="ob-api-key" class="form-label">API Key</label>
+          <input id="ob-api-key" name="ob-api-key" class="form-input" type="password"
+                 x-model="$store.onboard.providerForm.api_key"
+                 :placeholder="{ openai_compat: 'sk-...', anthropic: 'sk-ant-...', google_agent_platform: 'AIza...' }[$store.onboard.providerForm.type] || 'API Key'" />
+        </div>
+      </template>
+
+      <!-- 连接测试结果 -->
+      <div x-show="$store.onboard.testResult" class="onboard-test-result"
+           :class="$store.onboard.testResult === 'ok' ? 'ok' : 'error'">
+        <span x-text="$store.onboard.testResult === 'ok' ? '✓ ' : '✗ '"></span>
+        <span x-text="$store.onboard.testMsg"></span>
+      </div>
+
+      <div class="onboard-actions">
+        <button class="btn btn-primary" @click="$store.onboard.saveProvider()" :disabled="$store.onboard.saving">
+          <span x-show="$store.onboard.saving" class="spinner" style="width:12px;height:12px;margin-right:6px"></span>
+          下一步 →
+        </button>
+        <button class="btn btn-ghost" @click="$store.onboard.testProvider()"
+                :disabled="$store.onboard.testingProvider || $store.onboard.saving">
+          <span x-show="$store.onboard.testingProvider" class="spinner" style="width:12px;height:12px;margin-right:6px"></span>
+          <span x-show="!$store.onboard.testingProvider" x-text="$store.i18n.t('providers_test')"></span>
+        </button>
+        <button class="btn btn-ghost" @click="$store.onboard.step = 1" x-text="$store.i18n.t('onboard_back')"></button>
+      </div>
+    </div>
+
+    <!-- ─── Step 3: 添加模型 ──────────────────────────────────── -->
+    <div x-show="$store.onboard.step === 3" class="onboard-step">
+      <h2 class="onboard-title" x-text="$store.i18n.t('onboard_step2')"></h2>
+      <p class="onboard-desc" x-text="$store.i18n.t('onboard_step2_desc')"></p>
+
+      <!-- 已添加模型标签 -->
+      <div x-show="$store.onboard.models.length > 0" class="onboard-model-list">
+        <template x-for="m in $store.onboard.models" :key="m.model_id">
+          <div class="onboard-model-tag">
+            <span x-text="m.model_id"></span>
+            <span class="onboard-role-badge" x-text="{ default: '对话', reasoning: '推理', general: '通用' }[m.role]"></span>
+          </div>
+        </template>
+      </div>
+
+      <div class="form-group">
+        <label for="ob-model-id" class="form-label" x-text="$store.i18n.t('providers_model_id')"></label>
+        <input id="ob-model-id" name="ob-model-id" class="form-input" type="text"
+               x-model="$store.onboard.modelForm.model_id"
+               @keydown.enter.prevent="$store.onboard.addModel()"
+               placeholder="如：deepseek-chat / claude-sonnet-4-5 / llama3.2" />
+      </div>
+      <div class="form-group">
+        <label for="ob-model-role" class="form-label" x-text="$store.i18n.t('onboard_model_usage')"></label>
+        <select id="ob-model-role" name="ob-model-role" class="form-select" x-model="$store.onboard.modelForm.role">
+          <option value="default" x-text="$store.i18n.t('onboard_usage_chat')"></option>
+          <option value="reasoning" x-text="$store.i18n.t('onboard_usage_reasoning')"></option>
+          <option value="general" x-text="$store.i18n.t('onboard_usage_general')"></option>
+        </select>
+      </div>
+
+      <div class="onboard-actions">
+        <button class="btn btn-ghost" @click="$store.onboard.addModel()" :disabled="$store.onboard.saving">
+          <span x-show="$store.onboard.saving" class="spinner" style="width:12px;height:12px;margin-right:6px"></span>
+          + 添加
+        </button>
+        <button class="btn btn-primary" @click="$store.onboard.step = 4"
+                :disabled="$store.onboard.models.length === 0">
+          下一步 →
+        </button>
+        <button class="btn btn-ghost" @click="$store.onboard.step = 2" x-text="$store.i18n.t('onboard_back')"></button>
+      </div>
+      <div x-show="$store.onboard.models.length === 0"
+           style="font-size:12px;color:var(--color-text-dim);margin-top:10px" x-text="$store.i18n.t('onboard_need_model')"></div>
+    </div>
+
+    <!-- ─── Step 4: 消息渠道（可选） ───────────────────────────── -->
+    <div x-show="$store.onboard.step === 4" class="onboard-step">
+      <h2 class="onboard-title">Step 3 · 消息渠道
+        <span style="font-size:13px;color:var(--color-text-dim);font-weight:400" x-text="$store.i18n.t('onboard_optional')"></span>
+      </h2>
+      <p class="onboard-desc" x-text="$store.i18n.t('onboard_step3_desc')"></p>
+
+      <div class="form-group">
+        <label for="ob-channel-type" class="form-label" x-text="$store.i18n.t('onboard_channel_type')"></label>
+        <select id="ob-channel-type" name="ob-channel-type" class="form-select" x-model="$store.onboard.channelForm.type">
+          <option value="telegram">Telegram Bot</option>
+          <option value="feishu" x-text="$store.i18n.t('onboard_feishu')"></option>
+          <option value="slack">Slack</option>
+          <option value="discord">Discord</option>
+          <option value="webhook" x-text="$store.i18n.t('onboard_webhook')"></option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="ob-channel-name" class="form-label" x-text="$store.i18n.t('onboard_channel_name')"></label>
+        <input id="ob-channel-name" name="ob-channel-name" class="form-input" type="text"
+               x-model="$store.onboard.channelForm.name"
+               placeholder="如：我的 Telegram Bot" />
+      </div>
+      <template x-if="$store.onboard.channelConfigLabel($store.onboard.channelForm.type)">
+        <div class="form-group">
+          <label for="ob-channel-token" class="form-label"
+                 x-text="$store.onboard.channelConfigLabel($store.onboard.channelForm.type)"></label>
+          <input id="ob-channel-token" name="ob-channel-token" class="form-input" type="password"
+                 :value="$store.onboard.channelForm.config[$store.onboard.channelConfigKey($store.onboard.channelForm.type)] || ''"
+                 @input="$store.onboard.channelForm.config[$store.onboard.channelConfigKey($store.onboard.channelForm.type)] = $event.target.value"
+                 placeholder="..." />
+        </div>
+      </template>
+
+      <div class="onboard-actions">
+        <button class="btn btn-primary" @click="$store.onboard.saveChannelAndFinish()" :disabled="$store.onboard.saving">
+          <span x-show="$store.onboard.saving" class="spinner" style="width:12px;height:12px;margin-right:6px"></span>
+          保存渠道并完成
+        </button>
+        <button class="btn btn-ghost" @click="$store.onboard.finish()" x-text="$store.i18n.t('onboard_finish')"></button>
+        <button class="btn btn-ghost" @click="$store.onboard.step = 3" x-text="$store.i18n.t('onboard_back')"></button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── Toast 容器 ─────────────────────────────── -->
+<div class="toast-container" x-data>
+  <template x-for="t in $store.toast.items" :key="t.id">
+    <div class="toast" :class="t.type">
+      <span x-text="t.type === 'ok' ? '✓' : t.type === 'warn' ? '⚠' : '✕'"
+            style="font-weight:700;flex-shrink:0"></span>
+      <span x-text="t.message"></span>
+    </div>
+  </template>
+</div>
+
+<script type="module" src="./js/app.js"></script>
+</body>
+</html>

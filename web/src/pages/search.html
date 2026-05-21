@@ -1,0 +1,56 @@
+<!-- ─────── 搜索页 ───────────────────────────────── -->
+    <div x-show="$store.nav.page === 'search'" x-cloak class="page-container">
+      <div class="max-w-5xl mx-auto w-full flex flex-col min-h-full">
+      <div class="page-header">
+        <div>
+          <div class="page-title" x-text="$store.i18n.t('search_title')"></div>
+          <div class="page-subtitle" x-text="$store.i18n.t('search_subtitle')"></div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-bottom:20px">
+        <input type="search" name="search-query" aria-label="搜索会话" class="form-input" style="flex:1"
+               :placeholder="$store.i18n.t('search_placeholder')"
+               x-model="$store.search.query"
+               @keydown.enter="$store.search.run()" />
+        <button class="btn btn-primary" @click="$store.search.run()"
+                :disabled="$store.search.loading"
+                x-text="$store.search.loading ? $store.i18n.t('loading') : '搜索'"></button>
+      </div>
+
+      <!-- 未搜索状态 -->
+      <div class="empty-state" x-show="!$store.search.searched && !$store.search.loading">
+        <svg fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/>
+        </svg>
+        <p x-text="$store.i18n.t('search_empty')"></p>
+      </div>
+
+      <!-- 无结果 -->
+      <div class="empty-state" x-show="$store.search.searched && $store.search.results.length === 0">
+        <p x-text="$store.i18n.t('search_no_results')"></p>
+      </div>
+
+      <!-- 搜索结果 -->
+      <div style="display:flex;flex-direction:column;gap:12px" x-show="$store.search.results.length > 0">
+        <template x-for="sr in $store.search.results" :key="sr.session_id">
+          <div class="provider-card" style="cursor:pointer" @click="$store.search.openSession(sr.session_id)">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+              <div style="font-weight:600;font-size:13px" x-text="sr.title || sr.session_id.slice(0,16)+'…'"></div>
+              <div style="font-size:11px;color:var(--color-text-dim)"
+                   x-text="new Date(sr.updated_at).toLocaleString('zh-CN')"></div>
+            </div>
+            <template x-for="(m, i) in sr.matches" :key="i">
+              <div style="margin-bottom:6px;padding:6px 10px;background:var(--color-surface);border-radius:6px;border-left:3px solid var(--color-primary)">
+                <div style="font-size:11px;color:var(--color-text-dim);margin-bottom:2px"
+                     x-text="m.role === 'user' ? '用户' : 'AI'"></div>
+                <div style="font-size:12px;line-height:1.5" x-html="m.snippet.replace(/\*\*(.*?)\*\*/g, '<mark>$1</mark>')"></div>
+              </div>
+            </template>
+          </div>
+        </template>
+      </div>
+
+      </div>
+    </div><!-- /search -->

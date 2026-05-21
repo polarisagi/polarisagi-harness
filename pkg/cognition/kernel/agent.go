@@ -1,0 +1,273 @@
+package kernel
+
+import (
+	"context"
+	"errors"
+
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
+	"github.com/mrlaoliai/polaris-harness/internal/protocol"
+	"github.com/mrlaoliai/polaris-harness/pkg/cognition/prm"
+	"github.com/mrlaoliai/polaris-harness/pkg/substrate"
+	"github.com/mrlaoliai/polaris-harness/pkg/substrate/observability"
+)
+
+// ============================================================================
+// Agent 运行循环（Suspend-on-Idle 语义）
+// ============================================================================
+
+// Agent 是系统核心执行单元——一个 goroutine，空闲时挂起。
+type Agent struct {
+	ID           string
+	intent       chan protocol.AgentTrigger
+	sm           *StateMachine
+	sCtx         *StateContext
+	Config       AgentConfig
+	ctx          context.Context
+	cancel       context.CancelFunc
+	taintGate    TaintGate
+	provider     protocol.Provider     // LLM 调用入口（由 M1 提供）
+	policyGate   protocol.PolicyGate   // Cedar 策略引擎（由 M11 提供）
+	hitl         protocol.HITL         // 人工审批网关
+	toolRegistry protocol.ToolRegistry // 工具注册表（由 M7 提供）
+	memory       protocol.Memory       // 四层记忆系统（由 M5 提供）
+	prm          *prm.DefaultPRM       // 可选；nil 时跳过多候选打分
+}
+
+type AgentConfig struct {
+	MaxReplan     int
+	DefaultBudget int
+	MaxSteps      int
+}
+
+func NewAgent(id string, taintGate TaintGate, provider protocol.Provider) *Agent {
+	ctx, cancel := context.WithCancel(context.Background())
+	return &Agent{
+		ID:     id,
+		intent: make(chan protocol.AgentTrigger, 10),
+		sm:     NewStateMachine(),
+		sCtx: &StateContext{
+			AgentID:   id,
+			MaxReplan: 3,
+		},
+		ctx:       ctx,
+		cancel:    cancel,
+		taintGate: taintGate,
+		provider:  provider,
+	}
+}
+
+// NewAgentWithPolicyGate 创建带策略引擎的 Agent（主要用于生产环境）。
+func NewAgentWithPolicyGate(id string, taintGate TaintGate, provider protocol.Provider, policyGate protocol.PolicyGate) *Agent {
+	a := NewAgent(id, taintGate, provider)
+	a.policyGate = policyGate
+	return a
+}
+
+func NewAgentWithDefaults(id string) *Agent {
+	return NewAgent(id, &defaultTaintGate{threshold: 2}, nil)
+}
+
+// Run 启动 Agent 事件循环（Suspend-on-Idle）。
+// 空闲时阻塞在 intent channel 上，不轮询——符合 par_inv_05。
+func (a *Agent) Run(ctx context.Context) error {
+	for {
+		select {
+		case trigger := <-a.intent:
+			effects, err := a.sm.Dispatch(ctx, a.sCtx, trigger)
+			if err != nil {
+				if errors.Is(err, ErrReplanExhausted) {
+					// sm.Dispatch 内部已经将状态转移至 S_FAILED，此处直接返回该错误
+					return err
+				}
+				// context 取消由 M8 Reaper 触发——直接退出，不触发 S_ROLLBACK
+				if ctx.Err() != nil {
+					return ctx.Err()
+				}
+				return err
+			}
+
+			// 执行 Effects: LLMFillEffect → 调 LLM；DeterministicEffect → 直接执行
+			for _, effect := range effects {
+				if err := a.executeEffect(ctx, effect); err != nil {
+					return err
+				}
+			}
+
+			// 终态检查
+			current := a.sm.Current()
+			if current == protocol.AgentStateComplete || current == protocol.AgentStateFailed {
+				return nil
+			}
+
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
+// stateToTriggerMap 将下层 Effect 产生的文本 State 映射回 FSM 驱动所需的 AgentTrigger。
+var stateToTriggerMap = map[protocol.State]protocol.AgentTrigger{
+	"S_PERCEIVE_DONE":   protocol.TriggerPerceiveDone,
+	"S_PERCEIVE_FAILED": protocol.TriggerReplanExhausted, // 早期失败直接熔断
+	"S_PLAN_DONE":       protocol.TriggerPlanDone,
+	"S_PLAN_FAILED":     protocol.TriggerReplanExhausted,
+	"S_VALIDATE_OK":     protocol.TriggerValidateOk,
+	"S_VALIDATE_FAIL":   protocol.TriggerValidateFail,
+	"S_EXECUTE_OK":      protocol.TriggerExecuteDone,
+	"S_EXECUTE_FAIL":    protocol.TriggerExecuteFail,
+	"S_REPLAN_DONE":     protocol.TriggerReplanDone,
+	"S_REPLAN_FAILED":   protocol.TriggerReplanExhausted,
+	"S_REFLECT_DONE":    protocol.TriggerReflectDone,
+	"S_REFLECT_FAILED":  protocol.TriggerReplanExhausted,
+	"S_ROLLBACK_OK":     protocol.TriggerRollbackDone,
+}
+
+// executeEffect 执行单个 Effect。
+// LLMFillEffect — 调 LLM → OnSuccess/OnFailure 推进状态；
+// DeterministicEffect — 调用纯函数。
+// 内部助手：映射内部状态至协议状态，并在此时提权计算最大污点，防止 Taint Washing
+func (a *Agent) toProtocolCtx() protocol.StateContext {
+	maxTaint := protocol.TaintNone
+	if a.sCtx != nil {
+		maxTaint = a.sCtx.RawIntentTS.Level()
+	}
+	return protocol.StateContext{
+		AgentID:       a.ID,
+		SessionID:     a.sCtx.SessionID,
+		MaxTaintLevel: maxTaint,
+		Mem:           a.memory,
+		Tools:         a.toolRegistry,
+		Provider:      a.provider,
+		Policy:        a.policyGate,
+		Preferences:   a.sCtx.Preferences,
+	}
+}
+
+// InjectProvider 注入 LLM Provider（运行时绑定，支持热替换）。
+func (a *Agent) InjectProvider(p protocol.Provider) { a.provider = p }
+
+// InjectPRM 注入过程奖励模型（可选）。注入后 S_PLAN 阶段对复杂任务启用多候选打分。
+func (a *Agent) InjectPRM(p *prm.DefaultPRM) { a.prm = p }
+
+// InjectPolicyGate 注入 Cedar PolicyGate（允许运行时替换，例如用于单元测试注入 mock）。
+func (a *Agent) InjectPolicyGate(pg protocol.PolicyGate) { a.policyGate = pg }
+
+// InjectHITL 注入人工审批网关。
+func (a *Agent) InjectHITL(hitl protocol.HITL) { a.hitl = hitl }
+
+// SetTaskIntent 设置任务意图（供 M8 Orchestrator 注入黑板任务信息）。
+func (a *Agent) SetTaskIntent(intent []byte) {
+	intentStr := string(intent)
+	if a.sCtx.TaskModel == nil {
+		a.sCtx.TaskModel = &TaskModel{
+			Goal: intentStr,
+		}
+	}
+	a.sCtx.RawIntentTS = substrate.NewTaintedString(
+		intentStr,
+		substrate.TaintSource{
+			Module:           "m8_orchestrator",
+			OriginTaintLevel: protocol.TaintHigh,
+		},
+		"task_intent_input",
+	)
+
+	a.sCtx.SurpriseIndex = observability.GlobalSurpriseIndex.ComputeBasic(context.Background(), nil, []string{"intent"})
+}
+
+// GetExecuteResult 获取执行成果（供 M8 Orchestrator 写回黑板）。
+func (a *Agent) GetExecuteResult() []byte {
+	return a.sCtx.ExecuteResult
+}
+
+// InjectToolRegistry 注入工具注册表（运行时绑定，允许测试注入 mock）。
+func (a *Agent) InjectToolRegistry(tr protocol.ToolRegistry) { a.toolRegistry = tr }
+
+// InjectMemory 注入记忆系统（运行时绑定，允许测试注入 mock）。
+func (a *Agent) InjectMemory(mem protocol.Memory) { a.memory = mem }
+
+// SetPreferences 注入用户配置偏好（如 computer_use_mode）。
+func (a *Agent) SetPreferences(prefs map[string]string) {
+	if a.sCtx.Preferences == nil {
+		a.sCtx.Preferences = make(map[string]string)
+	}
+	for k, v := range prefs {
+		a.sCtx.Preferences[k] = v
+	}
+}
+
+// SendIntent 向 Agent 发送意图触发脉冲。
+func (a *Agent) SendIntent(trigger protocol.AgentTrigger) {
+	select {
+	case a.intent <- trigger:
+	default:
+	}
+}
+
+// Interrupt 向 Agent 发送中断请求（非阻塞，inv_global_08 <200ms SLO）。
+// Resume → 恢复原状态；Redirect → 更新意图后恢复（重新规划）；Abort → S_FAILED。
+func (a *Agent) Interrupt(req InterruptRequest) {
+	a.sCtx.InterruptReq = &req
+	switch req.Action {
+	case InterruptRedirect:
+		// 更新意图，Resume 后从当前状态重新规划
+		if req.Redirect != "" {
+			a.sCtx.RawIntentTS = substrate.NewTaintedString(
+				req.Redirect,
+				substrate.TaintSource{OriginTaintLevel: protocol.TaintHigh},
+				"user_interrupt_redirect",
+			)
+		}
+		a.SendIntent(protocol.TriggerInterruptReceived)
+		// 注入到 S_INTERRUPT 后立即 Resume（Redirect = 新意图的 Resume）
+		go a.SendIntent(protocol.TriggerInterruptResume)
+	case InterruptAbort:
+		a.SendIntent(protocol.TriggerInterruptReceived)
+		go a.SendIntent(protocol.TriggerInterruptAbort)
+	default: // InterruptResume
+		a.SendIntent(protocol.TriggerInterruptReceived)
+		go a.SendIntent(protocol.TriggerInterruptResume)
+	}
+}
+
+// Shutdown 关闭 Agent，取消 context。
+func (a *Agent) Shutdown() { a.cancel() }
+
+// ContextCancel 返回 Agent 的 cancel 函数（供 M8 Reaper 终止过期任务）。
+func (a *Agent) ContextCancel() context.CancelFunc { return a.cancel }
+
+// StateMachine 返回 Agent 的状态机（供外部检查状态）。
+func (a *Agent) StateMachine() *StateMachine { return a.sm }
+
+// ============================================================================
+// TaintGate
+// ============================================================================
+
+type TaintGate interface {
+	IsClean(level int) bool
+	Gate(level int) error
+}
+
+type defaultTaintGate struct{ threshold int }
+
+func (g *defaultTaintGate) IsClean(level int) bool { return level < g.threshold }
+func (g *defaultTaintGate) Gate(level int) error {
+	if level >= g.threshold {
+		return errTaintViolation
+	}
+	return nil
+}
+
+// ============================================================================
+// 错误类型
+// ============================================================================
+
+var (
+	ErrReplanExhausted = perrors.New(perrors.CodeResourceExhausted, "replan guard: max replan count reached, escalate to HITL")
+	errTaintViolation  = perrors.ErrTaintViolation
+)
+
+// isTerminalState 判断是否为终态（S_COMPLETE 或 S_FAILED）。
+func isTerminalState(s protocol.AgentState) bool {
+	return s == protocol.AgentStateComplete || s == protocol.AgentStateFailed
+}

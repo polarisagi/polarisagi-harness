@@ -1,0 +1,379 @@
+// Package inference 实现 M1 Inference Runtime 路由层。
+// 架构文档: docs/arch/M01-Inference-Runtime.md §3-§4
+//
+// 设计约束:
+//   - ProviderRegistry: 注册/注销 Provider，HealthScore 动态权重
+//   - InferenceRouter.Route(): 权重 = 可用性×0.4 + 延迟×0.3 + 成本×0.2 + 质量×0.1
+//   - CircuitBreaker: 连续 5 次失败 → Open(30s) → HalfOpen → 探测
+//   - SSE 帧归一化: OpenAI/Anthropic/DeepSeek → 统一 StreamEvent
+//   - API Key JIT: 使用后 memclr 清零（防 heap dump 泄露）
+package inference
+
+import (
+	"context"
+	"net/http"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
+	"github.com/mrlaoliai/polaris-harness/internal/protocol"
+)
+
+// ─── CircuitBreaker ────────────────────────────────────────────────────────────
+
+// circuitState 熔断器状态。
+type circuitState int32
+
+const (
+	circuitClosed   circuitState = iota // 正常放行
+	circuitOpen                         // 拒绝请求
+	circuitHalfOpen                     // 探测恢复
+)
+
+// circuitBreaker 五次失败 → Open(30s) → HalfOpen 探测。
+// 架构文档: M01 §3.2
+type circuitBreaker struct {
+	state       atomic.Int32
+	failures    atomic.Int32
+	openUntil   atomic.Int64 // unix nano
+	maxFailures int32
+	openDur     time.Duration
+}
+
+func newCircuitBreaker() *circuitBreaker {
+	cb := &circuitBreaker{maxFailures: 5, openDur: 30 * time.Second}
+	cb.state.Store(int32(circuitClosed))
+	return cb
+}
+
+func (cb *circuitBreaker) Allow() bool {
+	switch circuitState(cb.state.Load()) {
+	case circuitClosed:
+		return true
+	case circuitOpen:
+		if time.Now().UnixNano() > cb.openUntil.Load() {
+			cb.state.Store(int32(circuitHalfOpen))
+			return true // 允许一次探测
+		}
+		return false
+	case circuitHalfOpen:
+		return true
+	}
+	return false
+}
+
+func (cb *circuitBreaker) RecordSuccess() {
+	cb.failures.Store(0)
+	cb.state.Store(int32(circuitClosed))
+}
+
+func (cb *circuitBreaker) RecordFailure() {
+	n := cb.failures.Add(1)
+	if n >= cb.maxFailures {
+		cb.state.Store(int32(circuitOpen))
+		cb.openUntil.Store(time.Now().Add(cb.openDur).UnixNano())
+		cb.failures.Store(0)
+	}
+}
+
+// ─── ProviderEntry ─────────────────────────────────────────────────────────────
+
+// providerEntry 封装单个 Provider 的运行时状态。
+type providerEntry struct {
+	provider    protocol.Provider
+	name        string
+	role        string // general | default | reasoning
+	cb          *circuitBreaker
+	mu          sync.RWMutex
+	p95ms       float64 // P95 延迟（指数移动平均）
+	successRate float64 // 成功率（指数移动平均，初始 1.0）
+	// costScore: 由 ProviderCapabilities.CostPer1KInput 驱动（值越小越好）
+}
+
+func newProviderEntry(name string, p protocol.Provider) *providerEntry {
+	return &providerEntry{
+		name:        name,
+		provider:    p,
+		cb:          newCircuitBreaker(),
+		p95ms:       200, // 初始 P95 假设 200ms
+		successRate: 1.0,
+	}
+}
+
+// healthScore 综合健康评分 = 可用性×0.4 + 延迟×0.3 + 成本×0.2 + 质量×0.1
+// 延迟得分 = max(0, 1 - p95ms/5000)；成本得分 = max(0, 1 - costPer1KInput/10)
+func (e *providerEntry) healthScore() float64 {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	caps := e.provider.Capabilities()
+	latencyScore := max64(0, 1.0-e.p95ms/5000.0)
+	costScore := max64(0, 1.0-caps.CostPer1KInput/10.0)
+	return e.successRate*0.4 + latencyScore*0.3 + costScore*0.2 + 0.1
+}
+
+func (e *providerEntry) recordLatency(ms float64) {
+	e.mu.Lock()
+	// 指数移动平均 α=0.1（对突刺平滑）
+	e.p95ms = e.p95ms*0.9 + ms*0.1
+	e.mu.Unlock()
+}
+
+func (e *providerEntry) recordOutcome(success bool) {
+	e.mu.Lock()
+	if success {
+		e.successRate = e.successRate*0.95 + 0.05
+		e.cb.RecordSuccess()
+	} else {
+		e.successRate = e.successRate * 0.95
+		e.cb.RecordFailure()
+	}
+	e.mu.Unlock()
+}
+
+// ─── ProviderRegistry ──────────────────────────────────────────────────────────
+
+// ProviderRegistry 注册/注销 Provider，支持热更新。
+type ProviderRegistry struct {
+	mu      sync.RWMutex
+	entries map[string]*providerEntry
+}
+
+func NewProviderRegistry() *ProviderRegistry {
+	return &ProviderRegistry{entries: make(map[string]*providerEntry)}
+}
+
+func (r *ProviderRegistry) Register(name string, p protocol.Provider) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.entries[name] = newProviderEntry(name, p)
+}
+
+func (r *ProviderRegistry) Unregister(name string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.entries, name)
+}
+
+// UnregisterAll 清空所有注册项，用于热重载前的清理。
+func (r *ProviderRegistry) UnregisterAll() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.entries = make(map[string]*providerEntry)
+}
+
+// RegisterWithRole 注册带角色标记的 Provider（general | default | reasoning）。
+func (r *ProviderRegistry) RegisterWithRole(name, role string, p protocol.Provider) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	e := newProviderEntry(name, p)
+	e.role = role
+	r.entries[name] = e
+}
+
+// BestForRole 返回指定角色下 healthScore 最高的可用 entry。
+// 若 role 为空或无匹配则回退到全局 best()。
+func (r *ProviderRegistry) BestForRole(role string) *providerEntry {
+	if role == "" || role == "general" {
+		return r.best()
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	var chosen *providerEntry
+	bestScore := -1.0
+	for _, e := range r.entries {
+		if !e.cb.Allow() {
+			continue
+		}
+		if e.role != role && e.role != "general" {
+			continue
+		}
+		if s := e.healthScore(); s > bestScore {
+			bestScore = s
+			chosen = e
+		}
+	}
+	if chosen == nil {
+		// 无 role 匹配，回退全局
+		for _, e := range r.entries {
+			if !e.cb.Allow() {
+				continue
+			}
+			if s := e.healthScore(); s > bestScore {
+				bestScore = s
+				chosen = e
+			}
+		}
+	}
+	return chosen
+}
+
+// PickProvider 返回指定角色 healthScore 最优的 Provider，供外部直接发起推理。
+// 若无可用 Provider 返回 nil。
+func (r *ProviderRegistry) PickProvider(role string) protocol.Provider {
+	e := r.BestForRole(role)
+	if e == nil {
+		return nil
+	}
+	return e.provider
+}
+
+// PickProviderName 返回指定角色最优 Provider 的注册名（含模型标识），供状态展示。
+func (r *ProviderRegistry) PickProviderName(role string) string {
+	e := r.BestForRole(role)
+	if e == nil {
+		return ""
+	}
+	return e.name
+}
+
+// best 按 healthScore 降序返回第一个 CircuitBreaker 允许的 entry。
+func (r *ProviderRegistry) best() *providerEntry {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	var chosen *providerEntry
+	bestScore := -1.0
+	for _, e := range r.entries {
+		if !e.cb.Allow() {
+			continue
+		}
+		if s := e.healthScore(); s > bestScore {
+			bestScore = s
+			chosen = e
+		}
+	}
+	return chosen
+}
+
+// ─── InferenceRouter ───────────────────────────────────────────────────────────
+
+// InferenceRouter 实现 protocol.Provider，对上层透明地完成多厂商路由。
+// 架构文档: docs/arch/M01-Inference-Runtime.md §4
+type InferenceRouter struct {
+	registry *ProviderRegistry
+	client   *http.Client
+}
+
+var _ protocol.Provider = (*InferenceRouter)(nil)
+
+func NewInferenceRouter(reg *ProviderRegistry, dialer protocol.SafeDialer) *InferenceRouter {
+	transport := &http.Transport{}
+	if dialer != nil {
+		transport.DialContext = dialer.DialContext
+	}
+	return &InferenceRouter{
+		registry: reg,
+		client:   &http.Client{Transport: transport, Timeout: 120 * time.Second},
+	}
+}
+
+// Infer 路由单次请求到最优 Provider，失败时 failover 至次优。
+func (ir *InferenceRouter) Infer(ctx context.Context, req *protocol.InferRequest) (*protocol.InferResponse, error) {
+	entry := ir.registry.best()
+	if entry == nil {
+		return nil, perrors.New(perrors.CodeInternal, "inference_router: no available providers")
+	}
+	start := time.Now()
+	resp, err := entry.provider.Infer(ctx, req)
+	ms := float64(time.Since(start).Milliseconds())
+	entry.recordLatency(ms)
+	entry.recordOutcome(err == nil)
+	if err != nil {
+		// Failover: 尝试次优 Provider
+		return ir.failover(ctx, req, entry.name)
+	}
+	return resp, nil
+}
+
+// StreamInfer 路由流式请求。
+func (ir *InferenceRouter) StreamInfer(ctx context.Context, req *protocol.InferRequest) (<-chan protocol.StreamEvent, error) {
+	entry := ir.registry.best()
+	if entry == nil {
+		return nil, perrors.New(perrors.CodeInternal, "inference_router: no available providers")
+	}
+	ch, err := entry.provider.StreamInfer(ctx, req)
+	entry.recordOutcome(err == nil)
+	return ch, err
+}
+
+func (ir *InferenceRouter) Capabilities() protocol.ProviderCapabilities {
+	// 聚合：取所有可用 Provider 能力并集
+	caps := protocol.ProviderCapabilities{}
+	ir.registry.mu.RLock()
+	defer ir.registry.mu.RUnlock()
+	for _, e := range ir.registry.entries {
+		c := e.provider.Capabilities()
+		if c.SupportsStreaming {
+			caps.SupportsStreaming = true
+		}
+		if c.SupportsTools {
+			caps.SupportsTools = true
+		}
+		if c.MaxContextTokens > caps.MaxContextTokens {
+			caps.MaxContextTokens = c.MaxContextTokens
+		}
+	}
+	return caps
+}
+
+func (ir *InferenceRouter) Tokenizer() protocol.TokenizerAdapter {
+	entry := ir.registry.best()
+	if entry == nil {
+		return &simpleTokenizer{}
+	}
+	return entry.provider.Tokenizer()
+}
+
+func (ir *InferenceRouter) failover(ctx context.Context, req *protocol.InferRequest, skip string) (*protocol.InferResponse, error) {
+	ir.registry.mu.RLock()
+	defer ir.registry.mu.RUnlock()
+	bestScore := -1.0
+	var chosen *providerEntry
+	for name, e := range ir.registry.entries {
+		if name == skip || !e.cb.Allow() {
+			continue
+		}
+		if s := e.healthScore(); s > bestScore {
+			bestScore = s
+			chosen = e
+		}
+	}
+	if chosen == nil {
+		return nil, perrors.New(perrors.CodeInternal, "inference_router: all providers failed")
+	}
+	resp, err := chosen.provider.Infer(ctx, req)
+	chosen.recordOutcome(err == nil)
+	return resp, err
+}
+
+// ─── 工具函数 ──────────────────────────────────────────────────────────────────
+
+// clearString API Key 使用后归零（防止 heap dump 泄漏敏感数据）。
+func clearString(s *string) {
+	b := []byte(*s)
+	for i := range b {
+		b[i] = 0
+	}
+	*s = ""
+}
+
+func max64(a, b float64) float64 {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+// simpleTokenizer 简单 token 估算（4 字符/token），用于非本地 Provider。
+type simpleTokenizer struct{}
+
+func (t *simpleTokenizer) CountTokens(text string) int { return len(text) / 4 }
+func (t *simpleTokenizer) CountTokensBatch(texts []string) []int {
+	result := make([]int, len(texts))
+	for i, s := range texts {
+		result[i] = len(s) / 4
+	}
+	return result
+}

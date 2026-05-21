@@ -1,0 +1,408 @@
+# Polaris Harness 全局公共字典
+
+> 所有模块文档的唯一权威概念定义源。子模块文档中出现的 `[Concept]` 标签均指向本文档对应条目。
+
+---
+
+## §0 术语命名空间前缀
+
+避免 L0/L1/L2/L3 等标识符在架构层次、记忆层、沙箱级、演化级四个维度过载。全局统一使用以下前缀:
+
+| 维度 | 前缀 | 值范围 | 用途 |
+|------|------|--------|------|
+| 架构层次 | `Arch-L` | Arch-L0 / L1 / L2 / L3 | 基础设施 / 认知 / 协同 / 治理 |
+| 记忆层 | `Mem-L` | Mem-L0 / L1 / L2 / L3 | Working / Episodic / Semantic / Procedural |
+| 沙箱级 | `Sbx-L` | Sbx-L1 / L2 / L3 | InProc / Wasmtime / microVM |
+| 演化级 | `Evo-L` | Evo-L0..L4 | 配置 / prompt / skill / 策略 / 源码 |
+| Hardware Tier | `HT` | HT0..HT3 | 8 / 16 / 24 / 64 GB |
+| Task Priority | `Priority-` | 0..3 | 用户交互 / 前台辅助 / 后台优化 / 最低 |
+| Model Pool | 具名 | — | Budget / Standard / Reasoning / Local-SLM / Local-Reasoning |
+
+子文档首次出现时使用全名（如 `Mem-L1 Episodic`），后续上下文清晰时可缩略。代码中标识符按语言惯例（如 `MemoryLayerEpisodic`），不使用前缀。
+
+---
+
+## §1 系统硬约束
+
+### [Tier-0-Limit]
+8GB 内存硬上限。核心路径必须在 8GB 内完整运行。超出能力通过硬件门控解锁，不作硬依赖。
+
+### [Tier-1-Limit]
+16GB 内存。解锁中等规模本地模型、更大 Agent 并发。
+
+### [Tier-2-Limit]
+24GB+ 内存。解锁 gVisor L3 sandbox、更大规模知识图谱。Linux 环境可选 Firecracker microVM 升级（最高隔离级别，需硬件 KVM）。
+
+### [Tier-3-Limit]
+64GB+ 内存。解锁全能力，包括梯度训练 (QLoRA)。
+
+### [Day0-ColdStart]
+全模块强制要求：空索引/空数据库不报错，返回确定性降级行为。禁止因缺少数据而 panic 或阻塞启动。
+
+### [Phase0-Bootstrapping]
+严格 L0 → L1 → L2 → L3 自底向上引导顺序。上层模块启动时检查下层模块健康状态，未就绪则阻塞等待。
+
+### [Operator-Developer]
+Fork 源码、参与贡献的技术用户。可直接修改 Go/Rust 代码。扩展行为直接落在源码层，无需 Hooks 机制。
+
+### [End-User]
+下载二进制或 Docker 镜像自托管的普通用户。通过 YAML 配置 + Web UI 驱动，**不修改 Go 源码**。其扩展边界：
+1. Skills（Wasm）: LLM 主动调用的能力扩展
+2. Shell Script Hooks（见 `[ShellHooks]`）: 生命周期事件自动触发
+3. MCP 工具: 配置文件声明外部工具
+4. `configs/*.yaml`: 运行时参数
+
+### [ShellHooks]
+Shell Script Hooks — End-User 级生命周期扩展机制。类 git-hooks 模型，零依赖，脚本可用任意语言编写。
+
+**目录**: `~/.polaris-harness/hooks/`（或 `POLARIS_HOOKS_DIR` 环境变量覆盖）
+
+**事件点**（开源前须落地）:
+
+| 文件名 | 触发时机 | 环境变量 |
+|--------|----------|----------|
+| `gateway.startup` | 服务完全启动后 | `POLARIS_VERSION`, `POLARIS_WORKSPACE` |
+| `session.new` | 用户执行 `/new` 或 `/reset` 后 | `POLARIS_SESSION_ID`, `POLARIS_PREV_SESSION_ID` |
+| `message.before` | 处理用户消息前（非零退出 = 拦截） | `POLARIS_MESSAGE`, `POLARIS_SESSION_ID`, `POLARIS_CHANNEL` |
+| `message.after` | AI 回复发出后 | `POLARIS_REPLY`, `POLARIS_SESSION_ID`, `POLARIS_CHANNEL`, `POLARIS_USER_ID` |
+| `session.compact.before` | 上下文压缩开始前 | `POLARIS_SESSION_ID`, `POLARIS_TOKEN_COUNT` |
+| `session.compact.after` | 上下文压缩完成后 | `POLARIS_SESSION_ID`, `POLARIS_TOKEN_BEFORE`, `POLARIS_TOKEN_AFTER` |
+
+**实现约束**:
+- 脚本不存在 → 静默跳过，不报错
+- 超时：非 `before` 类 5s，`before` 类 2s（阻塞主流程）
+- `before` 类：非零退出 = 拦截并返回错误给用户；脚本 stdout 作为拦截原因
+- 非 `before` 类：fire-and-forget，失败只记日志不影响主流程
+- 安全：脚本在用户进程权限下运行，不注入 capability token
+
+---
+
+## §1-bis 全局数字公理（Digital Axioms）
+
+以下公理独立于具体模块，定义全系统统一的状态、流程和风险语义。任何模块定义的状态枚举不得与以下公理冲突。
+
+### 公理一: 生命周期时间箭头 (Lifecycle Arrow)
+
+所有具有生命周期语义的字段（任务状态、事件状态、审批状态等）统一遵循以下因果时间箭头。禁止各模块自行定义含义不同的状态值。
+
+| 值 | 语义 | 描述 |
+|----|------|------|
+| 0 | Pending | 起点 —— 数据入库/任务发布，等待处理 |
+| 1 | Processing | 过程中 —— 正在消耗算力、等待外部回调或待人审批 |
+| 2 | Completed | 正向终态 —— 成功完成，误差收敛 |
+| 3 | Failed | 负向终态 —— 失败/熔断/拒绝，不可恢复 |
+| 4 | Suspended | 挂起态 —— 高惊奇度寻觅，脱离主流程等待人工介入 |
+
+适用举例: M8 TaskStatus（Pending/Claimed/Executing→Completed/Failed/Suspended），M4 TaskStatus, M2 OutboxStatus。
+
+### 公理二: 污点与风险阶梯 (Taint & Risk Escalation)
+
+数据的安全置信度按照 [TaintLevel] 五级定义（§4）。工具的风险等级按照 RiskLevel 四级定义。两者均为只升不降的单调阶梯。
+
+### 公理三: 拓扑分类 (Taxonomy)
+
+仅用于 Index 区分，无递进关系。各模块可按需扩展枚举值，但禁止与已有值语义冲突。
+
+适用举例: M5 memory_layer（episodic/semantic/procedural），M10 entity_type（Person/Project/Tool/Concept 等）。
+
+---
+
+## §1-ter 跨模块交互规则
+
+以下规则定义了模块间协作的硬性协议。它们不是 Interface 或 DDL 能强制表达的，但所有模块必须遵守。
+
+| 规则 ID | 规则描述 | 影响模块 |
+|---------|---------|---------|
+| XR-01 | KillSwitch 阶段变迁由 M11 唯一触发。M3 推送 TokenBurnRate 至 M11 KillSwitch FSM（唯一触发路径）。M4/M8/M13 仅读取 `polaris_killswitch_stage` Gauge 并响应，不独立触发阶段变迁。 | M3→M11→M4,M8,M13 |
+| XR-02 | SurpriseIndex 完整版由 M9 计算（依赖 MEMF），推送至 M3 Gauge。M3 内置基础版计算器（两组件，无 MEMF 依赖）作为 M9 不可用时的回退。M4 优先读完整版 → staleness >60s 回退基础版。 | M9→M3→M4 |
+| XR-03 | TaintLevel 只升不降（output = max(inputs)）。受控降级仅通过四种 Sanitizer（见 §4 [Taint-Sanitizer]）。SanitizeBySchema 对字符串字段要求 format/pattern/enum/const 内容约束，裸 {"type":"string"} 不降级。 | M11→M4,M7,M10 |
+| XR-04 | events 表与业务表的写入通过 DatabaseWriter 单写者串行化。EventWriteBuffer 为纯缓冲层，不持有独立写路径。CompositeMutationIntent 保证 events + 业务表同事务原子提交。 | M2 全模块 |
+| XR-05 | 自进化输出（M9 PromptOptimizer、M6 Logic Collapse）在合并到系统前必须通过独立 LLM-as-Judge 安全审查。审查使用与生成不同的 Provider 模型。 | M9→M11→M5, M6→M11→M5 |
+| XR-06 | 所有出站网络连接强制通过 M11 SafeDialer.DialContext。禁止裸 net.Dial / grpc.Dial / http.Get。CI safe_dialer_lint 扫描违规 → ERROR。 | M11→M1,M7,M10,M13 |
+| XR-07 | Tier 0 内存硬上限 8GB。OSMemoryGuard (M3) 与 ResourceGovernor (M13) 共享三级降级阈值（L1: 1.5GB, L2: 1.0GB, L3: 512MB）。任一组件触发降级即执行。 | M3,M13→全模块 |
+
+### [HE-Rule-1] 可观测优先
+从第 0 行代码起全链路可追溯。Token_Burn_Rate + Surprise_Index 一等公民指标。
+
+### [HE-Rule-2] 可验证执行
+禁止概率过滤充当安全边界。安全决策必须物理/密码学可验证。
+
+### [HE-Rule-3] 可组合原语
+最小可复用单元。模块间通信分两层: (a) 热路径（延迟敏感，如 LLM 推理、记忆检索）使用同步 Go interface 调用；(b) 冷路径和跨模块状态变更通过 `internal/protocol/` 结构化事件通信。两种路径均禁止字符串拼装——interface 调用使用类型安全参数，事件使用 Protobuf 序列化。
+
+### [HE-Rule-4] 数据驱动迭代
+Eval Harness 驱动自进化，所有变更需通过 CI 门控。
+
+### [HE-Rule-5] 状态机持有控制流
+Go 确定性状态机持有控制流，LLM 仅做概率性填空。禁止 `while True: call LLM` 自由流转。
+
+### [HE-Rule-6] State-in-DB
+所有状态持久化落盘。异步事件解耦跨存储状态变更。崩溃恢复从 EventLog 回放。性能关键缓存（L0 Working Memory、Wasm 技能缓存）豁免落盘——但须具备确定性崩溃重建路径（SessionResume 重建 ActiveContext；技能缓存从 SurrealDB-Core KV/SKILL.md 懒加载）。
+
+---
+
+## §3 一等公民指标
+
+### [SurpriseIndex]
+定义见 03-Observability, §4。权威计算定义见 09-Self-Improvement §2.0。
+三组件加权: `0.4 * embeddingCosineDistance + 0.35 * toolSequenceDivergence + 0.25 * MEMFMatchScore`
+权重按 task_type 独立配置（factual_lookup / how_to / temporal_reasoning / complex_reasoning / default），运行时由 M9 DynamicDifficultyCalibrator 自适应调整。
+- `toolSequenceDivergence`: Phase 1 使用工具序列编辑距离 (Levenshtein, <1ms)；Phase 2 (≥500 成功轨迹) 升级为马尔可夫转移矩阵条件概率 (1 - conditional_probability, O(1) 查表)；Phase 3 (API 暴露 logprob 后) 升级为 per-token logprob 典型度——标注"长期愿景，依赖上游 Provider 暴露 logprob，可能 2027+，主线设计假设永久停留在 Phase 2"。
+- Phase 1/2/3 为 SurpriseIndex 整体计算方式的升级路径，非仅 embedding 分量。Phase 1 是 Tier 0 默认基线。
+路由阈值: <0.3 → System 1, 0.3-0.6 → System 1.5, >0.6 → System 2。
+
+### [TokenBurnRate]
+定义见 03-Observability, §3。CANONICAL SOURCE: M3 `polaris_token_burn_rate` Gauge (EMA_5s + EMA_30s)，所有消费者（M4/M11/M13）从此单源读取，禁止独立采样。
+双窗 EMA 平滑: EMA_5s + EMA_30s。
+Stage 1: EMA_5s > baseline.P95 × 2.0 → THROTTLE (限流)。
+Stage 2: EMA_30s > baseline.P95 × 3.0 → HARD STOP (熔断)。
+Stage 3: EMA_30s > baseline.P95 × 10.0 → KillSwitch FULLSTOP。
+baseline 冷启动 (<50 calls): 固定保护值 baseline.P95 = 200 tokens/s。
+M3 暴露专用 Counter `polaris_token_burn_stage3_triggered_total`，KillSwitch 从该 Counter 边沿驱动。
+
+---
+
+## §4 安全边界
+
+### [TaintLevel]
+五级污点置信度 (定义见 11-Policy-Safety, §2.3):
+- `[Taint-None]` = 0 — 系统生成/常量
+- `[Taint-Low]` = 1 — 受信内部数据
+- `[Taint-Medium]` = 2 — LLM 摘要输出（硬地板，不可降为 Low）
+- `[Taint-High]` = 3 — 外部用户输入
+- `[Taint-UserReviewed]` = 4 — 人类显式确认
+
+### [Taint-Prop]
+污点自然传播规则: `output = max(所有输入的 TaintLevel)`，只升不降。自然传播（字符串拼接、JSON 字段合并、Protobuf 序列化等）绝不降级。[Taint-Sanitizer] 是唯一被允许执行受控降级的特权路径——四种清洗方式 (模式验证/LLM 摘要/确定性转换/用户显式确认) 各有独立降级规则和审计要求，见 11-Policy-Safety §2.5。
+
+### [Taint-Floor-Medium]
+LLM 摘要的最低 TaintLevel 为 TaintMedium。摘要可破坏注入指令的文本连续性，但无法保证消除跨语言/编码混淆的结构化注入载荷。
+
+### [Taint-Sanitizer]
+四种清洗方式 (11-Policy-Safety, §2.5):
+1. 模式验证（确定性转换白名单）→ 可降至 TaintNone
+2. LLM 摘要清洗 → 最低 TaintMedium（硬地板）
+3. 确定性转换（黑名单移除）→ 降一级
+4. 用户显式确认 → TaintUserReviewed
+
+### [Cedar-Gate]
+Cedar 策略引擎 (定义见 11-Policy-Safety, §3)。Rust CGO-Free FFI (purego，ABI 1.0，校验机制见 `internal/protocol/ffi-abi.md §7`)，<1ms 评估延迟，deny-by-default + 形式化验证 (Lean)。策略变更需审批流程。
+
+### [KillSwitch]
+三阶段紧急停止协议 (11-Policy-Safety, §4):
+Phase 1 THROTTLE → Phase 2 PAUSE → Phase 3 FULLSTOP
+`.fullstop` 持久状态文件防守护进程重启循环。密封模式 + `POST /_admin/unseal` 恢复。
+
+### [ESCALATE]
+人工审批协议 (11-Policy-Safety, §4.4)。HITLGateway (13-Interface-Scheduler, §2.4) 实现审批网关。
+
+### [SSRFGuard]
+5 阶段 SSRF/DNS Rebinding 防护 (11-Policy-Safety, §6):
+阶段 1 URL 解析 → 阶段 2 IP 校验 → 阶段 3 DNS 解析 + TOCTOU 消除 → 阶段 3.5 响应大小上限(>20 IP 拒绝) → 阶段 4 网络出口 Capability Token 强制执行。
+
+---
+
+## §5 沙箱层级
+
+### [Sandbox-L1]
+进程内受信工具，零隔离。仅限内置确定性工具（如字符串处理、JSON 解析）。
+
+### [Sandbox-L2]
+wazero Wasm deny-by-default (定义见 07-Tool-Action-Layer, §4.3)。WASI 权限矩阵，资源硬限制(RAM/CPU/Walltime)，Workspace Bridge 文件系统代理。
+
+### [Sandbox-L3]
+gVisor (runsc) 用户态内核 sandbox (定义见 07-Tool-Action-Layer, §4.7)。跨平台（Linux/macOS/Windows），sentry 拦截 syscall，~30-50MB 基线。Tier 2+ Linux 可选 Firecracker microVM 升级（~125MB，需硬件 KVM，最高隔离级别）。Tier 0 全平台 L3 不可用（内存不足以启动 gVisor sandbox ≥256MB）。
+
+### [Sandbox-Tier0-macOS]
+L2 Wasm + macOS Apple Sandbox profiles (`sandbox-exec`)。
+
+### [Sandbox-Tier0-Windows]
+L2 Wasm + Windows Job Objects (AppContainer)。
+
+---
+
+## §6 存储引擎
+
+### [Storage-SQLite]
+WAL 模式，真相源 + EventLog session_events 表。所有写入必须通过 MutationBus DatabaseWriter 单写者。含 FTS5 全文检索。
+
+### [Storage-SurrealDB-Core]
+统一的多模态认知存储侧车（Rust FFI via purego，ABI 1.0）。内置 KV 存储、HNSW 向量检索、BM25 全文检索及图计算引擎。
+
+
+### [Storage-Router]
+统一接口路由 (02-Storage-Fabric, §1.2)。Store 接口: Get/Put/Delete/Scan/BatchWrite/Txn/Capabilities/Close。路由规则匹配最优引擎，SQLite 兜底。
+
+---
+
+## §7 模块拓扑
+
+### [Module-Topology]
+```
+L0 基础设施: M1(Inference) M2(Storage) M3(Observability) M11(Policy-Safety)
+L1 认知核心: M4(Agent-Kernel) M5(Memory) M6(Skill) M7(Tool-Action)
+L2 协同学习: M8(Orchestrator) M9(Self-Improve) M10(Knowledge-RAG)
+L3 治理接口: M12(Eval-Harness) M13(Interface-Scheduler)
+```
+
+### [Code-Package-Mapping]
+```
+pkg/substrate/  → M1, M2, M3, M11
+pkg/cognition/  → M4, M5, M6
+pkg/action/     → M7
+pkg/swarm/      → M8, M9, M10
+pkg/governance/ → M12
+pkg/edge/       → M13
+internal/       → protocol, config, errors
+rust/substrate/ → Rust FFI 性能路径
+```
+M7 物理归属 `pkg/action/`（执行层：工具注册、沙箱、MCP 双向）。M7 的核心接口（Tool 类型、CapabilityLevel、ToolRegistry 接口）由 `pkg/cognition/` 中的 M4 通过 Go interface 消费——此为单向依赖 `cognition → action`，不构成循环引用。
+
+---
+
+## §8 跨模块共享接口
+
+### [EventLog]
+events 表 (02-Storage-Fabric, §2.1)。系统唯一真相源，所有模块的事件持久化入口。物理表名 `events`，DDL 见 M2 §2.1。
+
+**不可变性边界**: `events` 表为不可变真相源（仅 INSERT，由 M11 hash chain 保护）。派生投影表（`episodic_events` / `decision_log` / `audit_log` 等）可变操作仅限受控字段白名单（`archived`, `decay_weight`, `salience`, `archive_offset`），且每次受控字段变更须写入对应的 `*_change_log` 表（再由该 log 表参与 hash chain）。禁止原位 UPDATE 真相源 events 表。
+
+M5 `episodic_events` 为 events 的派生投影表（记忆检索优化），两者通过 `idempotency_key` 关联。M11 hash chain 覆盖范围: `events` 表全字段 + 各派生表的 `*_change_log` 表。
+
+### [MutationBus]
+串行写总线 (02-Storage-Fabric, §2.3)。DatabaseWriter 单写者。CompositeMutationIntent 支持多表原子提交（Outbox 模式）。
+
+### [Blackboard]
+多 Agent 协调黑板 (08-Multi-Agent-Orchestrator, §1)。CAS 原子认领，Lease TTL 60s，心跳 15s±5s jitter，Reaper 1s 扫描。
+
+### [Wasm-Sandbox]
+wazero 执行环境 (07-Tool-Action-Layer, §4.3)。deny-by-default，WASI 权限矩阵。M6 分层预加载配置: Gold(预编译常驻)/Silver(懒编译常驻)/Bronze(按需编译 30min TTL)。Tier 0 上限: 5/20/25。
+
+### [CredentialVault]
+凭证安全存储 (11-Policy-Safety, §5.2)。OS 密钥链适配: macOS Keychain / Linux SecretService / Windows Credential Manager。API Key SHA-256 加密封箱。
+
+**persistent_key 轮换协议**: 用户主动触发 `polaris vault rotate-master-key` → 后台分批解密旧 HMAC/Workspace → 新 key 重加密 → 双 key 共存窗口（新写新 key，读时尝试新 → 旧 fallback）→ 完成后旧 key 销毁。冷启动决策树: GUI 桌面→OS Keychain; headless Linux→age-encrypted file (密码通过 stdin 或 POLARIS_VAULT_PASSPHRASE 环境变量，启动后立即清零); Docker→挂载 secrets volume。
+
+### [PIIGuard]
+PII 检测与红化 (11-Policy-Safety, §5.1)。Tier 0 使用 Go 原生正则检测（零外部依赖，<1ms），仅覆盖结构化 PII 模式（信用卡号/SSN/API Key/邮箱/手机号/IP 地址），非结构化 PII（姓名/地址/雇主/医疗/生物特征等）不在 Tier 0 保护范围。可选 Presidio sidecar 仅在 Tier 1+ 显式启用时用于高精度 NER 检测。SessionPIIVault 加密存储原文，SecureUnredact 仅在审计回放时解密。用户首次进入处理 PII 数据的场景（如开启 Notion/Gmail Connector）时，系统主动告警 Tier 0 PII 防护范围。
+
+---
+
+## §9 模块速记标识
+
+- `[M1]` Inference-Runtime (01)
+- `[M2]` Storage-Fabric (02)
+- `[M3]` Observability (03)
+- `[M4]` Agent-Kernel (04)
+- `[M5]` Memory-System (05)
+- `[M6]` Skill-Library (06)
+- `[M7]` Tool-Action-Layer (07)
+- `[M7-A2A]` M7 A2A 适配器 (§2)
+- `[M7-Tool]` M7 ToolRegistry.ExecuteTool
+- `[M8]` Multi-Agent-Orchestrator (08)
+- `[M9]` Self-Improvement-Engine (09)
+- `[M10]` Knowledge-RAG (10)
+- `[M11]` Policy-Safety (11)
+- `[M12]` Eval-Harness (12)
+- `[M13]` Interface-Scheduler (13)
+
+## §9-bis 核心机制速记
+
+- `[PrivacyTier]`: 四级隐私分级: PrivacyPublic=0 / PrivacySession=1 / PrivacyLocal=2 / PrivacyEncrypted=3。定义见 M5 §2.3。
+- `[ReplayMode]`: 进程级 atomic.Bool。true 时 M4/M5/M11 统一进入回放模式（禁止所有外部副作用: EmitEvent/ToolCall/Outbox）。M4 §8 / M5 §2.1 各自显式说明进入和退出时机。
+- `[Idempotency-Key]`: 格式 `{target_engine}:{entity_type}:{entity_id}:{operation}:{version}`。跨模块共享的去重机制，见 M2 §2.5。
+
+- `[System-1]`: 零 LLM 推理路径，SurpriseIndex < 0.3。Wasm 技能缓存亚毫秒直接执行。定义见 M4 §5。
+- `[System-1.5]`: 轻量 LLM 推理，0.3 ≤ SurpriseIndex < 0.6。Tier 1 Budget API。
+- `[System-2]`: 重量 LLM 推理，SurpriseIndex ≥ 0.6。Tier 2/3 Reasoning API。
+- `[Logic-Collapse]`: System 2 成功轨迹 → LLM 编译为 Wasm 技能 → System 1 缓存。定义见 M6 §2.2。
+- `[MEMF]`: 谬误记忆池 (FallacyMemoryPool)。失败轨迹向量化打标存入专用池，MCTS/Best-of-N 剪枝前做相似度过滤。定义见 M9 §2.1。
+- `[HeuristicsMemory]`: 成功启发式库。`task_type → []Heuristic`，检索时注入 prompt 引导。定义见 M9 §2.1。
+- `[HybridRetriever]`: BM25 + Dense Vector + 图遍历三路并行召回 → RRF(k=60) 融合 → Cross-encoder 重排。M5 和 M10 共享 `pkg/substrate/hybrid_retrieve.go` 底层引擎，检索范围和配置参数各自独立。
+- `[RRF]`: 倒数排名融合 (Reciprocal Rank Fusion)。公式: `weight / (k + rank + 1)`, k=60。多路检索结果归一化融合算法。
+- `[ProgressiveRollout]`: 1% → 5% → 25% → 50% → 100% 流量渐进式发布。M9 决策阶段推进，M13 TrafficSplitter 执行分发，M12 ShadowExecutor 对比评估。
+- `[GEPA]`: 遗传-Pareto 反射式进化 (Genetic-Pareto-Evolutionary-Algorithm)。PromptOptimizer 三融合算法之一，种群 8 × 5 代 Pareto 前沿搜索。定义见 M9 §1.1。
+- `[MemAPO]`: 双记忆跨任务复用 Prompt 优化。PromptOptimizer 三融合算法之二。
+- `[ContraPrompt]`: 对比轨迹 Prompt 优化。PromptOptimizer 三融合算法之三。
+- `[BFS-Traverse]`: 有界广度优先图遍历 (depth=2, maxNeighborsPerHop=20, maxTotalNodes=200)。关联发现模式使用 [Spreading-Activation]。
+- `[Spreading-Activation]`: 扩散激活图遍历。种子实体 energy=1.0，每轮 ×edge.weight 传播，自身 ×0.5 衰减，≤0.05 停止，最多 5 轮。
+- `[Connector-Taint-Table]`: Connector 源 TaintLevel 初始等级映射表（见 M11 §2.4）。ConnectorScheduler 在 Ingest 前按此表为每个外部数据源打标。
+- `[Context-Engineering]`: 上下文工程 — 上下文窗口是有限预算，"放什么"比"怎么写"更重要。物理载体: M5 ContextAssembler 三 Zone（ZoneImmutable/ZoneMutableSkill/ZoneTaintedData）+ ImmutableCore + Spotlighting。区别于 Prompt Engineering（关注单次提示措辞），Context Engineering 关注跨轮次/跨任务的上下文构造、压缩、分区、来源标注。参考 Anthropic *Effective context engineering*（2025）。
+- `[Compaction]`: 上下文压缩 — 长程任务必须显式压缩中间状态，否则推理质量随上下文长度衰减（lost-in-the-middle）。M5 触发条件: topic shift / eventCount≥50 / sessionClosed。压缩后保留 EventLog 原始事件不变，仅压缩派生 Episodic Memory 投影。
+- `[Sub-agent-Isolation]`: 子 Agent context 隔离 — 多 Agent 系统中每个 Agent 持有独立 ContextAssembler 与 context window，禁止共享父 Agent 完整上下文。Agent 间仅通过 M8 黑板的结构化 result entry 交换（schema 强制），避免上下文污染与 token 膨胀。
+- `[Workflow-Agent-Ladder]`: 工作流-Agent 升级阶梯 — 简单任务直接 LLM 调用 → 可预测流程用确定性 workflow → 动态长程才用 Agent。Polaris 物理映射: Skill Library System 1（零 LLM）→ System 1.5（单次 LLM）→ System 2（多步 Agent）。按必要性升级，避免简单任务过度构建 Agent 系统。
+- `[Staging-Pipeline]`: 自进化候选 staging 流水线。权威定义见 [ARCHITECTURE §3](./ARCHITECTURE.md)。任一阶段失败 → rejected / rolled_back / dead_letter。safety case 一票否决: newly_failing safety = regress。
+
+## §9-ter 推理时计算（Test-Time Compute）
+
+> 与 [System-1/1.5/2]（任务难度维度）正交，独立的"推理深度"维度。本节即权威定义。
+
+- `[ReasoningEffort]`: Provider 抽象层一等公民字段，枚举 `low` / `medium` / `high`。M1 Provider Interface 将其映射至底层 API（o3 `reasoning_effort` / DeepSeek R1 `reasoning_budget` / Claude `thinking.budget_tokens`）。**与 task 难度无关**——同一 task 可在不同 effort 下执行。定义见 M1 §X。
+- `[ReasoningTokens]`: Provider 返回的 usage 字段，与 `output_tokens` 分计。计入 [TokenBurnRate] 总量但单独导出 Prometheus Gauge `polaris_reasoning_tokens_total`。
+- `[ReasoningState]`: 跨轮 reasoning 状态持久化。物理载体为 M5 `episodic_events.reasoning_state` 列（msgpack 加密 blob），用于推理模型多轮间继承思维链。Tier 0 默认 off（成本控制），Tier 1+ 启用。定义见 M5 §X。
+- `[BestOfN]`: M4 可选执行模式。同一 query 用 `temperature>0` 并行采样 N 次（默认 N=3），由 [Verifier] 选最优。Cedar 策略 `permit when context.task_priority >= 1` 限制（高优任务才用）。定义见 M1 §X。
+- `[SelfConsistency]`: BestOfN 的聚合策略——N 个采样结果做多数投票（结构化输出）或语义聚类（自由文本）。区别于 BestOfN 的"挑最优"，SelfConsistency 是"投票"。
+- `[TTC]`: Test-Time Compute 统称，覆盖 ReasoningEffort / BestOfN / SelfConsistency / 推理时搜索。运行成本 = N × ReasoningTokens × 单价。
+
+## §9-quater 第六防线与即时执行
+
+- `[FactualityGuard]`: 安全防线 D6（与 D1~D5 同等级），守护 LLM 输出的事实性。运行时抽样 5%（可配）经 [CitationValidator] + 数值一致性检查。检测到 hallucination → 标记 `TaintLevel` 强制升至 [Taint-Medium] + 触发 LLM-as-Judge 二次裁决。完整定义见 M11 §X。
+- `[CitationValidator]`: 引用核验器。M10 RAG 输出强制附带 `chunk_id` 引用；FactualityGuard 抽样验证引用 chunk 真实包含输出主张。定义见 M10 §4.X。
+- `[CodeAct]`: 即时代码执行行动空间。区别于 [Logic-Collapse]（沉淀型 Wasm 技能）与 LLMGenerated wasm（走 staging 流水线）——CodeAct 是**单次 ad-hoc 代码 + 立即执行**。强制 [Sandbox-L3]（HT0 不可用）+ Capability Token + Audit。定义见 M7 §X。
+
+## §9-quinquies 中断与漂移
+
+- `[UserInterrupt]`: 用户中断协议。M13 `POST /v1/agent/{taskID}/interrupt` 触发 M4 状态机进入 S_INTERRUPT（10 态扩为 11 态）。< 200ms 内传播 context.Cancel 至所有运行 LLM 调用与工具调用。与 [KillSwitch] FULLSTOP 同等优先级但作用域为单任务。定义见 M4 §1, M13 §1。
+- `[ReflectionMemory]`: 反思记忆。区别于 Episodic（事件流水）与 Semantic（事实图谱）——是 Agent 自身对"做了什么 + 学到什么"的元认知摘要。M5 §3.X 新表 `reflection_memory` 存储；触发: 任务终态 + Session 关闭 + 失败 reflection。区别于 M9 PersonaRefiner（用户画像更新）。
+- `[PerformanceDrift]`: 运行时任务质量漂移检测。M3 滑窗 [Window-Quality-10min] 统计任务成功率，对比 RollingBaseline（24h EMA），偏离 >2σ → WARN，>3σ → CRITICAL + 候选 [KillSwitch] Stage 1。区别于 M12 RegressionDetector（CI 触发的离线检测）。定义见 M3 §X。
+
+---
+
+## §10 标准化时间窗常量
+
+| 标签 | 时长 | 用途 |
+|------|------|------|
+| `[Window-Burst-30s]` | 30s | 突发检测 (TokenBurnRate Stage 3 / KillSwitch BurnRateFuse) |
+| `[Window-Pressure-30s]` | 30s | 资源压力 (OSMemoryGuard / MonitorMemoryPressure 滑窗) |
+| `[Window-Quality-10min]` | 10min | 质量趋势 (ContinuousSamplingMonitor 检查间隔) |
+| `[Window-Drift-7d]` | 7d | 嵌入漂移 (DriftDetector 检查间隔) |
+
+所有 30s 滑窗统一由此常量定义，各模块引用标签而非硬编码时长。
+
+## §10-bis TaintLevel 数据表示规范
+
+Go 内存内统一为 `pkg/substrate/taint.go` 的 `TaintLevel` 枚举类型 (int)。持久化层 (SQL/Protobuf) 统一为 `INT2 0-4`，禁止 `TEXT 'medium'/'high'` 字符串编码。跨模块文档统一使用 `[TaintLevel]` 标签引用，禁止裸用 `INT 0-4` 描述。
+
+## §11 标签引用规范
+
+- 所有 `[Concept-Name]` 标签必须能在本文档中找到定义
+- 子模块文档使用标签引用替代展开解释
+- 标签首次出现时可附带简短提示，后续出现仅写标签
+- 格式: `[HE-Rule-5]` / `[Taint-Medium]` / `[Tier-0-Limit]` / `[SurpriseIndex]`
+
+## §12 标签→实现文件追溯
+
+每个标签指向其权威实现文件（DDL/接口/常量定义）。架构文档仅保留设计决策和不变量，实现细节以以下文件为准：
+
+| 标签 | 权威实现 |
+|------|---------|
+| `[EventLog]` | `internal/protocol/schema/001_events.sql` |
+| `[MutationBus]` | `internal/protocol/schema/002_outbox.sql` + `internal/protocol/intent.go` |
+| `[Storage-SQLite]` / `[Storage-SurrealDB-Core]` / `[Storage-Router]` | `internal/protocol/interfaces.go` (Store) |
+| `[HybridRetriever]` / `[RRF]` | 接口定义: `internal/protocol/interfaces.go` (HybridRetriever)；实现: `pkg/substrate/hybrid_retrieve.go` |
+| `[Wasm-Sandbox]` | `internal/protocol/interfaces.go` (SkillExecutor) |
+| `[Cedar-Gate]` | `internal/protocol/interfaces.go` (PolicyGate) |
+| `[Blackboard]` | `internal/protocol/interfaces.go` (Blackboard) |
+| `[TaintLevel]` / `[Taint-Prop]` | `internal/protocol/intent.go` (TaintLevel) |
+| `[SSRFGuard]` | `internal/protocol/interfaces.go` (SafeDialer) |
+| `[TokenBurnRate]` | `pkg/substrate/burn_rate.go` (EMA 计算 + 熔断) |
+| `[SurpriseIndex]` | `pkg/substrate/observability/metrics.go` (Prometheus Gauge) / `pkg/swarm/surprise.go` (M9 完整版推送) |
+| `[KillSwitch]` | `pkg/substrate/killswitch.go` (FSM + 阶段变迁) |
+| `[Taint-Sanitizer]` | `pkg/substrate/taint.go` (TaintedString / SafeString / Sanitize) |
+| 各模块 DDL | `internal/protocol/schema/001-006_*.sql` (架构 DDL 含中文注释) |
+
+---
+
+## §13 标识符↔概念映射表(命名一致性 SSoT)
+
+命名规范统一在 [`docs/specs/00-Constitution.md §R2`](../specs/00-Constitution.md) 维护(动词/名词/量纲/错误码/指标 5 张表)。本字典 §12 [标签→实现文件追溯] 仍是概念→代码的查阅源。

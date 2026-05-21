@@ -1,0 +1,67 @@
+<!-- 审批页 -->
+    <div x-show="$store.nav.page === 'approvals'" x-cloak class="page-container">
+      <div class="page-header">
+        <div class="page-title" x-text="$store.i18n.t('approvals_title')"></div>
+        <div class="page-subtitle" x-text="$store.i18n.t('approvals_subtitle')"></div>
+      </div>
+
+      <div class="warning-banner" x-show="$store.approvals.pollFailures >= 3" x-cloak
+           x-text="$store.i18n.t('approvals_unreachable')">
+      </div>
+
+      <div class="empty-state" x-show="$store.approvals.list.length === 0 && $store.approvals.pollFailures < 3">
+        <svg fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"/>
+        </svg>
+        <h3 x-text="$store.i18n.t('approvals_empty_title')"></h3>
+        <p x-text="$store.i18n.t('approvals_empty_hint')"></p>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <template x-for="req in $store.approvals.list" :key="req.id">
+          <div class="approval-card" :class="`risk-${req.risk_level || 'medium'}`"
+               x-data="{ remaining: 0, _ti: null, comment: '',
+                 init() {
+                   const tick = () => { this.remaining = req._remainingMs() }
+                   tick(); this._ti = setInterval(tick, 1000)
+                   this.$cleanup = () => clearInterval(this._ti)
+                 }
+               }">
+            <div class="approval-header">
+              <div>
+                <div style="font-weight:600;margin-bottom:4px" x-text="req.action"></div>
+                <div style="font-size:11px;color:var(--color-text-dim)" x-text="`Agent: ${req.agent_id || req.agentID}  ·  ${req.id?.slice(0,12)}`"></div>
+              </div>
+              <span class="risk-badge" :class="req.risk_level || 'medium'"
+                    x-text="(req.risk_level || 'medium').toUpperCase()"></span>
+            </div>
+
+            <div class="approval-body">
+              <p style="font-size:13px;color:var(--color-text-dim);white-space:pre-wrap" x-text="req.detail"></p>
+              <div style="margin-top:10px">
+                <input type="text" name="approval-comment" aria-label="审批备注" placeholder="备注（可选）" x-model="comment"
+                  style="width:100%;padding:6px 10px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;color:var(--color-text);font-size:12px;outline:none" />
+              </div>
+            </div>
+
+            <div class="approval-footer">
+              <span class="countdown"
+                :class="remaining > 60000 ? 'ok' : remaining > 0 ? 'warn' : 'expired'"
+                x-text="remaining > 0
+                  ? `⏱ ${Math.floor(remaining/60000)}:${String(Math.floor((remaining%60000)/1000)).padStart(2,'0')}`
+                  : '⌛ 已超时'">
+              </span>
+              <div style="display:flex;gap:8px">
+                <button class="btn btn-danger btn-sm" @click="$store.approvals.resolve(req.id, 'deny', comment)"
+                        x-text="$store.i18n.t('approvals_deny')">
+                </button>
+                <button class="btn btn-primary btn-sm" :disabled="remaining <= 0"
+                        @click="$store.approvals.resolve(req.id, 'approve', comment)"
+                        x-text="$store.i18n.t('approvals_approve')">
+                </button>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div><!-- /approvals -->

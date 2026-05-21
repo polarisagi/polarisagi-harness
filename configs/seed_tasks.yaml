@@ -1,0 +1,54 @@
+# Seed tasks for Auto-Curriculum Day 0 cold start.
+# Each task_type needs at least 1-2 standardized queries before
+# Surprise_Index × Novelty routing can take over.
+
+tasks:
+  - id: seed-001
+    type: code_review
+    query: "Review main.go for concurrency issues"
+    expected_tools: [file_read, code_review]
+
+  - id: seed-002
+    type: code_search
+    query: "Find all error handling patterns in the project"
+    expected_tools: [file_search, code_review]
+
+  - id: seed-003
+    type: file_operation
+    query: "Read configs/defaults.yaml and summarize the storage configuration"
+    expected_tools: [file_read, text_summarize]
+
+  - id: seed-004
+    type: data_query
+    query: "List all tasks from the task database that are pending"
+    expected_tools: [data_query]
+
+  - id: seed-005
+    type: text_processing
+    query: "Extract all function names from cmd/polaris/main.go"
+    expected_tools: [file_read, text_extract, regex_match]
+
+  - id: seed-006
+    type: web_operation
+    query: "Fetch the README from github.com/anthropics/claude-code and summarize it"
+    expected_tools: [web_fetch, text_summarize]
+
+  - id: seed-007
+    type: git_operation
+    query: "Show the most recent 5 commits and their changes"
+    expected_tools: [git_diff]
+
+  - id: seed-008
+    type: template
+    query: "Render a project status report template with the current date"
+    expected_tools: [template_render]
+
+  - id: seed-009
+    type: translation
+    query: "Translate the README.md introduction to Chinese"
+    expected_tools: [file_read, text_translate, file_write]
+
+  - id: seed-010
+    type: multi_step
+    query: "Find all .go files, review each for potential bugs, and write a summary report"
+    expected_tools: [file_search, file_read, code_review, text_summarize, file_write]

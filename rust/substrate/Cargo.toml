@@ -1,0 +1,15 @@
+[package]
+name = "substrate"
+version = "0.1.0"
+edition = "2021"
+description = "Polaris Harness — Rust performance-critical path (FFI/sidecar)"
+
+[dependencies]
+# Embedding computation (SIMD)
+bytemuck = "1"
+# Zero-copy serialization for Go<->Rust vector transfer
+capnp = "0.25.3"
+cedar-policy = "4.10.0"
+
+[lib]
+crate-type = ["staticlib", "cdylib"]

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "path": { "type": "string", "description": "Absolute path to the file" },
+    "encoding": { "type": "string", "default": "utf-8" },
+    "offset": { "type": "integer", "default": 0 },
+    "limit": { "type": "integer", "default": -1 }
+  },
+  "required": ["path"]
+}

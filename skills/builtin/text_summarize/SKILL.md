@@ -1,0 +1,17 @@
+---
+name: text_summarize
+version: "1.0.0"
+risk_level: low
+sandbox: L1
+capability: read-only
+---
+
+# Text Summarize
+
+Generate a concise summary of input text using the configured reasoning model.
+
+## Precondition
+- Input text must be non-empty
+
+## Postcondition
+- Summary text returned

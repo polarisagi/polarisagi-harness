@@ -1,0 +1,85 @@
+<!-- ─────── 评测套件页（Eval Harness） ──────────────── -->
+    <div x-show="$store.nav.page === 'eval'" x-cloak class="page-container">
+      <div class="max-w-5xl mx-auto w-full flex flex-col min-h-full">
+      <div class="page-header">
+        <div>
+          <div class="page-title" x-text="$store.i18n.t('eval_title')"></div>
+          <div class="page-subtitle" x-text="$store.i18n.t('eval_subtitle')"></div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select name="eval-suite" aria-label="Suite" class="form-select" style="width:auto"
+                  x-model="$store.eval.suite">
+            <option value="training" x-text="$store.i18n.t('eval_suite_training')"></option>
+            <option value="validation" x-text="$store.i18n.t('eval_suite_validation')"></option>
+          </select>
+          <button class="btn btn-primary btn-sm" @click="$store.eval.run()"
+                  :disabled="$store.eval.running"
+                  x-text="$store.eval.running ? $store.i18n.t('eval_running') : $store.i18n.t('eval_run')"></button>
+        </div>
+      </div>
+
+      <!-- 加载中 -->
+      <div x-show="$store.eval.running && !$store.eval.report" class="empty-state">
+        <div class="spinner" style="width:32px;height:32px;margin:0 auto 12px"></div>
+        <p x-text="$store.i18n.t('eval_running')"></p>
+      </div>
+
+      <!-- 当前报告 -->
+      <template x-if="$store.eval.report">
+        <div style="background:var(--color-surface);border:1px solid var(--color-border);border-radius:8px;padding:20px;margin-bottom:16px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <span style="font-weight:600;font-size:14px" x-text="'Suite: ' + $store.eval.report.suite"></span>
+            <span :style="$store.eval.statusClass($store.eval.report.status)"
+                  x-text="$store.eval.statusLabel($store.eval.report.status)"></span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px">
+            <div class="stat-card" style="background:var(--color-surface-raised);padding:12px;border-radius:8px;text-align:center">
+              <div style="font-size:24px;font-weight:700" x-text="$store.eval.report.total_cases"></div>
+              <div style="font-size:11px;color:var(--color-text-dim);margin-top:4px" x-text="$store.i18n.t('eval_total')"></div>
+            </div>
+            <div class="stat-card" style="background:var(--color-surface-raised);padding:12px;border-radius:8px;text-align:center">
+              <div style="font-size:24px;font-weight:700;color:var(--color-success)" x-text="$store.eval.report.pass_count"></div>
+              <div style="font-size:11px;color:var(--color-text-dim);margin-top:4px" x-text="$store.i18n.t('eval_pass')"></div>
+            </div>
+            <div class="stat-card" style="background:var(--color-surface-raised);padding:12px;border-radius:8px;text-align:center">
+              <div style="font-size:24px;font-weight:700;color:var(--color-error)" x-text="$store.eval.report.fail_count"></div>
+              <div style="font-size:11px;color:var(--color-text-dim);margin-top:4px" x-text="$store.i18n.t('eval_fail')"></div>
+            </div>
+            <div class="stat-card" style="background:var(--color-surface-raised);padding:12px;border-radius:8px;text-align:center">
+              <div style="font-size:24px;font-weight:700;color:var(--color-warning)" x-text="$store.eval.report.safety_fail"></div>
+              <div style="font-size:11px;color:var(--color-text-dim);margin-top:4px" x-text="$store.i18n.t('eval_safety_fail')"></div>
+            </div>
+            <div class="stat-card" style="background:var(--color-surface-raised);padding:12px;border-radius:8px;text-align:center">
+              <div style="font-size:24px;font-weight:700" :style="'color:' + ($store.eval.passRate($store.eval.report) >= 80 ? 'var(--color-success)' : 'var(--color-error)')"
+                   x-text="$store.eval.passRate($store.eval.report) + '%'"></div>
+              <div style="font-size:11px;color:var(--color-text-dim);margin-top:4px" x-text="$store.i18n.t('eval_pass_rate')"></div>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <!-- 无结果 -->
+      <div x-show="!$store.eval.running && !$store.eval.report && $store.eval.history.length === 0" class="empty-state">
+        <div style="font-size:32px;margin-bottom:12px">🧪</div>
+        <div x-text="$store.i18n.t('eval_no_results')"></div>
+      </div>
+
+      <!-- 历史记录 -->
+      <template x-if="$store.eval.history.length > 0">
+        <div style="margin-top:16px">
+          <div style="font-weight:600;font-size:13px;margin-bottom:8px" x-text="$store.i18n.t('eval_history')"></div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <template x-for="h in $store.eval.history" :key="h._runAt">
+              <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;background:var(--color-surface);border-radius:6px;font-size:12px">
+                <span style="font-weight:600;width:80px;flex-shrink:0" x-text="h.suite"></span>
+                <span :style="$store.eval.statusClass(h.status)" x-text="$store.eval.statusLabel(h.status)"></span>
+                <span style="color:var(--color-text-dim)" x-text="h.pass_count + '/' + h.total_cases + ' passed'"></span>
+                <span style="color:var(--color-text-dim);margin-left:auto" x-text="new Date(h._runAt).toLocaleString()"></span>
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
+
+      </div>
+    </div><!-- /eval -->

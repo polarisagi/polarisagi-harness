@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "message": { "type": "string" },
+    "files": { "type": "array", "items": { "type": "string" } },
+    "all": { "type": "boolean", "default": false },
+    "signoff": { "type": "boolean", "default": true }
+  },
+  "required": ["message"]
+}

@@ -1,0 +1,687 @@
+package action
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"io"
+	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"regexp"
+	"strings"
+	"time"
+
+	"fmt"
+
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
+	"github.com/mrlaoliai/polaris-harness/internal/protocol"
+	polartool "github.com/mrlaoliai/polaris-harness/pkg/action/tool"
+)
+
+// RegisterBuiltinTools 注册所有内置工具到 sandbox 与 registry，并绑定 InProcessSandbox 为执行器。
+// 内置工具均在 InProcessSandbox 中执行（CapReadOnly 或 CapWriteLocal），无需 Wasm。
+// 安全约束由 PolicyGate 前置校验 + 路径白名单双重保证。
+// 调用方式: 系统启动时调用一次（非线程安全）。
+func RegisterBuiltinTools(
+	sandbox *InProcessSandbox,
+	toolReg *polartool.InMemoryToolRegistry,
+	allowedPaths []string, // 文件系统路径白名单（read_file/list_dir/write_file 均受限）
+	dialer protocol.SafeDialer,
+) error {
+	tools := []struct {
+		meta protocol.Tool
+		fn   InProcessFn
+	}{
+		{
+			meta: protocol.Tool{
+				Name:        "read_file",
+				Description: "读取本地文件内容（仅限白名单路径）",
+				Version:     "1.0.0",
+				Capability:  protocol.CapReadOnly,
+				SideEffects: []protocol.SideEffect{protocol.SideNone},
+				RiskLevel:   protocol.RiskLow,
+				SandboxTier: protocol.SandboxInProcess,
+				Source:      protocol.ToolBuiltin,
+			},
+			fn: makeReadFileFn(allowedPaths),
+		},
+		{
+			meta: protocol.Tool{
+				Name:        "list_dir",
+				Description: "列出目录内容（仅限白名单路径）",
+				Version:     "1.0.0",
+				Capability:  protocol.CapReadOnly,
+				SideEffects: []protocol.SideEffect{protocol.SideNone},
+				RiskLevel:   protocol.RiskLow,
+				SandboxTier: protocol.SandboxInProcess,
+				Source:      protocol.ToolBuiltin,
+			},
+			fn: makeListDirFn(allowedPaths),
+		},
+		{
+			meta: protocol.Tool{
+				Name:        "write_file",
+				Description: "追加或覆写本地文件（仅限白名单路径，需 CapWriteLocal 权限）",
+				Version:     "1.0.0",
+				Capability:  protocol.CapWriteLocal,
+				SideEffects: []protocol.SideEffect{protocol.SideFileWrite},
+				RiskLevel:   protocol.RiskMedium,
+				SandboxTier: protocol.SandboxInProcess,
+				Source:      protocol.ToolBuiltin,
+			},
+			fn: makeWriteFileFn(allowedPaths),
+		},
+		{
+			meta: protocol.Tool{
+				Name:        "fetch_url",
+				Description: "获取公开 URL 内容（SSRFGuard 五阶段校验，禁止内网 CIDR）",
+				Version:     "1.0.0",
+				Capability:  protocol.CapWriteNetwork,
+				SideEffects: []protocol.SideEffect{protocol.SideNetworkCall},
+				RiskLevel:   protocol.RiskMedium,
+				SandboxTier: protocol.SandboxInProcess,
+				Source:      protocol.ToolBuiltin,
+			},
+			fn: makeFetchURLFn(dialer),
+		},
+		{
+			meta: protocol.Tool{
+				Name:        "bash",
+				Description: "执行受控的 Bash shell 命令 (仅限于指定白名单工作目录内运行)",
+				Version:     "1.0.0",
+				Capability:  protocol.CapWriteLocal,
+				SideEffects: []protocol.SideEffect{protocol.SideFileWrite},
+				RiskLevel:   protocol.RiskHigh,
+				SandboxTier: protocol.SandboxInProcess,
+				Source:      protocol.ToolBuiltin,
+			},
+			fn: makeBashFn(allowedPaths),
+		},
+		{
+			meta: protocol.Tool{
+				Name:        "get_datetime",
+				Description: "返回当前日期和时间（UTC + 本地时区）",
+				Version:     "1.0.0",
+				Capability:  protocol.CapReadOnly,
+				SideEffects: []protocol.SideEffect{protocol.SideNone},
+				RiskLevel:   protocol.RiskLow,
+				SandboxTier: protocol.SandboxInProcess,
+				Source:      protocol.ToolBuiltin,
+				InputSchema: map[string]any{"type": "object", "properties": map[string]any{}},
+			},
+			fn: getDatetimeFn,
+		},
+		{
+			meta: protocol.Tool{
+				Name:        "csv_parse",
+				Description: "解析 CSV 文本，返回 JSON 数组（每行一个对象，key 取自首行表头）",
+				Version:     "1.0.0",
+				Capability:  protocol.CapReadOnly,
+				SideEffects: []protocol.SideEffect{protocol.SideNone},
+				RiskLevel:   protocol.RiskLow,
+				SandboxTier: protocol.SandboxInProcess,
+				Source:      protocol.ToolBuiltin,
+				InputSchema: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"csv": map[string]any{"type": "string", "description": "CSV 格式文本"},
+					},
+					"required": []string{"csv"},
+				},
+			},
+			fn: csvParseFn,
+		},
+		{
+			meta: protocol.Tool{
+				Name:        "diff_text",
+				Description: "计算两段文本的 unified diff（逐行差异）",
+				Version:     "1.0.0",
+				Capability:  protocol.CapReadOnly,
+				SideEffects: []protocol.SideEffect{protocol.SideNone},
+				RiskLevel:   protocol.RiskLow,
+				SandboxTier: protocol.SandboxInProcess,
+				Source:      protocol.ToolBuiltin,
+				InputSchema: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"old": map[string]any{"type": "string", "description": "原始文本"},
+						"new": map[string]any{"type": "string", "description": "新文本"},
+					},
+					"required": []string{"old", "new"},
+				},
+			},
+			fn: diffTextFn,
+		},
+		{
+			meta: protocol.Tool{
+				Name:        "computer_use",
+				Description: "提供 GUI 自动化能力（截图/点击/鼠标/键盘）。",
+				Version:     "1.0.0",
+				Capability:  protocol.CapWriteLocal,
+				SideEffects: []protocol.SideEffect{protocol.SideProcessSpawn},
+				RiskLevel:   protocol.RiskHigh,
+				SandboxTier: protocol.SandboxInProcess,
+				Source:      protocol.ToolBuiltin,
+				InputSchema: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"action": map[string]any{
+							"type": "string",
+							"enum": []string{"screenshot", "left_click", "mouse_move", "type", "key"},
+						},
+						"coordinate": map[string]any{"type": "array", "items": map[string]any{"type": "integer"}},
+						"text":       map[string]any{"type": "string"},
+					},
+					"required": []string{"action"},
+				},
+			},
+			fn: NewComputerUseTool().Execute,
+		},
+		{
+			meta: protocol.Tool{
+				Name:        "browser_use",
+				Description: "提供无头浏览器 (Chrome) 控制能力（导航/点击/输入/截图）。",
+				Version:     "1.0.0",
+				Capability:  protocol.CapWriteNetwork,
+				SideEffects: []protocol.SideEffect{protocol.SideNetworkCall},
+				RiskLevel:   protocol.RiskHigh,
+				SandboxTier: protocol.SandboxInProcess,
+				Source:      protocol.ToolBuiltin,
+				InputSchema: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"action": map[string]any{
+							"type": "string",
+							"enum": []string{"navigate", "click", "type", "screenshot"},
+						},
+						"url":      map[string]any{"type": "string"},
+						"selector": map[string]any{"type": "string"},
+						"text":     map[string]any{"type": "string"},
+					},
+					"required": []string{"action"},
+				},
+			},
+			fn: NewBrowserUseTool().Execute,
+		},
+	}
+
+	for _, t := range tools {
+		sandbox.Register(t.meta.Name, t.fn)
+		if err := toolReg.Register(t.meta); err != nil {
+			return perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("builtin_tools: register %q", t.meta.Name), err)
+		}
+	}
+
+	// 将 InProcessSandbox 绑定为工具注册表的真实执行器，替代 stub
+	toolReg.SetSandbox(sandbox)
+	return nil
+}
+
+// ─── read_file ────────────────────────────────────────────────────────────────
+
+type readFileArgs struct {
+	Path string `json:"path"`
+}
+
+func makeReadFileFn(allowedPaths []string) InProcessFn {
+	return func(ctx context.Context, input []byte) ([]byte, error) {
+		var args readFileArgs
+		if err := json.Unmarshal(input, &args); err != nil {
+			return nil, perrors.Wrap(perrors.CodeInternal, "read_file: invalid args", err)
+		}
+		if err := checkAllowedPath(args.Path, allowedPaths); err != nil {
+			return nil, err
+		}
+
+		data, err := os.ReadFile(filepath.Clean(args.Path))
+		if err != nil {
+			return nil, perrors.Wrap(perrors.CodeInternal, "read_file", err)
+		}
+		return data, nil
+	}
+}
+
+// ─── list_dir ────────────────────────────────────────────────────────────────
+
+type listDirArgs struct {
+	Path string `json:"path"`
+}
+
+type listDirResult struct {
+	Entries []dirEntry `json:"entries"`
+}
+
+type dirEntry struct {
+	Name  string `json:"name"`
+	IsDir bool   `json:"is_dir"`
+	Size  int64  `json:"size_bytes"`
+}
+
+func makeListDirFn(allowedPaths []string) InProcessFn {
+	return func(ctx context.Context, input []byte) ([]byte, error) {
+		var args listDirArgs
+		if err := json.Unmarshal(input, &args); err != nil {
+			return nil, perrors.Wrap(perrors.CodeInternal, "list_dir: invalid args", err)
+		}
+		if err := checkAllowedPath(args.Path, allowedPaths); err != nil {
+			return nil, err
+		}
+
+		entries, err := os.ReadDir(filepath.Clean(args.Path))
+		if err != nil {
+			return nil, perrors.Wrap(perrors.CodeInternal, "list_dir", err)
+		}
+
+		result := listDirResult{Entries: make([]dirEntry, 0, len(entries))}
+		for _, e := range entries {
+			info, _ := e.Info()
+			var sz int64
+			if info != nil {
+				sz = info.Size()
+			}
+			result.Entries = append(result.Entries, dirEntry{
+				Name:  e.Name(),
+				IsDir: e.IsDir(),
+				Size:  sz,
+			})
+		}
+		return json.Marshal(result)
+	}
+}
+
+// ─── write_file ───────────────────────────────────────────────────────────────
+
+type writeFileArgs struct {
+	Path    string `json:"path"`
+	Content string `json:"content"`
+	Append  bool   `json:"append"`
+}
+
+func makeWriteFileFn(allowedPaths []string) InProcessFn {
+	return func(ctx context.Context, input []byte) ([]byte, error) {
+		var args writeFileArgs
+		if err := json.Unmarshal(input, &args); err != nil {
+			return nil, perrors.Wrap(perrors.CodeInternal, "write_file: invalid args", err)
+		}
+		if err := checkAllowedPath(args.Path, allowedPaths); err != nil {
+			return nil, err
+		}
+
+		flag := os.O_WRONLY | os.O_CREATE | os.O_TRUNC
+		if args.Append {
+			flag = os.O_WRONLY | os.O_CREATE | os.O_APPEND
+		}
+
+		f, err := os.OpenFile(filepath.Clean(args.Path), flag, 0o600)
+		if err != nil {
+			return nil, perrors.Wrap(perrors.CodeInternal, "write_file", err)
+		}
+		defer f.Close()
+
+		if _, err := f.WriteString(args.Content); err != nil {
+			return nil, perrors.Wrap(perrors.CodeInternal, "write_file: write error", err)
+		}
+		return []byte(`{"written":true}`), nil
+	}
+}
+
+// ─── fetch_url ────────────────────────────────────────────────────────────────
+
+type fetchURLArgs struct {
+	URL string `json:"url"`
+}
+
+// makeFetchURLFn 返回 fetch_url 工具函数。
+func makeFetchURLFn(dialer protocol.SafeDialer) InProcessFn {
+	// 创建基于 SafeDialer 的 HTTP 客户端
+	client := &http.Client{}
+	if dialer != nil {
+		client.Transport = &http.Transport{
+			DialContext: dialer.DialContext,
+		}
+		client.Timeout = 30 * time.Second
+	}
+
+	return func(ctx context.Context, input []byte) ([]byte, error) {
+		var args fetchURLArgs
+		if err := json.Unmarshal(input, &args); err != nil {
+			return nil, perrors.Wrap(perrors.CodeInternal, "fetch_url: invalid args", err)
+		}
+		if args.URL == "" {
+			return nil, perrors.New(perrors.CodeInternal, "fetch_url: url is required")
+		}
+
+		// SSRF Guard Phase 1: 基础文本正则检查 (SafeDialer 内部会有更严格的解析检查)
+		if isPrivateURL(args.URL) {
+			return nil, perrors.New(perrors.CodeInternal, fmt.Sprintf("fetch_url: SSRF guard blocked private URL: %s", args.URL))
+		}
+
+		req, err := http.NewRequestWithContext(ctx, "GET", args.URL, nil)
+		if err != nil {
+			return nil, perrors.Wrap(perrors.CodeInternal, "fetch_url: bad request", err)
+		}
+
+		// 伪装 User-Agent，避免被简单的爬虫拦截
+		req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+
+		resp, err := client.Do(req)
+		if err != nil {
+			return nil, perrors.Wrap(perrors.CodeInternal, "fetch_url: request failed", err)
+		}
+		defer resp.Body.Close()
+
+		// 限制读取大小（最大 2MB），防止内存溢出
+		bodyReader := io.LimitReader(resp.Body, 2*1024*1024)
+		body, err := io.ReadAll(bodyReader)
+		if err != nil {
+			return nil, perrors.Wrap(perrors.CodeInternal, "fetch_url: read response body failed", err)
+		}
+
+		// 如果超出了限制
+		truncated := false
+		if len(body) == 2*1024*1024 {
+			truncated = true
+		}
+
+		contentStr := string(body)
+		contentType := resp.Header.Get("Content-Type")
+		if strings.Contains(contentType, "text/html") {
+			// MVP 阶段：简单的正则清洗 HTML 标签
+			tagRe := regexp.MustCompile(`<[^>]*>`)
+			spaceRe := regexp.MustCompile(`\s+`)
+			contentStr = tagRe.ReplaceAllString(contentStr, " ")
+			contentStr = strings.TrimSpace(spaceRe.ReplaceAllString(contentStr, " "))
+		}
+
+		result := map[string]any{
+			"url":       args.URL,
+			"status":    resp.StatusCode,
+			"truncated": truncated,
+			"content":   contentStr,
+		}
+		return json.Marshal(result)
+	}
+}
+
+// ─── bash ───────────────────────────────────────────────────────────────────────
+
+type bashArgs struct {
+	Command string `json:"command"`
+}
+
+func makeBashFn(allowedPaths []string) InProcessFn {
+	return func(ctx context.Context, input []byte) ([]byte, error) {
+		var args bashArgs
+		if err := json.Unmarshal(input, &args); err != nil {
+			return nil, perrors.Wrap(perrors.CodeInternal, "bash: invalid args", err)
+		}
+		if args.Command == "" {
+			return nil, perrors.New(perrors.CodeInternal, "bash: command is required")
+		}
+
+		// 检查工作目录，如果设定了白名单，优先使用第一个白名单路径作为工作目录
+		workDir := ""
+		if len(allowedPaths) > 0 {
+			workDir = allowedPaths[0]
+		}
+
+		// 在 context 中设定超时时间
+		execCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
+
+		cmd := exec.CommandContext(execCtx, "bash", "-c", args.Command)
+		if workDir != "" {
+			cmd.Dir = workDir
+		}
+
+		// 严格的环境变量隔离，仅允许基本 PATH
+		cmd.Env = []string{"PATH=/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin"}
+
+		outBytes, err := cmd.CombinedOutput()
+		result := map[string]any{
+			"command":   args.Command,
+			"output":    string(outBytes),
+			"exit_code": 0,
+		}
+
+		if err != nil {
+			result["error"] = err.Error()
+			var exitErr *exec.ExitError
+			if errors.As(err, &exitErr) {
+				result["exit_code"] = exitErr.ExitCode()
+			} else {
+				result["exit_code"] = -1
+			}
+		}
+
+		return json.Marshal(result)
+	}
+}
+
+// ─── get_datetime ────────────────────────────────────────────────────────────
+
+var getDatetimeFn InProcessFn = func(_ context.Context, _ []byte) ([]byte, error) {
+	now := time.Now()
+	result := map[string]any{
+		"utc":      now.UTC().Format(time.RFC3339),
+		"local":    now.Format(time.RFC3339),
+		"unix":     now.Unix(),
+		"timezone": now.Location().String(),
+	}
+	return json.Marshal(result)
+}
+
+// ─── csv_parse ────────────────────────────────────────────────────────────────
+
+type csvParseArgs struct {
+	CSV string `json:"csv"`
+}
+
+var csvParseFn InProcessFn = func(_ context.Context, input []byte) ([]byte, error) {
+	var args csvParseArgs
+	if err := json.Unmarshal(input, &args); err != nil {
+		return nil, perrors.Wrap(perrors.CodeInternal, "csv_parse: invalid args", err)
+	}
+	if args.CSV == "" {
+		return nil, perrors.New(perrors.CodeInternal, "csv_parse: csv is required")
+	}
+
+	lines := strings.Split(strings.ReplaceAll(args.CSV, "\r\n", "\n"), "\n")
+	// 过滤空行
+	var nonEmpty []string
+	for _, l := range lines {
+		if strings.TrimSpace(l) != "" {
+			nonEmpty = append(nonEmpty, l)
+		}
+	}
+	if len(nonEmpty) < 2 {
+		return json.Marshal([]map[string]string{})
+	}
+
+	// 解析表头
+	headers := splitCSVLine(nonEmpty[0])
+	rows := make([]map[string]string, 0, len(nonEmpty)-1)
+	for _, line := range nonEmpty[1:] {
+		cols := splitCSVLine(line)
+		row := make(map[string]string, len(headers))
+		for i, h := range headers {
+			if i < len(cols) {
+				row[h] = cols[i]
+			} else {
+				row[h] = ""
+			}
+		}
+		rows = append(rows, row)
+	}
+	return json.Marshal(rows)
+}
+
+// splitCSVLine 解析单行 CSV（支持双引号转义）。
+func splitCSVLine(line string) []string {
+	var fields []string
+	var cur strings.Builder
+	inQuote := false
+	for i := 0; i < len(line); i++ {
+		c := line[i]
+		switch {
+		case c == '"' && !inQuote:
+			inQuote = true
+		case c == '"' && inQuote:
+			// 连续两个引号 → 转义单引号
+			if i+1 < len(line) && line[i+1] == '"' {
+				cur.WriteByte('"')
+				i++
+			} else {
+				inQuote = false
+			}
+		case c == ',' && !inQuote:
+			fields = append(fields, cur.String())
+			cur.Reset()
+		default:
+			cur.WriteByte(c)
+		}
+	}
+	fields = append(fields, cur.String())
+	return fields
+}
+
+// ─── diff_text ────────────────────────────────────────────────────────────────
+
+type diffTextArgs struct {
+	Old string `json:"old"`
+	New string `json:"new"`
+}
+
+var diffTextFn InProcessFn = func(_ context.Context, input []byte) ([]byte, error) {
+	var args diffTextArgs
+	if err := json.Unmarshal(input, &args); err != nil {
+		return nil, perrors.Wrap(perrors.CodeInternal, "diff_text: invalid args", err)
+	}
+
+	oldLines := strings.Split(args.Old, "\n")
+	newLines := strings.Split(args.New, "\n")
+	diff := computeUnifiedDiff(oldLines, newLines)
+
+	result := map[string]any{
+		"diff":     diff,
+		"has_diff": diff != "",
+	}
+	return json.Marshal(result)
+}
+
+// computeUnifiedDiff 生成简化 unified diff（LCS 算法）。
+func computeUnifiedDiff(oldLines, newLines []string) string { //nolint:gocyclo
+	// LCS 长度表
+	m, n := len(oldLines), len(newLines)
+	dp := make([][]int, m+1)
+	for i := range dp {
+		dp[i] = make([]int, n+1)
+	}
+	for i := 1; i <= m; i++ {
+		for j := 1; j <= n; j++ {
+			if oldLines[i-1] == newLines[j-1] {
+				dp[i][j] = dp[i-1][j-1] + 1
+			} else if dp[i-1][j] >= dp[i][j-1] {
+				dp[i][j] = dp[i-1][j]
+			} else {
+				dp[i][j] = dp[i][j-1]
+			}
+		}
+	}
+
+	// 回溯构造差异列表
+	type op struct {
+		kind byte // ' ' '+' '-'
+		line string
+	}
+	var ops []op
+	i, j := m, n
+	for i > 0 || j > 0 {
+		switch {
+		case i > 0 && j > 0 && oldLines[i-1] == newLines[j-1]:
+			ops = append(ops, op{' ', oldLines[i-1]})
+			i--
+			j--
+		case j > 0 && (i == 0 || dp[i][j-1] >= dp[i-1][j]):
+			ops = append(ops, op{'+', newLines[j-1]})
+			j--
+		default:
+			ops = append(ops, op{'-', oldLines[i-1]})
+			i--
+		}
+	}
+	// 反转
+	for l, r := 0, len(ops)-1; l < r; l, r = l+1, r-1 {
+		ops[l], ops[r] = ops[r], ops[l]
+	}
+
+	// 输出有变化的行（带 context=3）
+	const ctx = 3
+	changed := make([]bool, len(ops))
+	for idx, o := range ops {
+		if o.kind != ' ' {
+			changed[idx] = true
+		}
+	}
+
+	var sb strings.Builder
+	sb.WriteString("--- old\n+++ new\n")
+	printed := make([]bool, len(ops))
+	for idx := range ops {
+		if !changed[idx] {
+			continue
+		}
+		start := max(idx-ctx, 0)
+		end := min(idx+ctx+1, len(ops))
+		for k := start; k < end; k++ {
+			if printed[k] {
+				continue
+			}
+			printed[k] = true
+			switch ops[k].kind {
+			case '+':
+				sb.WriteString("+" + ops[k].line + "\n")
+			case '-':
+				sb.WriteString("-" + ops[k].line + "\n")
+			default:
+				sb.WriteString(" " + ops[k].line + "\n")
+			}
+		}
+	}
+	return sb.String()
+}
+
+// ─── 辅助函数 ─────────────────────────────────────────────────────────────────
+
+// checkAllowedPath 确认 path 在白名单内（防路径穿越）。
+// 若白名单为空则拒绝所有访问（fail-closed）。
+func checkAllowedPath(path string, allowedPaths []string) error {
+	if len(allowedPaths) == 0 {
+		return perrors.New(perrors.CodeInternal, "path_guard: no allowed paths configured (fail-closed)")
+	}
+	clean := filepath.Clean(path)
+	for _, allowed := range allowedPaths {
+		allowedClean := filepath.Clean(allowed)
+		if strings.HasPrefix(clean, allowedClean) {
+			return nil
+		}
+	}
+	return perrors.New(perrors.CodeInternal, fmt.Sprintf("path_guard: path %q not in allowed paths", path))
+}
+
+// isPrivateURL 判断 URL 是否指向私有/内网地址（SSRF Guard 阶段 1）。
+func isPrivateURL(rawURL string) bool {
+	privatePatterns := []string{
+		"localhost", "127.", "10.", "192.168.", "172.16.", "169.254.",
+		"::1", "0.0.0.0", "metadata.google", "169.254.169.254",
+	}
+	lower := strings.ToLower(rawURL)
+	for _, p := range privatePatterns {
+		if strings.Contains(lower, p) {
+			return true
+		}
+	}
+	return false
+}

@@ -1,0 +1,242 @@
+<!-- ─────── 模型厂商配置页 ───────────────────────────── -->
+    <div x-show="$store.nav.page === 'providers'" x-cloak class="page-container">
+      <div class="page-header">
+        <div>
+          <div class="page-title" x-text="$store.i18n.t('providers_title')"></div>
+          <div class="page-subtitle" x-text="$store.i18n.t('providers_subtitle')"></div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn btn-ghost btn-sm" @click="$store.onboard.start()" title="重新运行配置向导">⚙ 配置向导</button>
+          <button class="btn btn-primary btn-sm" @click="$store.providers.openCreate()"
+            x-text="$store.i18n.t('providers_add')"></button>
+        </div>
+      </div>
+
+      <!-- 模型角色分配面板（选项来自 allModels，粒度到具体模型） -->
+      <div style="background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:10px;padding:16px;margin-bottom:20px"
+           x-data>
+        <div style="font-weight:600;font-size:13px;margin-bottom:4px" x-text="$store.i18n.t('roles_title')"></div>
+        <div style="font-size:12px;color:var(--color-text-dim);margin-bottom:14px" x-text="$store.i18n.t('roles_subtitle')"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <label for="roles-default" style="font-size:12px;color:var(--color-text-dim);display:block;margin-bottom:6px"
+                   x-text="$store.i18n.t('roles_default')"></label>
+            <select id="roles-default" name="roles-default" class="form-select" x-model="$store.modelRoles.defaultModelID">
+              <option value="" x-text="$store.i18n.t('roles_none')"></option>
+              <template x-for="m in $store.providers.allModels" :key="m.id">
+                <option :value="m.id" x-text="`[${m.providerName}] ${m.model_id}`"></option>
+              </template>
+            </select>
+            <div x-show="$store.modelRoles.defaultModelName"
+                 style="font-size:11px;color:var(--color-text-dim);margin-top:4px"
+                 x-text="`当前: ${$store.modelRoles.defaultProviderName} / ${$store.modelRoles.defaultModelName}`"></div>
+          </div>
+          <div>
+            <label for="roles-reasoning" style="font-size:12px;color:var(--color-text-dim);display:block;margin-bottom:6px"
+                   x-text="$store.i18n.t('roles_reasoning')"></label>
+            <select id="roles-reasoning" name="roles-reasoning" class="form-select" x-model="$store.modelRoles.reasoningModelID">
+              <option value="" x-text="$store.i18n.t('roles_none')"></option>
+              <template x-for="m in $store.providers.allModels" :key="m.id">
+                <option :value="m.id" x-text="`[${m.providerName}] ${m.model_id}`"></option>
+              </template>
+            </select>
+            <div x-show="$store.modelRoles.reasoningModelName"
+                 style="font-size:11px;color:var(--color-text-dim);margin-top:4px"
+                 x-text="`当前: ${$store.modelRoles.reasoningProviderName} / ${$store.modelRoles.reasoningModelName}`"></div>
+          </div>
+        </div>
+        <div style="margin-top:12px;display:flex;justify-content:flex-end">
+          <button class="btn btn-primary btn-sm" :disabled="$store.modelRoles.saving"
+                  @click="$store.modelRoles.save()"
+                  x-text="$store.modelRoles.saving ? $store.i18n.t('loading') : $store.i18n.t('roles_save')"></button>
+        </div>
+      </div>
+
+      <div x-show="$store.providers.loading" class="empty-state" x-text="$store.i18n.t('loading')"></div>
+
+      <div x-show="!$store.providers.loading && $store.providers.list.length === 0" class="empty-state">
+        <div style="font-size:32px;margin-bottom:12px">🤖</div>
+        <div x-text="$store.i18n.t('providers_empty_title')"></div>
+        <div style="font-size:13px;color:var(--color-text-dim);margin-top:4px"
+             x-text="$store.i18n.t('providers_empty_hint')"></div>
+      </div>
+
+      <!-- 厂商卡片列表 -->
+      <div style="display:grid;gap:12px">
+        <template x-for="p in $store.providers.list" :key="p.id">
+          <div class="provider-card" :class="{ disabled: !p.enabled }">
+            <div class="provider-card-header">
+              <div>
+                <span class="provider-type-badge" x-text="$store.providers.typeLabel(p.type)"></span>
+              </div>
+              <label class="toggle">
+                <input type="checkbox" :name="'provider-toggle-' + p.id" :checked="p.enabled" @change="$store.providers.toggle(p)">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <div class="provider-name" x-text="p.name"></div>
+            <div class="provider-meta">
+              <span x-show="p.base_url" x-text="p.base_url" style="font-family:monospace;font-size:11px"></span>
+              <span x-show="p.project_id" x-text="`项目: ${p.project_id}`"></span>
+            </div>
+
+            <!-- 模型列表 -->
+            <div style="margin-top:10px;border-top:1px solid var(--color-border);padding-top:10px">
+              <div style="font-size:11px;color:var(--color-text-dim);margin-bottom:6px">模型</div>
+              <div x-show="!p.models || p.models.length === 0"
+                   style="font-size:12px;color:var(--color-text-dim);padding:4px 0">
+                暂无模型，点击下方按钮添加
+              </div>
+              <div style="display:grid;gap:4px">
+                <template x-for="m in (p.models || [])" :key="m.id">
+                  <div style="display:flex;align-items:center;gap:8px;padding:4px 8px;background:var(--color-surface);border-radius:6px;font-size:12px">
+                    <span style="flex:1;font-family:monospace" x-text="m.model_id"></span>
+                    <span :style="`padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;background:${m.role==='default'?'var(--color-accent)':m.role==='reasoning'?'#7c3aed':'var(--color-border)'};color:${m.role==='general'?'var(--color-text-dim)':'white'}`"
+                          x-text="$store.providers.roleLabel(m.role)"></span>
+                    <label class="toggle" style="transform:scale(0.75)">
+                      <input type="checkbox" :name="'model-toggle-' + m.model_id" :checked="m.enabled" @change="$store.providers.toggleModel(p.id, m)">
+                      <span class="toggle-slider"></span>
+                    </label>
+                    <button class="btn btn-ghost btn-sm" style="padding:0 4px;font-size:11px"
+                            @click="$store.providers.openEditModel(p.id, m)">编辑</button>
+                    <button class="btn btn-ghost btn-sm" style="padding:0 4px;font-size:11px;color:var(--color-error)"
+                            @click="$store.providers.removeModel(p.id, m.id)">删除</button>
+                  </div>
+                </template>
+              </div>
+              <button class="btn btn-ghost btn-sm" style="margin-top:6px;font-size:11px"
+                      @click="$store.providers.openAddModel(p.id)">+ 添加模型</button>
+            </div>
+
+            <div class="provider-card-actions">
+              <button class="btn btn-ghost btn-sm" @click="$store.providers.test(p.id)"
+                :disabled="$store.providers.testingID === p.id">
+                <span x-show="$store.providers.testingID === p.id" class="spinner" style="width:12px;height:12px"></span>
+                <span x-show="$store.providers.testingID !== p.id" x-text="$store.i18n.t('providers_test')"></span>
+              </button>
+              <button class="btn btn-ghost btn-sm" @click="$store.providers.openEdit(p)"
+                      x-text="$store.i18n.t('providers_edit')"></button>
+              <button class="btn btn-ghost btn-sm" style="color:var(--color-error)"
+                @click="confirm($store.i18n.t('providers_confirm_del')) && $store.providers.remove(p.id)"
+                x-text="$store.i18n.t('providers_delete')"></button>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <!-- 厂商凭据编辑 Modal（无 model_id / role / is_default） -->
+      <div class="modal-overlay" x-show="$store.providers.showModal" x-cloak @click.self="$store.providers.showModal=false">
+        <div class="modal-panel" @keydown.escape.window="$store.providers.showModal=false">
+          <div class="modal-header">
+            <span x-text="$store.providers.editMode === 'create' ? $store.i18n.t('providers_modal_create') : $store.i18n.t('providers_modal_edit')"></span>
+            <button class="btn btn-ghost btn-sm" @click="$store.providers.showModal=false">✕</button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label for="provider-type" class="form-label" x-text="$store.i18n.t('providers_type')"></label>
+              <select id="provider-type" name="provider-type" class="form-select" x-model="$store.providers.form.type">
+                <option value="openai_compat">OpenAI 兼容（OpenAI / DeepSeek / Moonshot / Qwen / Groq）</option>
+                <option value="anthropic">Anthropic Claude</option>
+                <option value="google_agent_platform">Google Agent Platform（Gemini / GEAP）</option>
+                <option value="ollama">Ollama（本地）</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="provider-name" class="form-label" x-text="$store.i18n.t('providers_name')"></label>
+              <input id="provider-name" name="provider-name" class="form-input" type="text" x-model="$store.providers.form.name" :placeholder="$store.i18n.t('providers_name_hint')" />
+            </div>
+            <template x-if="$store.providers.form.type === 'openai_compat' || $store.providers.form.type === 'ollama'">
+              <div>
+                <div class="form-group">
+                  <label for="provider-base-url" class="form-label">Base URL</label>
+                  <input id="provider-base-url" name="provider-base-url" class="form-input" type="url" x-model="$store.providers.form.base_url"
+                    :placeholder="$store.providers.form.type === 'ollama' ? 'http://localhost:11434' : 'https://api.openai.com'" />
+                </div>
+                <div class="form-group" x-show="$store.providers.form.type !== 'ollama'">
+                  <label for="provider-api-key-compat" class="form-label">API Key</label>
+                  <input id="provider-api-key-compat" name="provider-api-key-compat" class="form-input" type="password" x-model="$store.providers.form.api_key" placeholder="sk-..." />
+                </div>
+              </div>
+            </template>
+            <template x-if="$store.providers.form.type === 'anthropic'">
+              <div class="form-group">
+                <label for="provider-api-key-anthropic" class="form-label">API Key</label>
+                <input id="provider-api-key-anthropic" name="provider-api-key-anthropic" class="form-input" type="password" x-model="$store.providers.form.api_key" placeholder="sk-ant-..." />
+              </div>
+            </template>
+            <template x-if="$store.providers.form.type === 'google_agent_platform'">
+              <div>
+                <div class="form-group">
+                  <label for="provider-api-key-google" class="form-label">API Key</label>
+                  <input id="provider-api-key-google" name="provider-api-key-google" class="form-input" type="password" x-model="$store.providers.form.api_key"
+                    placeholder="AI Studio / GEAP API Key" />
+                </div>
+                <div class="form-group">
+                  <label for="provider-project-id" class="form-label">GCP Project ID <span style="color:var(--color-text-dim);font-size:11px">（可选，GEAP 企业端点）</span></label>
+                  <input id="provider-project-id" name="provider-project-id" class="form-input" type="text" x-model="$store.providers.form.project_id" placeholder="my-project-123" />
+                </div>
+                <div class="form-group">
+                  <label for="provider-location" class="form-label">Region / Location <span style="color:var(--color-text-dim);font-size:11px">（可选，默认 us-central1）</span></label>
+                  <input id="provider-location" name="provider-location" class="form-input" type="text" x-model="$store.providers.form.location" placeholder="us-central1" />
+                </div>
+                <div class="form-hint" x-text="$store.i18n.t('google_hint_no_project')"></div>
+              </div>
+            </template>
+            <div class="form-row">
+              <label class="form-check">
+                <input type="checkbox" name="provider-enabled" x-model="$store.providers.form.enabled">
+                <span x-text="$store.i18n.t('providers_enabled')"></span>
+              </label>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-ghost btn-sm" @click="$store.providers.showModal=false"
+                    x-text="$store.i18n.t('providers_cancel')"></button>
+            <button class="btn btn-primary btn-sm" @click="$store.providers.save()"
+                    x-text="$store.i18n.t('providers_save')"></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 模型条目编辑 Modal -->
+      <div class="modal-overlay" x-show="$store.providers.showModelModal" x-cloak @click.self="$store.providers.showModelModal=false">
+        <div class="modal-panel" @keydown.escape.window="$store.providers.showModelModal=false">
+          <div class="modal-header">
+            <span x-text="$store.providers.modelEditMode === 'create' ? '添加模型' : '编辑模型'"></span>
+            <button class="btn btn-ghost btn-sm" @click="$store.providers.showModelModal=false">✕</button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label for="model-model-id" class="form-label">模型 ID</label>
+              <input id="model-model-id" name="model-model-id" class="form-input" type="text" x-model="$store.providers.modelForm.model_id"
+                placeholder="例：deepseek-chat / gpt-4o / claude-opus-4-7" />
+              <div class="form-hint">厂商文档中的模型名称，用于 API 调用</div>
+            </div>
+            <div class="form-group">
+              <label for="model-name" class="form-label">显示名称 <span style="color:var(--color-text-dim);font-size:11px">（可选，默认同模型 ID）</span></label>
+              <input id="model-name" name="model-name" class="form-input" type="text" x-model="$store.providers.modelForm.name"
+                placeholder="例：DeepSeek V3 对话" />
+            </div>
+            <div class="form-group">
+              <label for="model-role" class="form-label">路由角色</label>
+              <select id="model-role" name="model-role" class="form-select" x-model="$store.providers.modelForm.role">
+                <option value="general">通用（参与全局负载均衡）</option>
+                <option value="default">对话模型（快速，日常对话优先）</option>
+                <option value="reasoning">推理模型（深度，复杂任务优先）</option>
+              </select>
+              <div class="form-hint">default / reasoning 角色全局唯一，设置后原同角色模型自动降为通用</div>
+            </div>
+            <div class="form-row">
+              <label class="form-check">
+                <input type="checkbox" name="model-enabled" x-model="$store.providers.modelForm.enabled">
+                <span>启用</span>
+              </label>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-ghost btn-sm" @click="$store.providers.showModelModal=false">取消</button>
+            <button class="btn btn-primary btn-sm" @click="$store.providers.saveModel()">保存</button>
+          </div>
+        </div>
+      </div>
+    </div><!-- /providers -->

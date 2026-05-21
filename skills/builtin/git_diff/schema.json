@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "ref_a": { "type": "string" },
+    "ref_b": { "type": "string" },
+    "staged": { "type": "boolean", "default": false },
+    "file_path": { "type": "string" }
+  },
+  "required": []
+}
