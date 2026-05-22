@@ -4,6 +4,14 @@
 
 格式：`YYYY-MM-DD | 文件 | 变更摘要`
 
+## 2026-05-22（DDL 修改策略 + Schema 整合）
+
+**规范新增**：
+- `CLAUDE.md §编码约定` | 新增 `[强制] DDL 修改策略`：上线前直接修改建表文件，禁止 ALTER TABLE 补丁；上线后走编号迁移文件；Phase 判断 SSoT 为 `§当前阶段`
+- `05-Coding-Workflow.md` | 新增 W7（Schema 变更流程）：W7.1 Phase 判断 → W7.2 上线前直改 → W7.3 上线后迁移 → W7.4 阶段 A 契约补充
+
+**背景**：AI（Gemini）反复以 ALTER TABLE 补丁文件叠加 Schema 变更，造成 026_skills.sql 死代码、双写冗余、`getInstalledCatalogIDs` 需 UNION 五表等结构性问题。规则缺失是根因。本次同步完成 35→20 文件 Schema 整合（新增 M13-bis / ADR-0019 / extension_instances SSoT）。
+
 ## 2026-05-22（文档卫生规约）
 
 **规范新增**：

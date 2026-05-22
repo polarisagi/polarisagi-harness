@@ -129,3 +129,48 @@ Spec-First 阶段 A 的契约变更（`internal/protocol/` 改动）必须独立
 ### W6.4 评审者并行触发
 
 PR 创建后 CI 触发独立 AI reviewer agent（执行带 3，对抗审查）。人类 review 与 AI reviewer 并行而非串行。AI reviewer 仅喂 Diff + `00-Constitution.md`，要求"指出违例并引用 R 编号，无违例则输出 NONE"。
+
+## W7 Schema 变更流程
+
+> 对应 CLAUDE.md §编码约定 `[强制] DDL 修改策略`。触发条件：任何涉及 `internal/protocol/schema/` 的变更。
+
+### W7.1 Phase 判断（必须第一步）
+
+```
+读 CLAUDE.md §当前阶段
+  含 "上线后" → 走 W7.3 迁移文件流程
+  否则        → 走 W7.2 直接修改流程（当前默认）
+```
+
+### W7.2 上线前：直接修改建表文件
+
+```
+1. 定位目标 SQL 文件：internal/protocol/schema/NNN_<name>.sql
+2. 直接修改 CREATE TABLE 语句（增列、改类型、加索引）
+3. 禁止：新建 NNN_*.sql 补丁文件（哪怕编号更高也禁止）
+4. 删除开发库：rm ~/.polaris-harness/polaris.db
+5. make build && bin/polaris（自动 apply 重建）
+```
+
+提交前检查：`git diff --name-only` 中不应出现新增的 schema/*.sql 文件（只应有修改）。
+
+### W7.3 上线后：迁移文件流程（仅 Phase=生产）
+
+```
+1. 确认现有最大编号：ls internal/protocol/schema/ | tail -1
+2. 新建 NNN_<描述>.sql（NNN = max+1）
+3. 只写 ALTER TABLE / CREATE INDEX / INSERT（禁止 CREATE TABLE）
+4. 历史文件只读，禁止任何修改
+5. PR 标题加 [migration] tag
+```
+
+### W7.4 阶段 A 契约补充（涉及 Schema 变更时）
+
+阶段 A 输出需额外包含：
+
+```
+## Schema 变更
+- 目标文件: internal/protocol/schema/NNN_*.sql
+- 变更类型: 新增列 / 修改索引 / 合并文件（不可能是新增补丁文件——上线前禁止）
+- 受影响的 Go 文件（引用该表的 query 字符串）: 列表
+```
