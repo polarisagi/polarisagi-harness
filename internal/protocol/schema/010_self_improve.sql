@@ -72,3 +72,20 @@ CREATE TABLE IF NOT EXISTS skill_variant_pool (
 
 CREATE INDEX IF NOT EXISTS idx_variant_skill    ON skill_variant_pool(skill_id, generation);
 CREATE INDEX IF NOT EXISTS idx_variant_fitness  ON skill_variant_pool(skill_id, fitness_score);
+
+-- Capability Gap 追踪记录（M4 挂起触发 -> M9 后台填补）
+CREATE TABLE IF NOT EXISTS capability_gap_log (
+    id                TEXT PRIMARY KEY,
+    session_id        TEXT NOT NULL,
+    task_id           TEXT NOT NULL,
+    required_tool     TEXT NOT NULL,
+    description       TEXT NOT NULL,
+    status            TEXT NOT NULL CHECK(status IN ('pending', 'searching', 'synthesizing', 'hitl_pending', 'resolved', 'failed')),
+    trust_tier        INTEGER NOT NULL DEFAULT 1,
+    fill_source       TEXT, -- 'marketplace' | 'synthetic'
+    result_ref        TEXT, -- extension_instance id or skill id
+    created_at        INTEGER NOT NULL,
+    updated_at        INTEGER NOT NULL
+) STRICT;
+
+CREATE INDEX IF NOT EXISTS idx_cap_gap_status ON capability_gap_log(status);

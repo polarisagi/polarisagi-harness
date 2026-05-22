@@ -176,10 +176,19 @@ func (r *ProviderRegistry) RegisterWithRole(name, role string, p protocol.Provid
 
 // BestForRole 返回指定角色下 healthScore 最高的可用 entry。
 // 若 role 为空或无匹配则回退到全局 best()。
-func (r *ProviderRegistry) BestForRole(role string) *providerEntry {
+func (r *ProviderRegistry) BestForRole(role string, req *protocol.InferRequest) *providerEntry {
 	if role == "" || role == "general" {
-		return r.best()
+		return r.best(req)
 	}
+
+	chosen := r.findBestByRole(role)
+	if chosen == nil {
+		return r.best(req)
+	}
+	return chosen
+}
+
+func (r *ProviderRegistry) findBestByRole(role string) *providerEntry {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -197,25 +206,13 @@ func (r *ProviderRegistry) BestForRole(role string) *providerEntry {
 			chosen = e
 		}
 	}
-	if chosen == nil {
-		// 无 role 匹配，回退全局
-		for _, e := range r.entries {
-			if !e.cb.Allow() {
-				continue
-			}
-			if s := e.healthScore(); s > bestScore {
-				bestScore = s
-				chosen = e
-			}
-		}
-	}
 	return chosen
 }
 
 // PickProvider 返回指定角色 healthScore 最优的 Provider，供外部直接发起推理。
 // 若无可用 Provider 返回 nil。
 func (r *ProviderRegistry) PickProvider(role string) protocol.Provider {
-	e := r.BestForRole(role)
+	e := r.BestForRole(role, nil)
 	if e == nil {
 		return nil
 	}
@@ -224,7 +221,7 @@ func (r *ProviderRegistry) PickProvider(role string) protocol.Provider {
 
 // PickProviderName 返回指定角色最优 Provider 的注册名（含模型标识），供状态展示。
 func (r *ProviderRegistry) PickProviderName(role string) string {
-	e := r.BestForRole(role)
+	e := r.BestForRole(role, nil)
 	if e == nil {
 		return ""
 	}
@@ -232,7 +229,7 @@ func (r *ProviderRegistry) PickProviderName(role string) string {
 }
 
 // best 按 healthScore 降序返回第一个 CircuitBreaker 允许的 entry。
-func (r *ProviderRegistry) best() *providerEntry {
+func (r *ProviderRegistry) best(req *protocol.InferRequest) *providerEntry {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -273,7 +270,7 @@ func NewInferenceRouter(reg *ProviderRegistry, dialer protocol.SafeDialer) *Infe
 }
 
 func (ir *InferenceRouter) ModelID() string {
-	entry := ir.registry.best()
+	entry := ir.registry.best(nil)
 	if entry == nil || entry.provider == nil {
 		return "unknown"
 	}
@@ -282,7 +279,7 @@ func (ir *InferenceRouter) ModelID() string {
 
 // Infer 路由单次请求到最优 Provider，失败时 failover 至次优。
 func (ir *InferenceRouter) Infer(ctx context.Context, req *protocol.InferRequest) (*protocol.InferResponse, error) {
-	entry := ir.registry.best()
+	entry := ir.registry.best(req)
 	if entry == nil {
 		return nil, perrors.New(perrors.CodeInternal, "inference_router: no available providers")
 	}
@@ -300,7 +297,7 @@ func (ir *InferenceRouter) Infer(ctx context.Context, req *protocol.InferRequest
 
 // StreamInfer 路由流式请求。
 func (ir *InferenceRouter) StreamInfer(ctx context.Context, req *protocol.InferRequest) (<-chan protocol.StreamEvent, error) {
-	entry := ir.registry.best()
+	entry := ir.registry.best(req)
 	if entry == nil {
 		return nil, perrors.New(perrors.CodeInternal, "inference_router: no available providers")
 	}
@@ -330,7 +327,7 @@ func (ir *InferenceRouter) Capabilities() protocol.ProviderCapabilities {
 }
 
 func (ir *InferenceRouter) Tokenizer() protocol.TokenizerAdapter {
-	entry := ir.registry.best()
+	entry := ir.registry.best(nil)
 	if entry == nil {
 		return &simpleTokenizer{}
 	}
@@ -345,6 +342,15 @@ func (ir *InferenceRouter) failover(ctx context.Context, req *protocol.InferRequ
 	for name, e := range ir.registry.entries {
 		if name == skip || !e.cb.Allow() {
 			continue
+		}
+		if req != nil {
+			caps := e.provider.Capabilities()
+			if req.HasImageParts() && !caps.SupportsVision {
+				continue
+			}
+			if req.HasVideoParts() && !caps.SupportsVideo {
+				continue
+			}
 		}
 		if s := e.healthScore(); s > bestScore {
 			bestScore = s

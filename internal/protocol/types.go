@@ -21,6 +21,28 @@ type InferRequest struct {
 	ReasoningEffort ReasoningEffort // TTC 推理深度控制（None=不传，High=最大扩展思考）
 }
 
+func (req *InferRequest) HasImageParts() bool {
+	for _, m := range req.Messages {
+		for _, p := range m.Parts {
+			if _, ok := p.(ImagePart); ok {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (req *InferRequest) HasVideoParts() bool {
+	for _, m := range req.Messages {
+		for _, p := range m.Parts {
+			if _, ok := p.(VideoPart); ok {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 type ResponseFormat struct {
 	Type       string // "json_object" | "json_schema" | "gbnf"
 	JSONSchema any    // 当 Type="json_schema" 时传递的 Schema
@@ -36,6 +58,20 @@ type Message struct {
 	// ReasoningContent 保存 DeepSeek 思考模式下的 reasoning_content，
 	// 多轮 tool_call 时必须原样回传，否则 API 返回 400。
 	ReasoningContent string
+}
+
+type ImagePart struct {
+	Type      string // "image"
+	MediaType string // "image/jpeg" | "image/png" | "image/webp" | "image/gif"
+	Data      []byte // base64 decoded raw bytes
+	URL       string // 互斥于 Data，远程 URL 路径
+}
+
+type VideoPart struct {
+	Type      string // "video"
+	MediaType string // "video/mp4" | "video/webm"
+	Data      []byte // 文件内容 (≤20MB inline)
+	URI       string // Provider File API 上传后的 URI
 }
 
 type ToolSchema struct {
@@ -83,6 +119,9 @@ type ProviderCapabilities struct {
 	SupportsStreaming bool
 	SupportsTools     bool
 	SupportsThinking  bool
+	SupportsVision    bool
+	SupportsVideo     bool
+	SupportsTTS       bool
 	MaxContextTokens  int
 	CostPer1KInput    float64
 	CostPer1KOutput   float64

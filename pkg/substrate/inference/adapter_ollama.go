@@ -67,7 +67,8 @@ func (a *OllamaAdapter) Infer(ctx context.Context, req *protocol.InferRequest) (
 		},
 	}
 	if len(resp.Choices) > 0 {
-		out.Content = resp.Choices[0].Message.Content
+		contentStr, _ := resp.Choices[0].Message.Content.(string)
+		out.Content = contentStr
 	}
 	if out.Usage.InputTokens > 0 || out.Usage.OutputTokens > 0 {
 		observability.GlobalTokenBurnRate.Add(int64(out.Usage.InputTokens + out.Usage.OutputTokens))

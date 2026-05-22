@@ -206,7 +206,23 @@ func (a *AnthropicAdapter) buildAnthropicRequest(req *protocol.InferRequest, str
 			continue
 		}
 		if len(m.Parts) > 0 {
-			msgs = append(msgs, map[string]any{"role": m.Role, "content": m.Parts})
+			var contentBlocks []any
+			for _, p := range m.Parts {
+				switch v := p.(type) {
+				case protocol.ImagePart:
+					contentBlocks = append(contentBlocks, map[string]any{
+						"type": "image",
+						"source": map[string]any{
+							"type":       "base64",
+							"media_type": v.MediaType,
+							"data":       string(v.Data), // Assuming base64 string
+						},
+					})
+				default:
+					contentBlocks = append(contentBlocks, v)
+				}
+			}
+			msgs = append(msgs, map[string]any{"role": m.Role, "content": contentBlocks})
 		} else {
 			msgs = append(msgs, map[string]any{"role": m.Role, "content": m.Content})
 		}

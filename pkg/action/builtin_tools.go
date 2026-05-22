@@ -205,6 +205,14 @@ func RegisterBuiltinTools(
 			},
 			fn: NewBrowserUseTool().Execute,
 		},
+		{
+			meta: polartool.NewEdgeTTS(),
+			fn:   polartool.ExecuteEdgeTTS,
+		},
+		{
+			meta: polartool.NewVideoAnalysis(),
+			fn:   polartool.ExecuteVideoAnalysis,
+		},
 	}
 
 	for _, t := range tools {

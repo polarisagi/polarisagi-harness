@@ -15,12 +15,25 @@ Alpine.store('chat', {
   thinkingOpen: true,
   errorMsg: '',
   _historyIdx: -1,
-  _inputHistory: [],
+  imageParts: [],        // [{ data, mimeType }]
+  ttsEnabled: false,
 
   get isActive() { return this.state !== 'IDLE' && this.state !== 'COMPLETE' && this.state !== 'ERROR' },
 
+  toggleTTS() {
+    this.ttsEnabled = !this.ttsEnabled;
+  },
+
+  addImage(dataUrl) {
+    // dataUrl format: data:image/png;base64,iVBORw...
+    const match = dataUrl.match(/^data:(image\/\w+);base64,(.+)$/);
+    if (match) {
+      this.imageParts.push({ mimeType: match[1], data: match[2] });
+    }
+  },
+
   async submit(input) {
-    if (!input.trim() || this.isActive) return
+    if (!input.trim() && this.imageParts.length === 0 || this.isActive) return
 
     // 幂等 runID
     const runID = dedupeRunID(this.sessionID || '', input)
@@ -37,12 +50,16 @@ Alpine.store('chat', {
     this.errorMsg = ''
     this.state = 'SUBMITTING'
 
+    const imagePartsPayload = [...this.imageParts];
+    this.imageParts = [];
+
     window._activeSseClient = new SSEClient({
       url: '/v1/agent/stream',
       body: {
         input,
         session_id: this.sessionID,
         run_id: runID,
+        image_parts: imagePartsPayload,
       },
       onEvent: (type, data) => this._onEvent(type, data),
       onError: (err) => this._onError(err),
@@ -62,6 +79,12 @@ Alpine.store('chat', {
     if (action === 'abort' && this.currentTokens) {
       this._finalizeMessage(true)
     }
+  },
+
+  speakText(text) {
+    if (!this.ttsEnabled || !window.speechSynthesis) return;
+    const utterance = new SpeechSynthesisUtterance(text);
+    window.speechSynthesis.speak(utterance);
   },
 
   _onEvent(type, data) {
@@ -145,6 +168,10 @@ Alpine.store('chat', {
       last.aborted = aborted
     } else if (content || aborted) {
       this.messages.push({ role: 'assistant', content, toolCalls: [], aborted })
+    }
+    
+    if (!aborted && content) {
+      this.speakText(content.replace(/<[^>]+>/g, '')); // Strip basic HTML for TTS
     }
     this.currentTokens = ''
   },

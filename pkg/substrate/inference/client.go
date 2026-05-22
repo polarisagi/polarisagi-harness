@@ -34,7 +34,7 @@ type OpenAIRequest struct {
 
 type OpenAIMessage struct {
 	Role             string           `json:"role"`
-	Content          string           `json:"content,omitempty"`
+	Content          any              `json:"content,omitempty"`
 	ReasoningContent string           `json:"reasoning_content,omitempty"`
 	ToolCalls        []OpenAIToolCall `json:"tool_calls,omitempty"`
 	ToolCallID       string           `json:"tool_call_id,omitempty"`
@@ -172,62 +172,106 @@ func translateRequest(req *protocol.InferRequest) *OpenAIRequest {
 // user Parts     → 多条 role=tool message（每个 tool_result 一条）
 func partsToOpenAIMessages(role string, parts []any) []OpenAIMessage {
 	if role == "assistant" {
-		var textContent string
-		var toolCalls []OpenAIToolCall
-		for _, p := range parts {
-			m, ok := p.(map[string]any)
-			if !ok {
-				continue
-			}
-			switch m["type"] {
-			case "text":
-				textContent, _ = m["text"].(string)
-			case "tool_use":
-				id, _ := m["id"].(string)
-				name, _ := m["name"].(string)
-				// input 可能是 json.RawMessage 或 map[string]any
-				var argsStr string
-				switch v := m["input"].(type) {
-				case json.RawMessage:
-					argsStr = string(v)
-				case string:
-					argsStr = v
-				default:
-					b, _ := json.Marshal(v)
-					argsStr = string(b)
-				}
-				if argsStr == "" {
-					argsStr = "{}"
-				}
-				toolCalls = append(toolCalls, OpenAIToolCall{
-					ID:       id,
-					Type:     "function",
-					Function: OpenAIFunctionCall{Name: name, Arguments: argsStr},
-				})
-			}
-		}
-		return []OpenAIMessage{{Role: "assistant", Content: textContent, ToolCalls: toolCalls}}
+		return parseAssistantParts(parts)
 	}
-
 	if role == "user" {
-		var msgs []OpenAIMessage
-		for _, p := range parts {
-			m, ok := p.(map[string]any)
-			if !ok {
-				continue
-			}
-			if m["type"] == "tool_result" {
-				toolCallID, _ := m["tool_use_id"].(string)
-				content, _ := m["content"].(string)
-				msgs = append(msgs, OpenAIMessage{
-					Role:       "tool",
-					ToolCallID: toolCallID,
-					Content:    content,
+		return parseUserParts(parts)
+	}
+	return nil
+}
+
+func parseAssistantParts(parts []any) []OpenAIMessage {
+	var textContent string
+	var toolCalls []OpenAIToolCall
+	for _, p := range parts {
+		m, ok := p.(map[string]any)
+		if !ok {
+			continue
+		}
+		switch m["type"] {
+		case "text":
+			textContent, _ = m["text"].(string)
+		case "tool_use":
+			toolCalls = append(toolCalls, parseToolUsePart(m))
+		}
+	}
+	return []OpenAIMessage{{Role: "assistant", Content: textContent, ToolCalls: toolCalls}}
+}
+
+func parseToolUsePart(m map[string]any) OpenAIToolCall {
+	id, _ := m["id"].(string)
+	name, _ := m["name"].(string)
+	var argsStr string
+	switch v := m["input"].(type) {
+	case json.RawMessage:
+		argsStr = string(v)
+	case string:
+		argsStr = v
+	default:
+		b, _ := json.Marshal(v)
+		argsStr = string(b)
+	}
+	if argsStr == "" {
+		argsStr = "{}"
+	}
+	return OpenAIToolCall{
+		ID:       id,
+		Type:     "function",
+		Function: OpenAIFunctionCall{Name: name, Arguments: argsStr},
+	}
+}
+
+func parseUserParts(parts []any) []OpenAIMessage {
+	var msgs []OpenAIMessage
+	var contentBlocks []any
+	for _, p := range parts {
+		if ip, ok := p.(protocol.ImagePart); ok {
+			contentBlocks = append(contentBlocks, parseImagePart(ip))
+			continue
+		}
+
+		m, ok := p.(map[string]any)
+		if !ok {
+			continue
+		}
+		if m["type"] == "text" {
+			if txt, ok := m["text"].(string); ok {
+				contentBlocks = append(contentBlocks, map[string]any{
+					"type": "text",
+					"text": txt,
 				})
 			}
 		}
-		return msgs
+		if m["type"] == "tool_result" {
+			toolCallID, _ := m["tool_use_id"].(string)
+			content, _ := m["content"].(string)
+			msgs = append(msgs, OpenAIMessage{
+				Role:       "tool",
+				ToolCallID: toolCallID,
+				Content:    content,
+			})
+		}
 	}
+	if len(contentBlocks) > 0 {
+		msgs = append(msgs, OpenAIMessage{
+			Role:    "user",
+			Content: contentBlocks,
+		})
+	}
+	return msgs
+}
 
-	return nil
+func parseImagePart(ip protocol.ImagePart) map[string]any {
+	if ip.URL != "" {
+		return map[string]any{
+			"type":      "image_url",
+			"image_url": map[string]string{"url": ip.URL},
+		}
+	}
+	return map[string]any{
+		"type": "image_url",
+		"image_url": map[string]string{
+			"url": "data:" + ip.MediaType + ";base64," + string(ip.Data),
+		},
+	}
 }

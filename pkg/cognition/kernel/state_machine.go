@@ -90,6 +90,9 @@ type StateContext struct {
 
 	// 偏好配置
 	Preferences map[string]string
+
+	// 挂起原因（如 capability_gap）
+	SuspendReason string
 }
 
 // TaskModel LLM 填槽产出——将自然语言任务结构化。

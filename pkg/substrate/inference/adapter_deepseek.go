@@ -79,7 +79,8 @@ func (d *DeepSeekAdapter) Infer(ctx context.Context, req *protocol.InferRequest)
 	}
 
 	if len(resp.Choices) > 0 {
-		out.Content = resp.Choices[0].Message.Content
+		contentStr, _ := resp.Choices[0].Message.Content.(string)
+		out.Content = contentStr
 		out.FinishReason = resp.Choices[0].FinishReason
 	}
 

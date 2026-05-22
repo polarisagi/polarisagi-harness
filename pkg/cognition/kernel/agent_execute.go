@@ -464,6 +464,23 @@ func (a *Agent) runExecuteDAG(ctx context.Context) error { //nolint:gocyclo
 	results, err := executor.Execute(ctx, plan, a.sCtx.SessionID, a.sCtx.AgentID)
 
 	if err != nil {
+		if strings.Contains(err.Error(), "tool not found") {
+			a.sCtx.SuspendReason = "capability_gap"
+			if a.memory != nil {
+				_ = a.memory.Episodic().Append(ctx, protocol.Event{
+					ID:        uuid.New().String(),
+					Type:      "m9_capability_gap",
+					Status:    protocol.StatusPending,
+					TaskID:    a.sCtx.SessionID,
+					AgentID:   a.sCtx.AgentID,
+					Payload:   []byte(fmt.Sprintf(`{"error":"%s"}`, err.Error())),
+					CreatedAt: time.Now(),
+				})
+			}
+			go a.SendIntent(protocol.TriggerInterruptReceived)
+			return nil
+		}
+
 		// 执行失败 → 触发 S_ROLLBACK
 		go a.SendIntent(protocol.TriggerExecuteFail)
 		return perrors.Wrap(perrors.CodeInternal, "runExecuteDAG: DAG execution failed", err)

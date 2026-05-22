@@ -126,8 +126,18 @@ type geminiFunctionResponse struct {
 
 // geminiRequest 将 InferRequest 转换为 Gemini 原生 JSON 格式。
 func buildGeminiRequest(req *protocol.InferRequest) ([]byte, error) { //nolint:gocyclo
+	type InlineData struct {
+		MimeType string `json:"mimeType"`
+		Data     string `json:"data"`
+	}
+	type FileData struct {
+		MimeType string `json:"mimeType"`
+		FileURI  string `json:"fileUri"`
+	}
 	type Part struct {
 		Text             string                  `json:"text,omitempty"`
+		InlineData       *InlineData             `json:"inlineData,omitempty"`
+		FileData         *FileData               `json:"fileData,omitempty"`
 		FunctionCall     *geminiFunctionCall     `json:"functionCall,omitempty"`
 		FunctionResponse *geminiFunctionResponse `json:"functionResponse,omitempty"`
 	}
@@ -164,6 +174,25 @@ func buildGeminiRequest(req *protocol.InferRequest) ([]byte, error) { //nolint:g
 		var parts []Part
 		if len(m.Parts) > 0 { //nolint:nestif
 			for _, p := range m.Parts {
+				if ip, ok := p.(protocol.ImagePart); ok {
+					parts = append(parts, Part{
+						InlineData: &InlineData{
+							MimeType: ip.MediaType,
+							Data:     string(ip.Data),
+						},
+					})
+					continue
+				}
+				if vp, ok := p.(protocol.VideoPart); ok {
+					parts = append(parts, Part{
+						FileData: &FileData{
+							MimeType: vp.MediaType,
+							FileURI:  vp.URI,
+						},
+					})
+					continue
+				}
+
 				pm, ok := p.(map[string]any)
 				if !ok {
 					continue
