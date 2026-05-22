@@ -250,7 +250,7 @@
 
       <!-- 弹窗头部 -->
       <div style="display:flex;justify-content:space-between;align-items:center;padding:20px 28px 0">
-        <input type="text" x-model="$store.cron.form.name"
+        <input type="text" id="automation-form-name" name="automation-form-name" x-model="$store.cron.form.name"
                :placeholder="$store.cron.editMode==='create' ? '自动化名称（可选）' : ''"
                style="font-size:18px;font-weight:600;border:none;background:transparent;outline:none;flex:1;color:var(--color-text)" />
         <div style="display:flex;align-items:center;gap:10px">
@@ -311,7 +311,7 @@
 
       <!-- Prompt 文本域 -->
       <div style="padding:12px 28px;flex:1;overflow-y:auto">
-        <textarea x-model="$store.cron.form.prompt"
+        <textarea id="automation-form-prompt" name="automation-form-prompt" x-model="$store.cron.form.prompt"
                   placeholder="描述你希望 Agent 做什么，例如：每天汇总昨日的 GitHub PR 和 Issue，生成简报"
                   style="width:100%;min-height:180px;max-height:300px;border:none;background:transparent;outline:none;resize:vertical;font-size:14px;color:var(--color-text);line-height:1.7;font-family:inherit"></textarea>
       </div>
@@ -357,7 +357,7 @@
               </template>
               <div style="border-top:1px solid var(--color-border);margin:4px 0;padding-top:4px">
                 <div style="font-size:11px;color:var(--color-text-dim);padding:2px 10px 4px">自定义 Cron</div>
-                <input type="text" x-model="$store.cron.form.cron_schedule"
+                <input type="text" id="automation-form-cron" name="automation-form-cron" x-model="$store.cron.form.cron_schedule"
                        placeholder="0 9 * * 1-5"
                        style="width:100%;padding:5px 10px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;font-size:12px;font-family:monospace;color:var(--color-text);outline:none"
                        @click.stop />
@@ -415,7 +415,7 @@
         <!-- 第二行：工作目录（可选） -->
         <div style="margin-bottom:14px">
           <div style="font-size:11px;color:var(--color-text-dim);font-weight:500;margin-bottom:6px">工作目录（可选）</div>
-          <input type="text" x-model="$store.cron.form.working_dir"
+          <input type="text" id="automation-form-workdir" name="automation-form-workdir" x-model="$store.cron.form.working_dir"
                  placeholder="留空则 Agent 自主决定，例如 /home/user/myproject"
                  style="width:100%;padding:6px 10px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;font-size:12px;font-family:monospace;color:var(--color-text);outline:none" />
         </div>

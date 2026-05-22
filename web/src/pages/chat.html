@@ -197,7 +197,7 @@
                     @click="$store.chat.newSession()"
                     x-text="$store.i18n.t('chat_new')"></button>
             <!-- 权限模式选择器（对齐 Codex 设计：下拉式快速切换）-->
-            <select class="form-select"
+            <select id="chat-computer-mode" name="chat-computer-mode" class="form-select"
                     style="font-size:11px;padding:2px 6px;height:26px;border-radius:6px;min-width:80px"
                     x-model="$store.computer.mode"
                     @change="$store.computer.setMode($event.target.value)"

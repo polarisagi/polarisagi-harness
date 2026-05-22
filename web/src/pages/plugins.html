@@ -36,6 +36,9 @@
                     @click="$store.plugins.filter='marketplace'">🛒 市场</button>
           </div>
           <input class="form-input" type="search"
+                 id="plugins-search-input"
+                 name="plugins-search-input"
+                 aria-label="搜索"
                  :placeholder="$store.plugins.filter === 'marketplace' ? '搜索市场名称、发布者...' : `搜索${$store.plugins.typeLabel($store.plugins.filter)}名称、发布者、标签...`"
                  x-model="$store.plugins.search"
                  style="flex:1;max-width:280px;font-size:12px" />
@@ -267,26 +270,26 @@
           <div class="modal-body">
             
             <div class="form-group">
-              <label class="form-label">名称</label>
-              <input class="form-input" type="text" x-model="$store.plugins.createForm.name" placeholder="输入名称" />
+              <label class="form-label" for="create-plugin-name">名称</label>
+              <input id="create-plugin-name" name="create-plugin-name" class="form-input" type="text" x-model="$store.plugins.createForm.name" placeholder="输入名称" />
             </div>
 
             <!-- Description for Skill, Plugin, App, Marketplace -->
             <div class="form-group" x-show="['skill', 'plugin', 'app', 'marketplace'].includes($store.plugins.filter)">
-              <label class="form-label">描述</label>
-              <textarea class="form-input" x-model="$store.plugins.createForm.description" placeholder="输入描述信息"></textarea>
+              <label class="form-label" for="create-plugin-desc">描述</label>
+              <textarea id="create-plugin-desc" name="create-plugin-desc" class="form-input" x-model="$store.plugins.createForm.description" placeholder="输入描述信息"></textarea>
             </div>
 
             <!-- Skill specifics -->
             <template x-if="$store.plugins.filter === 'skill'">
               <div>
                 <div class="form-group">
-                  <label class="form-label">Git 仓库地址</label>
-                  <input class="form-input" type="text" x-model="$store.plugins.createForm.repo_url" placeholder="https://github.com/..." />
+                  <label class="form-label" for="create-plugin-repo">Git 仓库地址</label>
+                  <input id="create-plugin-repo" name="create-plugin-repo" class="form-input" type="text" x-model="$store.plugins.createForm.repo_url" placeholder="https://github.com/..." />
                 </div>
                 <div class="form-group">
-                  <label class="form-label">执行入口 (Entrypoint)</label>
-                  <input class="form-input" type="text" x-model="$store.plugins.createForm.entrypoint" placeholder="python main.py" />
+                  <label class="form-label" for="create-plugin-entry">执行入口 (Entrypoint)</label>
+                  <input id="create-plugin-entry" name="create-plugin-entry" class="form-input" type="text" x-model="$store.plugins.createForm.entrypoint" placeholder="python main.py" />
                 </div>
               </div>
             </template>
@@ -294,16 +297,16 @@
             <!-- Plugin specifics -->
             <template x-if="$store.plugins.filter === 'plugin'">
               <div class="form-group">
-                <label class="form-label">Manifest URL</label>
-                <input class="form-input" type="text" x-model="$store.plugins.createForm.manifest_url" placeholder="https://.../.well-known/ai-plugin.json" />
+                <label class="form-label" for="create-plugin-manifest">Manifest URL</label>
+                <input id="create-plugin-manifest" name="create-plugin-manifest" class="form-input" type="text" x-model="$store.plugins.createForm.manifest_url" placeholder="https://.../.well-known/ai-plugin.json" />
               </div>
             </template>
 
             <!-- App / Marketplace specifics -->
             <template x-if="['app', 'marketplace'].includes($store.plugins.filter)">
               <div class="form-group">
-                <label class="form-label">URL / 仓库地址</label>
-                <input class="form-input" type="text" x-model="$store.plugins.createForm.url" placeholder="https://..." />
+                <label class="form-label" for="create-plugin-url">URL / 仓库地址</label>
+                <input id="create-plugin-url" name="create-plugin-url" class="form-input" type="text" x-model="$store.plugins.createForm.url" placeholder="https://..." />
               </div>
             </template>
 
@@ -311,8 +314,8 @@
             <template x-if="$store.plugins.filter === 'mcp'">
               <div>
                 <div class="form-group">
-                  <label class="form-label">Transport 类型</label>
-                  <select class="form-input" x-model="$store.plugins.createForm.transport">
+                  <label class="form-label" for="create-plugin-transport">Transport 类型</label>
+                  <select id="create-plugin-transport" name="create-plugin-transport" class="form-input" x-model="$store.plugins.createForm.transport">
                     <option value="stdio">stdio</option>
                     <option value="sse">sse</option>
                   </select>
@@ -322,12 +325,12 @@
                 <template x-if="$store.plugins.createForm.transport === 'stdio'">
                   <div>
                     <div class="form-group">
-                      <label class="form-label">执行命令 (Command)</label>
-                      <input class="form-input" type="text" x-model="$store.plugins.createForm.command" placeholder="npx, python, etc." />
+                      <label class="form-label" for="create-plugin-command">执行命令 (Command)</label>
+                      <input id="create-plugin-command" name="create-plugin-command" class="form-input" type="text" x-model="$store.plugins.createForm.command" placeholder="npx, python, etc." />
                     </div>
                     <div class="form-group">
-                      <label class="form-label">参数 (Args - JSON Array)</label>
-                      <input class="form-input" type="text" x-model="$store.plugins.createForm.args" placeholder='["-y", "@modelcontextprotocol/server-filesystem"]' />
+                      <label class="form-label" for="create-plugin-args">参数 (Args - JSON Array)</label>
+                      <input id="create-plugin-args" name="create-plugin-args" class="form-input" type="text" x-model="$store.plugins.createForm.args" placeholder='["-y", "@modelcontextprotocol/server-filesystem"]' />
                     </div>
                   </div>
                 </template>
@@ -335,14 +338,14 @@
                 <!-- sse fields -->
                 <template x-if="$store.plugins.createForm.transport === 'sse'">
                   <div class="form-group">
-                    <label class="form-label">SSE URL</label>
-                    <input class="form-input" type="text" x-model="$store.plugins.createForm.url" placeholder="https://..." />
+                    <label class="form-label" for="create-plugin-sse">SSE URL</label>
+                    <input id="create-plugin-sse" name="create-plugin-sse" class="form-input" type="text" x-model="$store.plugins.createForm.url" placeholder="https://..." />
                   </div>
                 </template>
 
                 <div class="form-group">
-                  <label class="form-label">环境变量 (Env - JSON Object)</label>
-                  <input class="form-input" type="text" x-model="$store.plugins.createForm.env" placeholder='{"API_KEY": "value"}' />
+                  <label class="form-label" for="create-plugin-env">环境变量 (Env - JSON Object)</label>
+                  <input id="create-plugin-env" name="create-plugin-env" class="form-input" type="text" x-model="$store.plugins.createForm.env" placeholder='{"API_KEY": "value"}' />
                 </div>
               </div>
             </template>
