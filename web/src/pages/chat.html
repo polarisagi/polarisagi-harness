@@ -110,7 +110,7 @@
   </div>
 
   <!-- Input Area -->
-  <div class="p-4 bg-base-100 shrink-0 w-full max-w-4xl mx-auto" x-data="chatInput">
+  <div class="p-4 pb-8 bg-base-100 shrink-0 w-full max-w-4xl mx-auto" x-data="chatInput">
     <div class="relative bg-base-200 rounded-box border border-base-300 shadow-sm focus-within:border-primary focus-within:shadow-md transition-all flex flex-col p-2 px-3">
       
       <!-- Command Menu -->
@@ -168,16 +168,16 @@
     </div>
 
     <!-- Actions Footer -->
-    <div class="flex items-center justify-center gap-4 mt-3 text-xs text-base-content/50">
-      <button class="btn btn-xs btn-outline rounded-full" :disabled="$store.chat.isActive" @click="$store.chat.newSession()" x-text="$store.i18n.t('chat_new')"></button>
-      <select id="store-computer-mode" name="store-computer-mode" class="select select-bordered select-xs rounded-full bg-transparent" x-model="$store.computer.mode" @change="$store.computer.setMode($event.target.value)">
+    <div class="flex items-center justify-center gap-4 mt-3 text-sm text-base-content/70">
+      <button class="btn btn-sm btn-outline rounded-full" :disabled="$store.chat.isActive" @click="$store.chat.newSession()" x-text="$store.i18n.t('chat_new')"></button>
+      <select id="store-computer-mode" name="store-computer-mode" class="select select-bordered select-sm rounded-full bg-transparent" x-model="$store.computer.mode" @change="$store.computer.setMode($event.target.value)">
         <option value="default" x-text="$store.i18n.t('computer_mode_default_short')"></option>
         <option value="auto_review" x-text="$store.i18n.t('computer_mode_auto_short')"></option>
         <option value="full_access" x-text="$store.i18n.t('computer_mode_full_short')"></option>
       </select>
       <div class="flex items-center gap-2">
-        <span><kbd class="kbd kbd-xs">Ctrl+K</kbd> 清空</span>
-        <span><kbd class="kbd kbd-xs">Ctrl+C</kbd> 中断</span>
+        <span><kbd class="kbd kbd-sm">Ctrl+K</kbd> 清空</span>
+        <span><kbd class="kbd kbd-sm">Ctrl+C</kbd> 中断</span>
       </div>
     </div>
   </div>
