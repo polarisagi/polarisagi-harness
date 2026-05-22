@@ -7,6 +7,8 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
 )
 
 // SendReply 将 Agent 回复发回各聊天平台。
@@ -16,7 +18,7 @@ func (m *Manager) SendReply(ctx context.Context, channelType, channelID string, 
 	case "telegram":
 		token, _ := cfg["bot_token"].(string)
 		if token == "" {
-			slog.Warn("telegram: bot_token missing")
+			slog.Warn("telegram: bot_token missing", "err", perrors.New(perrors.CodeInternal, "log event"))
 			return
 		}
 		payload, _ := json.Marshal(map[string]any{"chat_id": msg.ChatID, "text": text})
@@ -34,13 +36,13 @@ func (m *Manager) SendReply(ctx context.Context, channelType, channelID string, 
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
 			b, _ := io.ReadAll(resp.Body)
-			slog.Warn("telegram: sendMessage non-200", "status", resp.StatusCode, "body", string(b))
+			slog.Warn("telegram: sendMessage non-200", "status", resp.StatusCode, "body", string(b), "err", perrors.New(perrors.CodeInternal, "log event"))
 		}
 
 	case "discord":
 		token, _ := cfg["bot_token"].(string)
 		if token == "" {
-			slog.Warn("discord: bot_token missing")
+			slog.Warn("discord: bot_token missing", "err", perrors.New(perrors.CodeInternal, "log event"))
 			return
 		}
 		err = discordSendMessage(ctx, m.httpClient, token, msg.ChatID, text)
@@ -48,7 +50,7 @@ func (m *Manager) SendReply(ctx context.Context, channelType, channelID string, 
 	case "slack":
 		botToken, _ := cfg["bot_token"].(string)
 		if botToken == "" {
-			slog.Warn("slack: bot_token missing")
+			slog.Warn("slack: bot_token missing", "err", perrors.New(perrors.CodeInternal, "log event"))
 			return
 		}
 		err = slackSendMessage(ctx, m.httpClient, botToken, msg.ChatID, text)
@@ -79,7 +81,7 @@ func (m *Manager) SendReply(ctx context.Context, channelType, channelID string, 
 	case "line":
 		accessToken, _ := cfg["channel_access_token"].(string)
 		if accessToken == "" {
-			slog.Warn("line: channel_access_token missing")
+			slog.Warn("line: channel_access_token missing", "err", perrors.New(perrors.CodeInternal, "log event"))
 			return
 		}
 		if msg.ReplyToken != "" {
@@ -92,7 +94,7 @@ func (m *Manager) SendReply(ctx context.Context, channelType, channelID string, 
 		token, _ := cfg["_qqbot_token"].(string)
 		msgType, _ := cfg["_qqbot_msg_type"].(string)
 		if token == "" {
-			slog.Warn("qqbot: access token missing")
+			slog.Warn("qqbot: access token missing", "err", perrors.New(perrors.CodeInternal, "log event"))
 			return
 		}
 		err = qqbotSendMessage(ctx, m.httpClient, token, msgType, msg.ChatID, text, cfg)
@@ -101,14 +103,14 @@ func (m *Manager) SendReply(ctx context.Context, channelType, channelID string, 
 		phoneNumberID, _ := cfg["phone_number_id"].(string)
 		accessToken, _ := cfg["access_token"].(string)
 		if phoneNumberID == "" || accessToken == "" {
-			slog.Warn("whatsapp: phone_number_id or access_token missing")
+			slog.Warn("whatsapp: phone_number_id or access_token missing", "err", perrors.New(perrors.CodeInternal, "log event"))
 			return
 		}
 		err = whatsappSendMessage(ctx, m.httpClient, phoneNumberID, accessToken, msg.ChatID, text)
 
 	case "dingtalk":
 		if msg.ReplyToken == "" {
-			slog.Warn("dingtalk: sessionWebhook missing, cannot reply")
+			slog.Warn("dingtalk: sessionWebhook missing, cannot reply", "err", perrors.New(perrors.CodeInternal, "log event"))
 			return
 		}
 		err = dingTalkSendMessage(ctx, m.httpClient, msg.ReplyToken, text)
@@ -119,7 +121,7 @@ func (m *Manager) SendReply(ctx context.Context, channelType, channelID string, 
 				select {
 				case ch <- wecomSendMsg{chatID: msg.ChatID, text: text}:
 				default:
-					slog.Warn("wecom: send channel full", "channel", channelID)
+					slog.Warn("wecom: send channel full", "channel", channelID, "err", perrors.New(perrors.CodeInternal, "log event"))
 				}
 			}
 		}
@@ -129,7 +131,7 @@ func (m *Manager) SendReply(ctx context.Context, channelType, channelID string, 
 		mmURL, _ := cfg["url"].(string)
 		token, _ := cfg["token"].(string)
 		if mmURL == "" || token == "" {
-			slog.Warn("mattermost: url or token missing")
+			slog.Warn("mattermost: url or token missing", "err", perrors.New(perrors.CodeInternal, "log event"))
 			return
 		}
 		err = mattermostSendMessage(ctx, m.httpClient, mmURL, token, msg.ChatID, text)
@@ -143,7 +145,7 @@ func (m *Manager) SendReply(ctx context.Context, channelType, channelID string, 
 			smtpPort = "587"
 		}
 		if smtpHost == "" || address == "" || password == "" {
-			slog.Warn("email: smtp config missing")
+			slog.Warn("email: smtp config missing", "err", perrors.New(perrors.CodeInternal, "log event"))
 			return
 		}
 		if err2 := emailSendMessage(smtpHost, smtpPort, address, password, msg.ChatID, "Re: [Polaris]", text); err2 != nil {
@@ -155,7 +157,7 @@ func (m *Manager) SendReply(ctx context.Context, channelType, channelID string, 
 		homeserver, _ := cfg["homeserver"].(string)
 		accessToken, _ := cfg["access_token"].(string)
 		if homeserver == "" || accessToken == "" {
-			slog.Warn("matrix: homeserver or access_token missing")
+			slog.Warn("matrix: homeserver or access_token missing", "err", perrors.New(perrors.CodeInternal, "log event"))
 			return
 		}
 		err = matrixSendMessage(ctx, m.httpClient, homeserver, accessToken, msg.ChatID, text)
@@ -164,7 +166,7 @@ func (m *Manager) SendReply(ctx context.Context, channelType, channelID string, 
 		apiURL, _ := cfg["api_url"].(string)
 		account, _ := cfg["account"].(string)
 		if apiURL == "" || account == "" {
-			slog.Warn("signal: api_url or account missing")
+			slog.Warn("signal: api_url or account missing", "err", perrors.New(perrors.CodeInternal, "log event"))
 			return
 		}
 		err = signalSendMessage(ctx, m.httpClient, apiURL, account, msg.ChatID, text)
@@ -173,7 +175,7 @@ func (m *Manager) SendReply(ctx context.Context, channelType, channelID string, 
 		haURL, _ := cfg["url"].(string)
 		haToken, _ := cfg["token"].(string)
 		if haURL == "" || haToken == "" {
-			slog.Warn("homeassistant: url or token missing")
+			slog.Warn("homeassistant: url or token missing", "err", perrors.New(perrors.CodeInternal, "log event"))
 			return
 		}
 		err = haSendPersistentNotification(ctx, m.httpClient, haURL, haToken, text)
@@ -183,7 +185,7 @@ func (m *Manager) SendReply(ctx context.Context, channelType, channelID string, 
 		authToken, _ := cfg["auth_token"].(string)
 		fromNumber, _ := cfg["from_number"].(string)
 		if accountSID == "" || authToken == "" || fromNumber == "" {
-			slog.Warn("sms: twilio config missing")
+			slog.Warn("sms: twilio config missing", "err", perrors.New(perrors.CodeInternal, "log event"))
 			return
 		}
 		err = twilioSendSMS(ctx, m.httpClient, accountSID, authToken, fromNumber, msg.ChatID, text)
@@ -193,7 +195,7 @@ func (m *Manager) SendReply(ctx context.Context, channelType, channelID string, 
 		clientID, _ := cfg["client_id"].(string)
 		clientSecret, _ := cfg["client_secret"].(string)
 		if tenantID == "" || clientID == "" || clientSecret == "" {
-			slog.Warn("teams: tenant_id/client_id/client_secret missing")
+			slog.Warn("teams: tenant_id/client_id/client_secret missing", "err", perrors.New(perrors.CodeInternal, "log event"))
 			return
 		}
 		accessToken, tokenErr := teamsGetAccessToken(ctx, m.httpClient, tenantID, clientID, clientSecret)

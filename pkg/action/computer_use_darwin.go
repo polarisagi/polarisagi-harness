@@ -7,6 +7,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
 )
 
 type darwinScreenshot struct{}
@@ -16,7 +18,7 @@ func (d *darwinScreenshot) Capture() ([]byte, error) {
 	defer os.Remove(tmpPath)
 	cmd := exec.Command("screencapture", "-x", "-t", "png", tmpPath)
 	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("screencapture failed (requires macOS): %w", err)
+		return nil, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("screencapture failed (requires macOS): %v", err), err)
 	}
 	return os.ReadFile(tmpPath)
 }

@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
 )
 
 // CSVFanoutJob CSV batch fan-out 任务描述（ADR-0015 §2.5）。
@@ -60,7 +62,7 @@ func RunCSVFanout(ctx context.Context, bb *Blackboard, job CSVFanoutJob) (*Fanou
 
 	headers, rows, err := readCSV(job.CSVPath)
 	if err != nil {
-		return nil, fmt.Errorf("csv_fanout: read %s: %w", job.CSVPath, err)
+		return nil, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("csv_fanout: read %s: %v", job.CSVPath, err), err)
 	}
 
 	maxRuntime := job.MaxRuntimeSec
@@ -91,7 +93,7 @@ func RunCSVFanout(ctx context.Context, bb *Blackboard, job CSVFanoutJob) (*Fanou
 	}
 
 	if err := bb.PostBatch(entries); err != nil {
-		return nil, fmt.Errorf("csv_fanout: post batch: %w", err)
+		return nil, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("csv_fanout: post batch: %v", err), err)
 	}
 
 	// 并发等待所有 Task 完成（简化版：轮询 Blackboard 状态）
@@ -152,7 +154,7 @@ func RunCSVFanout(ctx context.Context, bb *Blackboard, job CSVFanoutJob) (*Fanou
 
 	if job.OutputCSVPath != "" {
 		if err := writeResultCSV(job.OutputCSVPath, headers, results); err != nil {
-			return fanout, fmt.Errorf("csv_fanout: write output: %w", err)
+			return fanout, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("csv_fanout: write output: %v", err), err)
 		}
 	}
 	return fanout, nil
@@ -166,7 +168,7 @@ func waitForTask(ctx context.Context, bb *Blackboard, taskID string) (string, er
 	for {
 		select {
 		case <-ctx.Done():
-			return "", fmt.Errorf("timeout waiting for task %s", taskID)
+			return "", perrors.New(perrors.CodeInternal, fmt.Sprintf("timeout waiting for task %s", taskID))
 		case <-ticker.C:
 			snap, err := bb.PeekTask(taskID)
 			if err != nil {
@@ -179,7 +181,7 @@ func waitForTask(ctx context.Context, bb *Blackboard, taskID string) (string, er
 			case TaskDone:
 				return string(snap.Result), nil
 			case TaskFailed:
-				return "", fmt.Errorf("task %s failed", taskID)
+				return "", perrors.New(perrors.CodeInternal, fmt.Sprintf("task %s failed", taskID))
 			}
 		}
 	}
@@ -199,7 +201,7 @@ func readCSV(path string) (headers []string, rows []map[string]string, err error
 		return nil, nil, err
 	}
 	if len(records) < 2 {
-		return nil, nil, fmt.Errorf("CSV must have header row and at least one data row")
+		return nil, nil, perrors.New(perrors.CodeInternal, "CSV must have header row and at least one data row")
 	}
 
 	headers = records[0]
@@ -274,10 +276,10 @@ func writeResultCSV(path string, headers []string, results []RowResult) error {
 
 func validateFanoutJob(job *CSVFanoutJob) error {
 	if job.CSVPath == "" {
-		return fmt.Errorf("csv_fanout: CSVPath is required")
+		return perrors.New(perrors.CodeInternal, "csv_fanout: CSVPath is required")
 	}
 	if job.Instruction == "" {
-		return fmt.Errorf("csv_fanout: Instruction is required")
+		return perrors.New(perrors.CodeInternal, "csv_fanout: Instruction is required")
 	}
 	return nil
 }

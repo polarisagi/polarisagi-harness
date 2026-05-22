@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
+
 	"github.com/mrlaoliai/polaris-harness/internal/protocol"
 )
 
@@ -59,16 +61,16 @@ func (m *MCPManager) Add(ctx context.Context, serverID, name string, cfg MCPClie
 
 	client := NewMCPClient(cfg, m.httpClient)
 	if err := client.Connect(ctx); err != nil {
-		return fmt.Errorf("mcp_manager: connect %q: %w", serverID, err)
+		return perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("mcp_manager: connect %q: %v", serverID, err), err)
 	}
 	if err := client.Initialize(ctx); err != nil {
 		client.Close()
-		return fmt.Errorf("mcp_manager: initialize %q: %w", serverID, err)
+		return perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("mcp_manager: initialize %q: %v", serverID, err), err)
 	}
 	tools, err := client.ListTools(ctx)
 	if err != nil {
 		client.Close()
-		return fmt.Errorf("mcp_manager: list tools %q: %w", serverID, err)
+		return perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("mcp_manager: list tools %q: %v", serverID, err), err)
 	}
 
 	m.registerTools(serverID, client, tools)

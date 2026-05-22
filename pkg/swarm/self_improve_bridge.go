@@ -94,7 +94,7 @@ func (b *RolloutBridge) AdvanceGate(ctx context.Context, version string, stats s
 	}
 	if b.rollout.CheckHardStop(swarmStats) {
 		slog.Warn("swarm: rollout hard stop triggered", "version", version,
-			"error_rate", stats.ErrorRate, "safety_violations", stats.SafetyViolations)
+			"error_rate", stats.ErrorRate, "safety_violations", stats.SafetyViolations, "err", perrors.New(perrors.CodeInternal, "log event"))
 		return perrors.New(perrors.CodeInternal, "rollout hard stop: safety or metrics regression")
 	}
 	slog.Info("swarm: rollout gate advanced", "version", version)

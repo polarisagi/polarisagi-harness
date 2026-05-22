@@ -6,6 +6,8 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
 )
 
 // XvfbDisplayServer 实现了 DisplayServer 接口，用于 Linux 环境下的无头 GUI 交互（LAM）。
@@ -30,43 +32,43 @@ func NewXvfbDisplayServer(displayID string) *XvfbDisplayServer {
 func (s *XvfbDisplayServer) SendAction(action any) error {
 	m, ok := action.(map[string]any)
 	if !ok {
-		return fmt.Errorf("xvfb: invalid action format")
+		return perrors.New(perrors.CodeInternal, "xvfb: invalid action format")
 	}
 
 	actType, _ := m["type"].(string)
 	vec, ok := m["vector"].([]float64)
 	if !ok {
-		return fmt.Errorf("xvfb: invalid action vector")
+		return perrors.New(perrors.CodeInternal, "xvfb: invalid action vector")
 	}
 
 	var args []string
 	switch actType {
 	case "mouse_move":
 		if len(vec) < 2 {
-			return fmt.Errorf("xvfb: mouse_move requires x, y")
+			return perrors.New(perrors.CodeInternal, "xvfb: mouse_move requires x, y")
 		}
 		args = []string{"mousemove", fmt.Sprintf("%d", int(vec[0])), fmt.Sprintf("%d", int(vec[1]))}
 	case "mouse_click":
 		if len(vec) < 1 {
-			return fmt.Errorf("xvfb: mouse_click requires button (1=left, 2=middle, 3=right)")
+			return perrors.New(perrors.CodeInternal, "xvfb: mouse_click requires button (1=left, 2=middle, 3=right)")
 		}
 		args = []string{"click", fmt.Sprintf("%d", int(vec[0]))}
 	case "mouse_drag":
 		// 按住鼠标移动 (mousedown -> mousemove -> mouseup) 简单示例不支持复杂轨迹
-		slog.Warn("xvfb: mouse_drag not fully supported, doing move")
+		slog.Warn("xvfb: mouse_drag not fully supported, doing move", "err", perrors.New(perrors.CodeInternal, "log event"))
 		if len(vec) < 2 {
-			return fmt.Errorf("xvfb: mouse_drag requires x, y")
+			return perrors.New(perrors.CodeInternal, "xvfb: mouse_drag requires x, y")
 		}
 		args = []string{"mousemove", fmt.Sprintf("%d", int(vec[0])), fmt.Sprintf("%d", int(vec[1]))}
 	default:
-		return fmt.Errorf("xvfb: unsupported action type %q", actType)
+		return perrors.New(perrors.CodeInternal, fmt.Sprintf("xvfb: unsupported action type %q", actType))
 	}
 
 	cmd := exec.Command("xdotool", args...)
 	cmd.Env = append(os.Environ(), "DISPLAY="+s.displayID)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("xdotool error: %w, output: %s", err, string(out))
+		return perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("xdotool error: %v, output: %s", err, string(out)), err)
 	}
 	return nil
 }
@@ -78,7 +80,7 @@ func (s *XvfbDisplayServer) GetFrame() ([]byte, error) {
 	var xwdOut bytes.Buffer
 	xwdCmd.Stdout = &xwdOut
 	if err := xwdCmd.Run(); err != nil {
-		return nil, fmt.Errorf("xwd error: %w", err)
+		return nil, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("xwd error: %v", err), err)
 	}
 
 	// 转换为 PNG (如果安装了 ImageMagick)

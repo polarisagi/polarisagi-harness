@@ -18,6 +18,8 @@ import (
 	"runtime"
 	"sync"
 
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
+
 	"github.com/ebitengine/purego"
 )
 
@@ -101,9 +103,9 @@ func doLoad() (uintptr, error) {
 		return h, nil
 	}
 	if lastErr == nil {
-		lastErr = fmt.Errorf("no candidate paths matched")
+		lastErr = perrors.New(perrors.CodeInternal, "no candidate paths matched")
 	}
-	return 0, fmt.Errorf("substrate dylib not found (set POLARIS_SUBSTRATE_LIB or run `make rust-build`); last error: %w", lastErr)
+	return 0, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("substrate dylib not found (set POLARIS_SUBSTRATE_LIB or run `make rust-build`); last error: %v", lastErr), lastErr)
 }
 
 func verifyABI(lib uintptr) error {

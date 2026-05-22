@@ -128,10 +128,10 @@ func (o *Orchestrator) dispatchPendingTasks(ctx context.Context) {
 				case worker.TaskPushChan <- task.ID:
 					slog.Debug("orchestrator: task pushed to worker", "task_id", task.ID, "agent", agentID)
 				default:
-					slog.Warn("orchestrator: worker push channel full", "agent", agentID, "task_id", task.ID)
+					slog.Warn("orchestrator: worker push channel full", "agent", agentID, "task_id", task.ID, "err", perrors.New(perrors.CodeInternal, "log event"))
 				}
 			} else {
-				slog.Warn("orchestrator: worker not found", "agent", agentID, "task_id", task.ID)
+				slog.Warn("orchestrator: worker not found", "agent", agentID, "task_id", task.ID, "err", perrors.New(perrors.CodeInternal, "log event"))
 			}
 		}
 	}

@@ -12,6 +12,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
+
 	"github.com/gorilla/websocket"
 )
 
@@ -252,7 +254,7 @@ func discordSendMessage(ctx context.Context, client *http.Client, token, channel
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
 		b, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("discord sendMessage %d: %s", resp.StatusCode, b)
+		return perrors.New(perrors.CodeInternal, fmt.Sprintf("discord sendMessage %d: %s", resp.StatusCode, b))
 	}
 	return nil
 }

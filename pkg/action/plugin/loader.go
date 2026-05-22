@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
+
 	"github.com/mrlaoliai/polaris-harness/internal/protocol"
 )
 
@@ -21,15 +23,15 @@ import (
 func SkillMetaFromSKILLmd(path string, signingKey []byte) (*protocol.SkillMeta, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("loader: read %s: %w", path, err)
+		return nil, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("loader: read %s: %v", path, err), err)
 	}
 
 	name, description, err := parseFrontmatter(data)
 	if err != nil {
-		return nil, fmt.Errorf("loader: parse frontmatter %s: %w", path, err)
+		return nil, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("loader: parse frontmatter %s: %v", path, err), err)
 	}
 	if name == "" {
-		return nil, fmt.Errorf("loader: SKILL.md %s missing 'name' in frontmatter", path)
+		return nil, perrors.New(perrors.CodeInternal, fmt.Sprintf("loader: SKILL.md %s missing 'name' in frontmatter", path))
 	}
 
 	// 本地 HMAC 签名（替代 cosign，标记 trust:local）
@@ -54,7 +56,7 @@ func SkillMetaFromSKILLmd(path string, signingKey []byte) (*protocol.SkillMeta, 
 func parseFrontmatter(data []byte) (name, description string, err error) {
 	lines := strings.Split(string(data), "\n")
 	if len(lines) == 0 || strings.TrimSpace(lines[0]) != "---" {
-		return "", "", fmt.Errorf("no frontmatter found")
+		return "", "", perrors.New(perrors.CodeInternal, "no frontmatter found")
 	}
 
 	inFrontmatter := false

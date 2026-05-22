@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
+
 	"gopkg.in/yaml.v3"
 )
 
@@ -49,7 +51,7 @@ func LoadAgentProfiles(dir string) ([]AgentProfile, error) {
 		if os.IsNotExist(err) {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("agent_profile: scan %s: %w", dir, err)
+		return nil, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("agent_profile: scan %s: %v", dir, err), err)
 	}
 
 	profiles := make([]AgentProfile, 0, len(entries))
@@ -62,7 +64,7 @@ func LoadAgentProfiles(dir string) ([]AgentProfile, error) {
 			return nil, err
 		}
 		if err := validateProfile(p); err != nil {
-			return nil, fmt.Errorf("agent_profile: %s: %w", e.Name(), err)
+			return nil, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("agent_profile: %s: %v", e.Name(), err), err)
 		}
 		profiles = append(profiles, *p)
 	}
@@ -82,27 +84,27 @@ func DefaultAgentProfilePaths() []string {
 func loadProfile(path string) (*AgentProfile, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("agent_profile: read %s: %w", path, err)
+		return nil, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("agent_profile: read %s: %v", path, err), err)
 	}
 	var p AgentProfile
 	if err := yaml.Unmarshal(data, &p); err != nil {
-		return nil, fmt.Errorf("agent_profile: parse %s: %w", path, err)
+		return nil, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("agent_profile: parse %s: %v", path, err), err)
 	}
 	return &p, nil
 }
 
 func validateProfile(p *AgentProfile) error {
 	if p.Name == "" {
-		return fmt.Errorf("name is required")
+		return perrors.New(perrors.CodeInternal, "name is required")
 	}
 	if p.Description == "" {
-		return fmt.Errorf("description is required")
+		return perrors.New(perrors.CodeInternal, "description is required")
 	}
 	if p.Instructions == "" {
-		return fmt.Errorf("instructions is required")
+		return perrors.New(perrors.CodeInternal, "instructions is required")
 	}
 	if p.MaxDepth < 0 {
-		return fmt.Errorf("max_depth must be >= 0")
+		return perrors.New(perrors.CodeInternal, "max_depth must be >= 0")
 	}
 	return nil
 }

@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
 )
 
 // SMS 通过 Twilio REST API 发送短信，通过 webhook 接收。
@@ -41,7 +43,7 @@ func twilioSendSMS(ctx context.Context, client *http.Client, accountSID, authTok
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
 		b, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		return fmt.Errorf("twilio: send status %d: %s", resp.StatusCode, b)
+		return perrors.New(perrors.CodeInternal, fmt.Sprintf("twilio: send status %d: %s", resp.StatusCode, b))
 	}
 	return nil
 }

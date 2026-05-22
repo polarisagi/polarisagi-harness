@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"strings"
 
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
+
 	"github.com/mrlaoliai/polaris-harness/internal/protocol"
 )
 
@@ -219,7 +221,7 @@ func (c *Compressor) summarize(ctx context.Context, msgs []protocol.Message, max
 			}
 		case protocol.StreamError:
 			if ev.Content != "" {
-				return "", fmt.Errorf("summarize stream: %s", ev.Content)
+				return "", perrors.New(perrors.CodeInternal, fmt.Sprintf("summarize stream: %s", ev.Content))
 			}
 		}
 	}

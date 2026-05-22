@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
 )
 
 // ─── Cron Schedule Evaluator ───────────────────────────────────────────────────
@@ -38,7 +40,7 @@ type cronField struct {
 func ParseCron(expr string) (*CronSchedule, error) {
 	parts := strings.Fields(expr)
 	if len(parts) != 5 {
-		return nil, fmt.Errorf("cron: need 5 fields, got %d: %q", len(parts), expr)
+		return nil, perrors.New(perrors.CodeInternal, fmt.Sprintf("cron: need 5 fields, got %d: %q", len(parts), expr))
 	}
 	var cs CronSchedule
 	cs.raw = expr
@@ -52,7 +54,7 @@ func ParseCron(expr string) (*CronSchedule, error) {
 	for i, part := range parts {
 		f, err := parseCronField(part, bounds[i][0], bounds[i][1])
 		if err != nil {
-			return nil, fmt.Errorf("cron field %d: %w", i, err)
+			return nil, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("cron field %d: %v", i, err), err)
 		}
 		cs.fields[i] = f
 	}
@@ -76,7 +78,7 @@ func parseCronField(s string, min, max int) (cronField, error) { //nolint:gocycl
 			stepStr := strings.TrimSpace(sp[1])
 			st, err := strconv.Atoi(stepStr)
 			if err != nil || st <= 0 {
-				return cronField{}, fmt.Errorf("bad step %q", seg)
+				return cronField{}, perrors.New(perrors.CodeInternal, fmt.Sprintf("bad step %q", seg))
 			}
 			step = st
 			seg = strings.TrimSpace(sp[0])
@@ -88,13 +90,13 @@ func parseCronField(s string, min, max int) (cronField, error) { //nolint:gocycl
 			a, err1 := strconv.Atoi(strings.TrimSpace(sp[0]))
 			b, err2 := strconv.Atoi(strings.TrimSpace(sp[1]))
 			if err1 != nil || err2 != nil {
-				return cronField{}, fmt.Errorf("bad range %q", seg)
+				return cronField{}, perrors.New(perrors.CodeInternal, fmt.Sprintf("bad range %q", seg))
 			}
 			lo, hi = a, b
 		} else {
 			v, err := strconv.Atoi(seg)
 			if err != nil {
-				return cronField{}, fmt.Errorf("bad value %q", seg)
+				return cronField{}, perrors.New(perrors.CodeInternal, fmt.Sprintf("bad value %q", seg))
 			}
 			lo, hi = v, v
 		}
@@ -105,7 +107,7 @@ func parseCronField(s string, min, max int) (cronField, error) { //nolint:gocycl
 		}
 	}
 	if len(allowed) == 0 && s != "*" {
-		return cronField{}, fmt.Errorf("value %q out of range [%d,%d]", s, min, max)
+		return cronField{}, perrors.New(perrors.CodeInternal, fmt.Sprintf("value %q out of range [%d,%d]", s, min, max))
 	}
 	return cronField{allowed: allowed}, nil
 }
@@ -167,7 +169,7 @@ func (c *CronEvalCache) Next(expr, tz string, from time.Time) (time.Time, error)
 
 	loc, err := time.LoadLocation(tz)
 	if err != nil {
-		return time.Time{}, fmt.Errorf("cron: bad timezone %q: %w", tz, err)
+		return time.Time{}, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("cron: bad timezone %q: %v", tz, err), err)
 	}
 
 	sched, err := ParseCron(expr)

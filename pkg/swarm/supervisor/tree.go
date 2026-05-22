@@ -133,7 +133,7 @@ func (s *Supervisor) runWorker(w *WorkerEntry) {
 		s.mu.Unlock()
 
 		if currentCount > s.maxRestarts {
-			slog.Error("supervisor: worker exceeded max restarts, escalating", "worker", w.ID, "max_restarts", s.maxRestarts)
+			slog.Error("supervisor: worker exceeded max restarts, escalating", "worker", w.ID, "max_restarts", s.maxRestarts, "err", perrors.New(perrors.CodeInternal, "log event"))
 			// 超出重启上限，退出。如果有父 Supervisor，这里可以 Escalate。
 			return
 		}

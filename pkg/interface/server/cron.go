@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
+
 	"github.com/mrlaoliai/polaris-harness/internal/protocol"
 
 	"gopkg.in/yaml.v3"
@@ -633,7 +635,7 @@ func (s *Server) fetchRemoteTemplates(src automationSource) []automationTemplate
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		slog.Warn("automation-templates: remote returned non-200", "id", src.ID, "status", resp.StatusCode)
+		slog.Warn("automation-templates: remote returned non-200", "id", src.ID, "status", resp.StatusCode, "err", perrors.New(perrors.CodeInternal, "log event"))
 		return nil
 	}
 

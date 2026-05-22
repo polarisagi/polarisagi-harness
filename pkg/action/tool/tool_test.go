@@ -6,6 +6,8 @@ import (
 	"errors"
 	"testing"
 
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
+
 	"github.com/mrlaoliai/polaris-harness/internal/protocol"
 )
 
@@ -27,7 +29,7 @@ func (m *mockPolicyGate) Review(_ context.Context, _ protocol.PolicyReviewReques
 type mockPolicyGateWithError struct{}
 
 func (m *mockPolicyGateWithError) IsAuthorized(_ context.Context, _, _, _ string, _ map[string]any) (bool, error) {
-	return false, errors.New("policy engine failure")
+	return false, perrors.New(perrors.CodeInternal, "policy engine failure")
 }
 
 func (m *mockPolicyGateWithError) Review(_ context.Context, _ protocol.PolicyReviewRequest) (protocol.PolicyReviewResult, error) {
@@ -174,7 +176,7 @@ func TestExecuteTool_PolicyDenied(t *testing.T) {
 func TestExecuteTool_SandboxError(t *testing.T) {
 	r := newAllowRegistry()
 	_ = r.Register(minTool("boom"))
-	r.SetSandbox(&mockSandbox{err: errors.New("sandbox kaboom")})
+	r.SetSandbox(&mockSandbox{err: perrors.New(perrors.CodeInternal, "sandbox kaboom")})
 
 	res, err := r.ExecuteTool(context.Background(), "boom", []byte("x"), protocol.TaintNone)
 	if err != nil {

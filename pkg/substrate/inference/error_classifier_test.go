@@ -1,8 +1,9 @@
 package inference
 
 import (
-	"errors"
 	"testing"
+
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
 )
 
 func TestClassify(t *testing.T) {
@@ -322,7 +323,7 @@ func TestClassify(t *testing.T) {
 			if tc.errMsg == "" {
 				ce = Classify(nil)
 			} else {
-				ce = Classify(errors.New(tc.errMsg))
+				ce = Classify(perrors.New(perrors.CodeInternal, tc.errMsg))
 			}
 
 			if ce.Reason != tc.wantReason {
@@ -351,7 +352,7 @@ func TestClassify(t *testing.T) {
 }
 
 func TestClassifyWithProvider(t *testing.T) {
-	ce := ClassifyWithProvider(errors.New("[INTERNAL] anthropic: HTTP 429: rate limit"), "anthropic")
+	ce := ClassifyWithProvider(perrors.New(perrors.CodeInternal, "[INTERNAL] anthropic: HTTP 429: rate limit"), "anthropic")
 	if ce.Provider != "anthropic" {
 		t.Errorf("Provider: got %q, want %q", ce.Provider, "anthropic")
 	}

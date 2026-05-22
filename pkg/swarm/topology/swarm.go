@@ -2,9 +2,10 @@ package topology
 
 import (
 	"context"
-	"errors"
 	"math/rand/v2"
 	"sync"
+
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
 )
 
 // TopologyType 多 Agent 协作拓扑类型。
@@ -46,9 +47,9 @@ var DefaultAgentLimits = AgentLimits{
 
 var (
 	// ErrRegistryFull 注册表已达容量上限，新 Agent 无法加入。
-	ErrRegistryFull = errors.New("swarm: agent registry at capacity")
+	ErrRegistryFull = perrors.New(perrors.CodeInternal, "swarm: agent registry at capacity")
 	// ErrDuplicateCapabilities 已存在能力集合完全相同的 Agent，禁止角色冗余。
-	ErrDuplicateCapabilities = errors.New("swarm: identical capability set already registered by another agent")
+	ErrDuplicateCapabilities = perrors.New(perrors.CodeInternal, "swarm: identical capability set already registered by another agent")
 )
 
 // Capability Agent 能力标签（字符串枚举，由 Agent 注册时自声明）。

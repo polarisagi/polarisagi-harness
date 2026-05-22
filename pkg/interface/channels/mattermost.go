@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
+
 	"github.com/gorilla/websocket"
 )
 
@@ -59,7 +61,7 @@ func (m *Manager) mattermostConnect(ctx context.Context, channelID, mmURL, token
 	dialer := websocket.Dialer{HandshakeTimeout: 15 * time.Second}
 	conn, _, err := dialer.DialContext(ctx, wsURL, nil)
 	if err != nil {
-		return fmt.Errorf("mattermost: dial: %w", err)
+		return perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("mattermost: dial: %v", err), err)
 	}
 	defer conn.Close()
 
@@ -75,7 +77,7 @@ func (m *Manager) mattermostConnect(ctx context.Context, channelID, mmURL, token
 		}
 		_, raw, err := conn.ReadMessage()
 		if err != nil {
-			return fmt.Errorf("mattermost: read: %w", err)
+			return perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("mattermost: read: %v", err), err)
 		}
 		var event mmEvent
 		if json.Unmarshal(raw, &event) != nil || event.Event != "posted" {
@@ -117,7 +119,7 @@ func mattermostSendMessage(ctx context.Context, client *http.Client, mmURL, toke
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
 		b, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		return fmt.Errorf("mattermost: post status %d: %s", resp.StatusCode, b)
+		return perrors.New(perrors.CodeInternal, fmt.Sprintf("mattermost: post status %d: %s", resp.StatusCode, b))
 	}
 	return nil
 }

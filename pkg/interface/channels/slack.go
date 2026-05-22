@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"time"
 
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
+
 	"github.com/gorilla/websocket"
 )
 
@@ -48,12 +50,12 @@ func (m *Manager) runSlackPoller(ctx context.Context, channelID, botToken, appTo
 func (m *Manager) slackSocketConnect(ctx context.Context, channelID, botToken, appToken string, cfg map[string]any) error { //nolint:gocyclo
 	wsURL, err := slackGetSocketURL(ctx, m.httpClient, appToken)
 	if err != nil {
-		return fmt.Errorf("apps.connections.open: %w", err)
+		return perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("apps.connections.open: %v", err), err)
 	}
 	dialer := websocket.Dialer{HandshakeTimeout: 15 * time.Second}
 	conn, _, err := dialer.DialContext(ctx, wsURL, nil)
 	if err != nil {
-		return fmt.Errorf("dial: %w", err)
+		return perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("dial: %v", err), err)
 	}
 	defer conn.Close()
 
@@ -63,7 +65,7 @@ func (m *Manager) slackSocketConnect(ctx context.Context, channelID, botToken, a
 		}
 		_, raw, err := conn.ReadMessage()
 		if err != nil {
-			return fmt.Errorf("read: %w", err)
+			return perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("read: %v", err), err)
 		}
 		var envelope map[string]json.RawMessage
 		if json.Unmarshal(raw, &envelope) != nil {
@@ -74,7 +76,7 @@ func (m *Manager) slackSocketConnect(ctx context.Context, channelID, botToken, a
 
 		switch msgType {
 		case "disconnect":
-			return fmt.Errorf("server disconnect: %s", jsonStr(envelope, "reason"))
+			return perrors.New(perrors.CodeInternal, fmt.Sprintf("server disconnect: %s", jsonStr(envelope, "reason")))
 		case "events_api":
 			if envelopeID != "" {
 				conn.WriteJSON(map[string]string{"envelope_id": envelopeID}) //nolint:errcheck
@@ -131,10 +133,10 @@ func slackGetSocketURL(ctx context.Context, client *http.Client, appToken string
 		URL string `json:"url"`
 	}
 	if json.Unmarshal(body, &result) != nil {
-		return "", fmt.Errorf("parse: %s", body)
+		return "", perrors.New(perrors.CodeInternal, fmt.Sprintf("parse: %s", body))
 	}
 	if !result.OK {
-		return "", fmt.Errorf("slack api: %s", body)
+		return "", perrors.New(perrors.CodeInternal, fmt.Sprintf("slack api: %s", body))
 	}
 	return result.URL, nil
 }
@@ -154,7 +156,7 @@ func slackSendMessage(ctx context.Context, client *http.Client, botToken, channe
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
 		b, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("slack postMessage %d: %s", resp.StatusCode, b)
+		return perrors.New(perrors.CodeInternal, fmt.Sprintf("slack postMessage %d: %s", resp.StatusCode, b))
 	}
 	return nil
 }

@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
 )
 
 // Teams 通过 Microsoft Graph API 接入 Teams 聊天。
@@ -45,13 +47,13 @@ func teamsGetAccessToken(ctx context.Context, client *http.Client, tenantID, cli
 	defer resp.Body.Close()
 	b, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("teams: token status %d: %s", resp.StatusCode, b)
+		return "", perrors.New(perrors.CodeInternal, fmt.Sprintf("teams: token status %d: %s", resp.StatusCode, b))
 	}
 	var result struct {
 		AccessToken string `json:"access_token"`
 	}
 	if json.Unmarshal(b, &result) != nil || result.AccessToken == "" {
-		return "", fmt.Errorf("teams: empty access_token")
+		return "", perrors.New(perrors.CodeInternal, "teams: empty access_token")
 	}
 	return result.AccessToken, nil
 }
@@ -75,7 +77,7 @@ func teamsSendMessage(ctx context.Context, client *http.Client, accessToken, cha
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
 		b, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		return fmt.Errorf("teams: sendMessage status %d: %s", resp.StatusCode, b)
+		return perrors.New(perrors.CodeInternal, fmt.Sprintf("teams: sendMessage status %d: %s", resp.StatusCode, b))
 	}
 	return nil
 }

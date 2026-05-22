@@ -1,11 +1,12 @@
 package inference
 
 import (
-	"errors"
 	"fmt"
 	"sync"
 	"testing"
 	"time"
+
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
 )
 
 // ─── 基础构造与可用性 ──────────────────────────────────────────────────────────
@@ -95,7 +96,7 @@ func TestCredential_RecordResult_RateLimit(t *testing.T) {
 	}
 
 	// 模拟 429 错误
-	err := errors.New("[INTERNAL] api error (status 429): rate limit exceeded")
+	err := perrors.New(perrors.CodeInternal, "[INTERNAL] api error (status 429): rate limit exceeded")
 	c.RecordResult(err)
 
 	if c.Available() {
@@ -115,7 +116,7 @@ func TestCredential_RecordResult_RateLimit(t *testing.T) {
 func TestCredential_RecordResult_Auth(t *testing.T) {
 	p := NewSingleCredentialPool("sk-auth")
 	c := p.Pick()
-	err := errors.New("[INTERNAL] anthropic: HTTP 401: invalid api key")
+	err := perrors.New(perrors.CodeInternal, "[INTERNAL] anthropic: HTTP 401: invalid api key")
 	c.RecordResult(err)
 
 	if c.Available() {
@@ -132,7 +133,7 @@ func TestCredential_RecordResult_ServerError_NoCooldown(t *testing.T) {
 	p := NewSingleCredentialPool("sk-server")
 	c := p.Pick()
 	// 500 不进入凭证冷却（由 CircuitBreaker 处理）
-	err := errors.New("[INTERNAL] api error (status 500): internal server error")
+	err := perrors.New(perrors.CodeInternal, "[INTERNAL] api error (status 500): internal server error")
 	c.RecordResult(err)
 	if !c.Available() {
 		t.Fatal("server error should NOT put credential into cooldown")

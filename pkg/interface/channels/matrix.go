@@ -11,6 +11,8 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
 )
 
 func (m *Manager) startMatrixPoller(channelID, homeserver, accessToken string, cfg map[string]any) {
@@ -34,7 +36,7 @@ func (m *Manager) runMatrixPoller(ctx context.Context, channelID, homeserver, ac
 			}
 			accessToken = tok
 		} else {
-			slog.Error("matrix: access_token or username+password required")
+			slog.Error("matrix: access_token or username+password required", "err", perrors.New(perrors.CodeInternal, "log event"))
 			return
 		}
 	}
@@ -99,13 +101,13 @@ func matrixLogin(ctx context.Context, client *http.Client, homeserver, username,
 	defer resp.Body.Close()
 	b, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("matrix: login status %d: %s", resp.StatusCode, b)
+		return "", perrors.New(perrors.CodeInternal, fmt.Sprintf("matrix: login status %d: %s", resp.StatusCode, b))
 	}
 	var result struct {
 		AccessToken string `json:"access_token"`
 	}
 	if json.Unmarshal(b, &result) != nil {
-		return "", fmt.Errorf("matrix: decode login response")
+		return "", perrors.New(perrors.CodeInternal, "matrix: decode login response")
 	}
 	return result.AccessToken, nil
 }
@@ -138,7 +140,7 @@ func matrixSync(ctx context.Context, client *http.Client, homeserver, accessToke
 	defer resp.Body.Close()
 	b, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		return "", nil, fmt.Errorf("matrix: sync status %d: %s", resp.StatusCode, b)
+		return "", nil, perrors.New(perrors.CodeInternal, fmt.Sprintf("matrix: sync status %d: %s", resp.StatusCode, b))
 	}
 
 	var result struct {
@@ -159,7 +161,7 @@ func matrixSync(ctx context.Context, client *http.Client, homeserver, accessToke
 		} `json:"rooms"`
 	}
 	if json.Unmarshal(b, &result) != nil {
-		return "", nil, fmt.Errorf("matrix: decode sync response")
+		return "", nil, perrors.New(perrors.CodeInternal, "matrix: decode sync response")
 	}
 
 	var events []matrixTextEvent
@@ -202,7 +204,7 @@ func matrixSendMessage(ctx context.Context, client *http.Client, homeserver, acc
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
 		b, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		return fmt.Errorf("matrix: send status %d: %s", resp.StatusCode, b)
+		return perrors.New(perrors.CodeInternal, fmt.Sprintf("matrix: send status %d: %s", resp.StatusCode, b))
 	}
 	return nil
 }

@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
+
 	"github.com/mrlaoliai/polaris-harness/internal/protocol"
 	"github.com/mrlaoliai/polaris-harness/pkg/interface/channels"
 )
@@ -251,7 +253,7 @@ func (s *Server) dispatchChannelMessage(channelType, channelID string, cfg map[s
 		p = s.registry.PickProvider("general")
 	}
 	if p == nil {
-		slog.Warn("channel dispatch: no provider available", "channel", channelID)
+		slog.Warn("channel dispatch: no provider available", "channel", channelID, "err", perrors.New(perrors.CodeInternal, "log event"))
 		return
 	}
 

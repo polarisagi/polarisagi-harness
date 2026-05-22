@@ -15,6 +15,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
+
 	"github.com/mrlaoliai/polaris-harness/internal/protocol"
 )
 
@@ -101,7 +103,7 @@ func (c *MCPClient) Connect(ctx context.Context) error {
 	case MCPStreamableHTTP:
 		return nil // HTTP 无持久连接，每次请求独立建立
 	default:
-		return fmt.Errorf("mcp: unsupported transport %q", c.cfg.Transport)
+		return perrors.New(perrors.CodeInternal, fmt.Sprintf("mcp: unsupported transport %q", c.cfg.Transport))
 	}
 }
 
@@ -109,7 +111,7 @@ func (c *MCPClient) Connect(ctx context.Context) error {
 
 func (c *MCPClient) connectStdio(ctx context.Context) error {
 	if c.cfg.Command == "" {
-		return fmt.Errorf("mcp: stdio transport requires command")
+		return perrors.New(perrors.CodeInternal, "mcp: stdio transport requires command")
 	}
 	cmd := exec.CommandContext(ctx, c.cfg.Command, c.cfg.Args...)
 	for k, v := range c.cfg.Env {
@@ -117,14 +119,14 @@ func (c *MCPClient) connectStdio(ctx context.Context) error {
 	}
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
-		return fmt.Errorf("mcp: stdin pipe: %w", err)
+		return perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("mcp: stdin pipe: %v", err), err)
 	}
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return fmt.Errorf("mcp: stdout pipe: %w", err)
+		return perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("mcp: stdout pipe: %v", err), err)
 	}
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("mcp: start process: %w", err)
+		return perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("mcp: start process: %v", err), err)
 	}
 	c.cmd = cmd
 	c.stdin = stdin
@@ -164,11 +166,11 @@ func (c *MCPClient) connectSSE(ctx context.Context) error {
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("mcp: SSE connect: %w", err)
+		return perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("mcp: SSE connect: %v", err), err)
 	}
 	if resp.StatusCode != http.StatusOK {
 		resp.Body.Close()
-		return fmt.Errorf("mcp: SSE status %d", resp.StatusCode)
+		return perrors.New(perrors.CodeInternal, fmt.Sprintf("mcp: SSE status %d", resp.StatusCode))
 	}
 
 	endpointCh := make(chan string, 1)
@@ -180,7 +182,7 @@ func (c *MCPClient) connectSSE(ctx context.Context) error {
 		return nil
 	case <-time.After(10 * time.Second):
 		resp.Body.Close()
-		return fmt.Errorf("mcp: SSE endpoint event timeout")
+		return perrors.New(perrors.CodeInternal, "mcp: SSE endpoint event timeout")
 	case <-ctx.Done():
 		return ctx.Err()
 	}
@@ -239,14 +241,14 @@ func (c *MCPClient) call(ctx context.Context, method string, params any) (json.R
 	select {
 	case resp := <-ch:
 		if resp.Error != nil {
-			return nil, fmt.Errorf("mcp rpc error %d: %s", resp.Error.Code, resp.Error.Message)
+			return nil, perrors.New(perrors.CodeInternal, fmt.Sprintf("mcp rpc error %d: %s", resp.Error.Code, resp.Error.Message))
 		}
 		return resp.Result, nil
 	case <-time.After(c.cfg.Timeout):
 		c.mu.Lock()
 		delete(c.pending, id)
 		c.mu.Unlock()
-		return nil, fmt.Errorf("mcp: request timeout (%s)", c.cfg.Timeout)
+		return nil, perrors.New(perrors.CodeInternal, fmt.Sprintf("mcp: request timeout (%s)", c.cfg.Timeout))
 	case <-ctx.Done():
 		c.mu.Lock()
 		delete(c.pending, id)
@@ -281,7 +283,7 @@ func (c *MCPClient) send(ctx context.Context, req mcpRPCRequest) error {
 		}
 		return nil
 	}
-	return fmt.Errorf("mcp: unknown transport")
+	return perrors.New(perrors.CodeInternal, "mcp: unknown transport")
 }
 
 func (c *MCPClient) httpPostOnly(ctx context.Context, url string, body []byte) error {
@@ -297,7 +299,7 @@ func (c *MCPClient) httpPostOnly(ctx context.Context, url string, body []byte) e
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
 		b, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		return fmt.Errorf("mcp: POST status %d: %s", resp.StatusCode, b)
+		return perrors.New(perrors.CodeInternal, fmt.Sprintf("mcp: POST status %d: %s", resp.StatusCode, b))
 	}
 	return nil
 }
@@ -333,7 +335,7 @@ func (c *MCPClient) httpPostReceive(ctx context.Context, url string, body []byte
 				data = v
 			}
 		}
-		return nil, fmt.Errorf("mcp: streamable http: no response in SSE stream")
+		return nil, perrors.New(perrors.CodeInternal, "mcp: streamable http: no response in SSE stream")
 	}
 
 	b, err := io.ReadAll(io.LimitReader(resp.Body, 4*1024*1024))
@@ -342,7 +344,7 @@ func (c *MCPClient) httpPostReceive(ctx context.Context, url string, body []byte
 	}
 	var r mcpRPCResponse
 	if err := json.Unmarshal(b, &r); err != nil {
-		return nil, fmt.Errorf("mcp: response parse: %w", err)
+		return nil, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("mcp: response parse: %v", err), err)
 	}
 	return &r, nil
 }
@@ -374,7 +376,7 @@ func (c *MCPClient) Initialize(ctx context.Context) error {
 		"capabilities":    map[string]any{},
 		"clientInfo":      map[string]any{"name": "polaris", "version": "1.0"},
 	}); err != nil {
-		return fmt.Errorf("mcp: initialize: %w", err)
+		return perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("mcp: initialize: %v", err), err)
 	}
 	return c.notify(ctx, "notifications/initialized", nil)
 }
@@ -383,13 +385,13 @@ func (c *MCPClient) Initialize(ctx context.Context) error {
 func (c *MCPClient) ListTools(ctx context.Context) ([]MCPTool, error) {
 	result, err := c.call(ctx, "tools/list", nil)
 	if err != nil {
-		return nil, fmt.Errorf("mcp: tools/list: %w", err)
+		return nil, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("mcp: tools/list: %v", err), err)
 	}
 	var resp struct {
 		Tools []MCPTool `json:"tools"`
 	}
 	if err := json.Unmarshal(result, &resp); err != nil {
-		return nil, fmt.Errorf("mcp: tools/list parse: %w", err)
+		return nil, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("mcp: tools/list parse: %v", err), err)
 	}
 	return resp.Tools, nil
 }
@@ -401,7 +403,7 @@ func (c *MCPClient) CallTool(ctx context.Context, name string, arguments map[str
 		"arguments": arguments,
 	})
 	if err != nil {
-		return "", fmt.Errorf("mcp: tools/call %q: %w", name, err)
+		return "", perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("mcp: tools/call %q: %v", name, err), err)
 	}
 	var resp struct {
 		Content []struct {
@@ -411,7 +413,7 @@ func (c *MCPClient) CallTool(ctx context.Context, name string, arguments map[str
 		IsError bool `json:"isError"`
 	}
 	if err := json.Unmarshal(result, &resp); err != nil {
-		return "", fmt.Errorf("mcp: tools/call parse: %w", err)
+		return "", perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("mcp: tools/call parse: %v", err), err)
 	}
 	var sb strings.Builder
 	for _, item := range resp.Content {
@@ -421,7 +423,7 @@ func (c *MCPClient) CallTool(ctx context.Context, name string, arguments map[str
 	}
 	text := sb.String()
 	if resp.IsError {
-		return "", fmt.Errorf("mcp: tool error: %s", text)
+		return "", perrors.New(perrors.CodeInternal, fmt.Sprintf("mcp: tool error: %s", text))
 	}
 	return text, nil
 }
@@ -436,7 +438,7 @@ func (c *MCPClient) CallToolTainted(ctx context.Context, name string, arguments 
 		"arguments": arguments,
 	})
 	if err != nil {
-		return "", protocol.TaintHigh, fmt.Errorf("mcp: tools/call %q: %w", name, err)
+		return "", protocol.TaintHigh, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("mcp: tools/call %q: %v", name, err), err)
 	}
 
 	// 污点保护反序列化：遍历 JSON 树，对所有 string 叶子打标
@@ -456,7 +458,7 @@ func (c *MCPClient) CallToolTainted(ctx context.Context, name string, arguments 
 		IsError bool `json:"isError"`
 	}
 	if err := json.Unmarshal(result, &resp); err != nil {
-		return "", maxTaint, fmt.Errorf("mcp: tools/call parse: %w", err)
+		return "", maxTaint, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("mcp: tools/call parse: %v", err), err)
 	}
 	var sb strings.Builder
 	for _, item := range resp.Content {
@@ -466,7 +468,7 @@ func (c *MCPClient) CallToolTainted(ctx context.Context, name string, arguments 
 	}
 	text := sb.String()
 	if resp.IsError {
-		return "", maxTaint, fmt.Errorf("mcp: tool error: %s", text)
+		return "", maxTaint, perrors.New(perrors.CodeInternal, fmt.Sprintf("mcp: tool error: %s", text))
 	}
 	return text, maxTaint, nil
 }

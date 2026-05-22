@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
+
 	"gopkg.in/yaml.v3"
 )
 
@@ -58,11 +60,11 @@ func (p *Plugin) AbsSkillPaths() []string {
 func ParseManifest(path string) (*Manifest, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("plugin: read manifest %s: %w", path, err)
+		return nil, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("plugin: read manifest %s: %v", path, err), err)
 	}
 	var m Manifest
 	if err := yaml.Unmarshal(data, &m); err != nil {
-		return nil, fmt.Errorf("plugin: parse manifest %s: %w", path, err)
+		return nil, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("plugin: parse manifest %s: %v", path, err), err)
 	}
 	if err := validateManifest(&m, path); err != nil {
 		return nil, err
@@ -72,10 +74,10 @@ func ParseManifest(path string) (*Manifest, error) {
 
 func validateManifest(m *Manifest, path string) error {
 	if strings.TrimSpace(m.Name) == "" {
-		return fmt.Errorf("plugin: manifest %s missing name", path)
+		return perrors.New(perrors.CodeInternal, fmt.Sprintf("plugin: manifest %s missing name", path))
 	}
 	if strings.TrimSpace(m.Version) == "" {
-		return fmt.Errorf("plugin: manifest %s missing version", path)
+		return perrors.New(perrors.CodeInternal, fmt.Sprintf("plugin: manifest %s missing version", path))
 	}
 	return nil
 }

@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
 )
 
 // PIIDetector 个人信息检测器。
@@ -218,7 +220,7 @@ func (pc *presidioClient) analyze(ctx context.Context, text string) ([]PIIMatch,
 
 	if resp.StatusCode >= 400 {
 		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		return nil, fmt.Errorf("presidio status %d: %s", resp.StatusCode, raw)
+		return nil, perrors.New(perrors.CodeInternal, fmt.Sprintf("presidio status %d: %s", resp.StatusCode, raw))
 	}
 
 	var results []presidioResult

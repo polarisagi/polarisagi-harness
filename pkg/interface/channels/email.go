@@ -10,6 +10,8 @@ import (
 	"net/smtp"
 	"strings"
 	"time"
+
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
 )
 
 type dialContextFunc func(ctx context.Context, network, address string) (net.Conn, error)
@@ -57,7 +59,7 @@ func (m *Manager) runEmailPoller(ctx context.Context, channelID string, cfg map[
 		case <-ticker.C:
 		}
 		if m.safeDialer == nil {
-			slog.Error("email: SafeDialer 未注入，拒绝 IMAP 连接（SSRF 防护）", "channel", channelID)
+			slog.Error("email: SafeDialer 未注入，拒绝 IMAP 连接（SSRF 防护）", "channel", channelID, "err", perrors.New(perrors.CodeInternal, "log event"))
 			return
 		}
 		msgs, err := imapFetchUnseen(ctx, m.safeDialer.DialContext, imapHost+":"+imapPort, address, password)
@@ -108,13 +110,13 @@ func imapFetchUnseen(ctx context.Context, dialCtx dialContextFunc, addr, user, p
 	host := strings.Split(addr, ":")[0]
 	rawConn, err := dialCtx(ctx, "tcp", addr)
 	if err != nil {
-		return nil, fmt.Errorf("imap: dial: %w", err)
+		return nil, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("imap: dial: %v", err), err)
 	}
 	tlsCfg := &tls.Config{ServerName: host}
 	conn := tls.Client(rawConn, tlsCfg)
 	if err := conn.HandshakeContext(ctx); err != nil {
 		rawConn.Close()
-		return nil, fmt.Errorf("imap: tls handshake: %w", err)
+		return nil, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("imap: tls handshake: %v", err), err)
 	}
 	defer conn.Close()
 
@@ -135,7 +137,7 @@ func imapFetchUnseen(ctx context.Context, dialCtx dialContextFunc, addr, user, p
 		return nil, err
 	}
 	if line, err := readLine(); err != nil || !strings.HasPrefix(line, "A001 OK") {
-		return nil, fmt.Errorf("imap: login failed: %s", line)
+		return nil, perrors.New(perrors.CodeInternal, fmt.Sprintf("imap: login failed: %s", line))
 	}
 	if err := w("A002 SELECT INBOX"); err != nil {
 		return nil, err
@@ -149,7 +151,7 @@ func imapFetchUnseen(ctx context.Context, dialCtx dialContextFunc, addr, user, p
 			break
 		}
 		if strings.HasPrefix(line, "A002 NO") || strings.HasPrefix(line, "A002 BAD") {
-			return nil, fmt.Errorf("imap: SELECT INBOX failed: %s", line)
+			return nil, perrors.New(perrors.CodeInternal, fmt.Sprintf("imap: SELECT INBOX failed: %s", line))
 		}
 	}
 	if err := w("A003 SEARCH UNSEEN"); err != nil {

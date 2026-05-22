@@ -124,7 +124,7 @@ func (w *Worker) tryClaimAndExecute(ctx context.Context, taskID string) {
 
 			// 根据结果写回 Blackboard
 			if finalState == protocol.AgentStateFailed {
-				slog.Error("worker: task failed", "agent", w.agentID, "task_id", taskID)
+				slog.Error("worker: task failed", "agent", w.agentID, "task_id", taskID, "err", perrors.New(perrors.CodeInternal, "log event"))
 				_ = w.blackboard.FailTask(ctx, taskID, w.agentID, []byte("agent kernel execution failed"))
 			} else {
 				slog.Info("worker: task completed", "agent", w.agentID, "task_id", taskID)

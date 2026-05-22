@@ -7,6 +7,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
 )
 
 type linuxScreenshot struct{}
@@ -17,7 +19,7 @@ func (s *linuxScreenshot) Capture() ([]byte, error) {
 	// Requires scrot or imagemagick (xwd/convert), fallback to scrot
 	cmd := exec.Command("scrot", tmpPath)
 	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("scrot failed (requires X11 and scrot): %w", err)
+		return nil, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("scrot failed (requires X11 and scrot): %v", err), err)
 	}
 	return os.ReadFile(tmpPath)
 }

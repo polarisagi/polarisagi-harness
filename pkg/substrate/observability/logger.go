@@ -1,14 +1,83 @@
 package observability
 
 import (
+	"context"
 	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"time"
+
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
-// logLevel 读取 LOG_LEVEL 环境变量，默认 Info。支持 debug/info/warn/error。
+// TeeHandler routes log records to multiple handlers.
+type TeeHandler struct {
+	handlers []slog.Handler
+}
+
+// NewTeeHandler creates a handler that duplicates its records to all provided handlers.
+func NewTeeHandler(handlers ...slog.Handler) slog.Handler {
+	return &TeeHandler{handlers: handlers}
+}
+
+// Enabled returns true if any handler is enabled for the level.
+func (t *TeeHandler) Enabled(ctx context.Context, level slog.Level) bool {
+	for _, h := range t.handlers {
+		if h.Enabled(ctx, level) {
+			return true
+		}
+	}
+	return false
+}
+
+// Handle calls Handle on all enabled handlers.
+func (t *TeeHandler) Handle(ctx context.Context, r slog.Record) error {
+	for _, h := range t.handlers {
+		if h.Enabled(ctx, r.Level) {
+			if err := h.Handle(ctx, r.Clone()); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// WithAttrs adds attributes to all handlers.
+func (t *TeeHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	handlers := make([]slog.Handler, len(t.handlers))
+	for i, h := range t.handlers {
+		handlers[i] = h.WithAttrs(attrs)
+	}
+	return &TeeHandler{handlers: handlers}
+}
+
+// WithGroup adds a group to all handlers.
+func (t *TeeHandler) WithGroup(name string) slog.Handler {
+	handlers := make([]slog.Handler, len(t.handlers))
+	for i, h := range t.handlers {
+		handlers[i] = h.WithGroup(name)
+	}
+	return &TeeHandler{handlers: handlers}
+}
+
+// MultiCloser closes multiple io.Closers.
+type MultiCloser struct {
+	closers []io.Closer
+}
+
+// Close closes all underlying closers and returns the first error encountered.
+func (m *MultiCloser) Close() error {
+	var firstErr error
+	for _, c := range m.closers {
+		if err := c.Close(); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
+}
+
+// logLevel reads LOG_LEVEL env var, defaulting to Info. Supports debug/info/warn/error.
 func logLevel() slog.Level {
 	switch os.Getenv("LOG_LEVEL") {
 	case "debug":
@@ -22,29 +91,25 @@ func logLevel() slog.Level {
 	}
 }
 
-// SetupLogger 在 dataDir 下创建 polaris.log，同时写 stdout 和文件。
-// 返回日志文件句柄，调用方 defer close。
-// 用 slog.SetDefault 替换全局 logger，整个进程的 slog.* 调用均写入。
-func SetupLogger(dataDir string) *os.File {
-	logPath := filepath.Join(dataDir, "polaris.log")
-	f, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
-	if err != nil {
-		// 打开失败只写 stdout，不阻塞启动
-		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-			Level:     logLevel(),
-			AddSource: false,
-			ReplaceAttr: func(_ []string, a slog.Attr) slog.Attr {
-				if a.Key == slog.TimeKey {
-					a.Value = slog.StringValue(a.Value.Time().Local().Format(time.RFC3339))
-				}
-				return a
-			},
-		})))
-		return nil
-	}
+// SetupLogger configures rotating dual-track logging.
+// It creates polaris.log (all levels) and polaris.error.log (Warn/Error) in dataDir.
+func SetupLogger(dataDir string) io.Closer {
+	var closers []io.Closer
 
-	mw := io.MultiWriter(os.Stdout, f)
-	slog.SetDefault(slog.New(slog.NewTextHandler(mw, &slog.HandlerOptions{
+	// Main logger
+	mainPath := filepath.Join(dataDir, "polaris.log")
+	mainWriter := &lumberjack.Logger{
+		Filename:   mainPath,
+		MaxSize:    50, // megabytes
+		MaxBackups: 20,
+		MaxAge:     30, // days
+		Compress:   true,
+	}
+	closers = append(closers, mainWriter)
+
+	mainMw := io.MultiWriter(os.Stdout, mainWriter)
+
+	mainOpts := &slog.HandlerOptions{
 		Level:     logLevel(),
 		AddSource: false,
 		ReplaceAttr: func(_ []string, a slog.Attr) slog.Attr {
@@ -53,6 +118,35 @@ func SetupLogger(dataDir string) *os.File {
 			}
 			return a
 		},
-	})))
-	return f
+	}
+	mainHandler := slog.NewTextHandler(mainMw, mainOpts)
+
+	// Error logger
+	errorPath := filepath.Join(dataDir, "polaris.error.log")
+	errorWriter := &lumberjack.Logger{
+		Filename:   errorPath,
+		MaxSize:    50,
+		MaxBackups: 20,
+		MaxAge:     30,
+		Compress:   true,
+	}
+	closers = append(closers, errorWriter)
+
+	errorOpts := &slog.HandlerOptions{
+		Level:     slog.LevelWarn, // Only Warn and Error
+		AddSource: false,
+		ReplaceAttr: func(_ []string, a slog.Attr) slog.Attr {
+			if a.Key == slog.TimeKey {
+				a.Value = slog.StringValue(a.Value.Time().Format(time.RFC3339))
+			}
+			return a
+		},
+	}
+	errorHandler := slog.NewTextHandler(errorWriter, errorOpts)
+
+	// Combine handlers
+	tee := NewTeeHandler(mainHandler, errorHandler)
+	slog.SetDefault(slog.New(tee))
+
+	return &MultiCloser{closers: closers}
 }

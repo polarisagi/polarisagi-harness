@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
 )
 
 func (m *Manager) startSignalPoller(channelID, apiURL, account string, cfg map[string]any) {
@@ -57,7 +59,7 @@ func (m *Manager) signalReceiveSSE(ctx context.Context, channelID, apiURL, accou
 
 	if resp.StatusCode != http.StatusOK {
 		b, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
-		return fmt.Errorf("signal: SSE status %d: %s", resp.StatusCode, b)
+		return perrors.New(perrors.CodeInternal, fmt.Sprintf("signal: SSE status %d: %s", resp.StatusCode, b))
 	}
 
 	scanner := bufio.NewScanner(resp.Body)
@@ -106,7 +108,7 @@ func signalSendMessage(ctx context.Context, client *http.Client, apiURL, account
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
 		b, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		return fmt.Errorf("signal: send status %d: %s", resp.StatusCode, b)
+		return perrors.New(perrors.CodeInternal, fmt.Sprintf("signal: send status %d: %s", resp.StatusCode, b))
 	}
 	return nil
 }

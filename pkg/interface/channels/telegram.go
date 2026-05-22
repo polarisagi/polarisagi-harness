@@ -8,6 +8,8 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
+
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
 )
 
 type tgUpdate struct {
@@ -98,10 +100,10 @@ func tgGetUpdates(ctx context.Context, token string, offset int64) ([]tgUpdate, 
 		Result []tgUpdate `json:"result"`
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("decode: %w", err)
+		return nil, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("decode: %v", err), err)
 	}
 	if !result.OK {
-		return nil, fmt.Errorf("telegram api: %s", body)
+		return nil, perrors.New(perrors.CodeInternal, fmt.Sprintf("telegram api: %s", body))
 	}
 	return result.Result, nil
 }

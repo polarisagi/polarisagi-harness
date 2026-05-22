@@ -12,6 +12,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
+
 	"github.com/gorilla/websocket"
 )
 
@@ -86,7 +88,7 @@ func (m *Manager) haConnect(ctx context.Context, channelID, haURL, haToken strin
 	dialer := websocket.Dialer{HandshakeTimeout: 15 * time.Second}
 	conn, _, err := dialer.DialContext(ctx, wsURL, nil)
 	if err != nil {
-		return fmt.Errorf("ha: dial: %w", err)
+		return perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("ha: dial: %v", err), err)
 	}
 	defer conn.Close()
 
@@ -96,29 +98,29 @@ func (m *Manager) haConnect(ctx context.Context, channelID, haURL, haToken strin
 	// Auth 握手
 	_, raw, err := conn.ReadMessage()
 	if err != nil {
-		return fmt.Errorf("ha: read auth_required: %w", err)
+		return perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("ha: read auth_required: %v", err), err)
 	}
 	var authReq struct {
 		Type string `json:"type"`
 	}
 	_ = json.Unmarshal(raw, &authReq)
 	if authReq.Type != "auth_required" {
-		return fmt.Errorf("ha: expected auth_required, got %s", authReq.Type)
+		return perrors.New(perrors.CodeInternal, fmt.Sprintf("ha: expected auth_required, got %s", authReq.Type))
 	}
 
 	if err := conn.WriteJSON(map[string]string{"type": "auth", "access_token": haToken}); err != nil {
-		return fmt.Errorf("ha: auth write: %w", err)
+		return perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("ha: auth write: %v", err), err)
 	}
 	_, raw, err = conn.ReadMessage()
 	if err != nil {
-		return fmt.Errorf("ha: read auth_ok: %w", err)
+		return perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("ha: read auth_ok: %v", err), err)
 	}
 	var authOK struct {
 		Type string `json:"type"`
 	}
 	_ = json.Unmarshal(raw, &authOK)
 	if authOK.Type != "auth_ok" {
-		return fmt.Errorf("ha: auth failed (type=%s)", authOK.Type)
+		return perrors.New(perrors.CodeInternal, fmt.Sprintf("ha: auth failed (type=%s)", authOK.Type))
 	}
 
 	// 订阅 state_changed 事件
@@ -126,7 +128,7 @@ func (m *Manager) haConnect(ctx context.Context, channelID, haURL, haToken strin
 	if err := conn.WriteJSON(map[string]any{
 		"id": subID, "type": "subscribe_events", "event_type": "state_changed",
 	}); err != nil {
-		return fmt.Errorf("ha: subscribe write: %w", err)
+		return perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("ha: subscribe write: %v", err), err)
 	}
 
 	slog.Info("homeassistant: connected and subscribed", "channel", channelID)
@@ -139,7 +141,7 @@ func (m *Manager) haConnect(ctx context.Context, channelID, haURL, haToken strin
 		}
 		_, raw, err := conn.ReadMessage()
 		if err != nil {
-			return fmt.Errorf("ha: read: %w", err)
+			return perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("ha: read: %v", err), err)
 		}
 
 		var frame struct {
@@ -234,7 +236,7 @@ func haSendPersistentNotification(ctx context.Context, client *http.Client, haUR
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
 		b, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		return fmt.Errorf("ha: notify status %d: %s", resp.StatusCode, b)
+		return perrors.New(perrors.CodeInternal, fmt.Sprintf("ha: notify status %d: %s", resp.StatusCode, b))
 	}
 	return nil
 }

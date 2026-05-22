@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strings"
 
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
+
 	"github.com/mrlaoliai/polaris-harness/internal/protocol"
 )
 
@@ -148,7 +150,7 @@ func (g *EvalGenerator) generateSimple(ctx context.Context, chunk string) (*Synt
 
 	var qa simpleQA
 	if err := json.Unmarshal(out, &qa); err != nil || qa.Question == "" {
-		return nil, fmt.Errorf("synthetic: parse simple QA: %w", err)
+		return nil, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("synthetic: parse simple QA: %v", err), err)
 	}
 	return &SyntheticCase{
 		ID:          caseID(qa.Question),
@@ -180,7 +182,7 @@ func (g *EvalGenerator) evolveReasoning(ctx context.Context, chunk string, base 
 
 	var qa simpleQA
 	if err := json.Unmarshal(out, &qa); err != nil || qa.Question == "" {
-		return nil, fmt.Errorf("synthetic: parse reasoning QA: %w", err)
+		return nil, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("synthetic: parse reasoning QA: %v", err), err)
 	}
 	return &SyntheticCase{
 		ID:          caseID(qa.Question),
@@ -215,7 +217,7 @@ func (g *EvalGenerator) evolveConditioning(ctx context.Context, chunk string, ba
 
 	var qa simpleQA
 	if err := json.Unmarshal(out, &qa); err != nil || qa.Question == "" {
-		return nil, fmt.Errorf("synthetic: parse conditioning QA: %w", err)
+		return nil, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("synthetic: parse conditioning QA: %v", err), err)
 	}
 	return &SyntheticCase{
 		ID:          caseID(qa.Question),
@@ -253,7 +255,7 @@ func (g *EvalGenerator) validateGroundedness(ctx context.Context, chunk string, 
 
 	var result groundednessOutput
 	if err := json.Unmarshal(out, &result); err != nil {
-		return false, fmt.Errorf("synthetic: parse groundedness: %w", err)
+		return false, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("synthetic: parse groundedness: %v", err), err)
 	}
 	return result.Grounded, nil
 }
@@ -272,7 +274,7 @@ func (g *EvalGenerator) infer(ctx context.Context, prompt string, schema map[str
 		},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("synthetic: infer: %w", err)
+		return nil, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("synthetic: infer: %v", err), err)
 	}
 	return []byte(resp.Content), nil
 }

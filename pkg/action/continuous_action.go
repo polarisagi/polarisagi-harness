@@ -3,6 +3,8 @@ package action
 import (
 	"fmt"
 	"math"
+
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
 )
 
 // ContinuousAction 用于 LAM (Large Action Model) 和 Diffusion Policy 的连续动作表示。
@@ -34,13 +36,13 @@ type ActionProjector interface {
 // [接口预留][实现依赖 Tier-1+ 视觉输入 + 扩散策略模型，当前为最近邻启发式实现]
 func (d *ActionDiscretizer) Discretize(action ContinuousAction) (toolName string, args map[string]any, err error) {
 	if len(d.ActionMap) == 0 {
-		return "", nil, fmt.Errorf("action_discretizer: no projectors registered")
+		return "", nil, perrors.New(perrors.CodeInternal, "action_discretizer: no projectors registered")
 	}
 	if action.Confidence < 0.3 {
-		return "", nil, fmt.Errorf("action_discretizer: confidence %.2f below threshold 0.30", action.Confidence)
+		return "", nil, perrors.New(perrors.CodeInternal, fmt.Sprintf("action_discretizer: confidence %.2f below threshold 0.30", action.Confidence))
 	}
 	if len(action.ActionVector) == 0 {
-		return "", nil, fmt.Errorf("action_discretizer: empty action vector")
+		return "", nil, perrors.New(perrors.CodeInternal, "action_discretizer: empty action vector")
 	}
 
 	// 以字典序最小键为默认（保证确定性）

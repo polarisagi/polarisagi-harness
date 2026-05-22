@@ -12,6 +12,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
+
 	"github.com/gorilla/websocket"
 )
 
@@ -261,7 +263,7 @@ func qqbotGetAccessToken(ctx context.Context, client *http.Client, appID, client
 		AccessToken string `json:"access_token"`
 	}
 	if json.NewDecoder(resp.Body).Decode(&result) != nil || result.AccessToken == "" {
-		return "", fmt.Errorf("qqbot: empty access_token")
+		return "", perrors.New(perrors.CodeInternal, "qqbot: empty access_token")
 	}
 	return result.AccessToken, nil
 }
@@ -281,7 +283,7 @@ func qqbotGetGatewayURL(ctx context.Context, client *http.Client, accessToken st
 		URL string `json:"url"`
 	}
 	if json.NewDecoder(resp.Body).Decode(&result) != nil || result.URL == "" {
-		return "", fmt.Errorf("qqbot: empty gateway url")
+		return "", perrors.New(perrors.CodeInternal, "qqbot: empty gateway url")
 	}
 	return result.URL, nil
 }
@@ -318,7 +320,7 @@ func qqbotSendMessage(ctx context.Context, client *http.Client, token, msgType, 
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
 		b, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("qqbot sendMessage %d: %s", resp.StatusCode, b)
+		return perrors.New(perrors.CodeInternal, fmt.Sprintf("qqbot sendMessage %d: %s", resp.StatusCode, b))
 	}
 	return nil
 }

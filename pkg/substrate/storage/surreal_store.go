@@ -367,17 +367,17 @@ type kvPairJSON struct {
 func parseKVPairsJSON(jsonStr string) ([]surrealKVPair, error) {
 	var raw []kvPairJSON
 	if err := json.Unmarshal([]byte(jsonStr), &raw); err != nil {
-		return nil, fmt.Errorf("parseKVPairs: %w", err)
+		return nil, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("parseKVPairs: %v", err), err)
 	}
 	pairs := make([]surrealKVPair, 0, len(raw))
 	for _, p := range raw {
 		k, err := hex.DecodeString(p.K)
 		if err != nil {
-			return nil, fmt.Errorf("parseKVPairs key hex: %w", err)
+			return nil, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("parseKVPairs key hex: %v", err), err)
 		}
 		v, err := hex.DecodeString(p.V)
 		if err != nil {
-			return nil, fmt.Errorf("parseKVPairs val hex: %w", err)
+			return nil, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("parseKVPairs val hex: %v", err), err)
 		}
 		pairs = append(pairs, surrealKVPair{Key: k, Value: v})
 	}
@@ -387,7 +387,7 @@ func parseKVPairsJSON(jsonStr string) ([]surrealKVPair, error) {
 func parseScoredJSON(jsonStr string) ([]ScoredID, error) {
 	var results []ScoredID
 	if err := json.Unmarshal([]byte(jsonStr), &results); err != nil {
-		return nil, fmt.Errorf("parseScoredJSON: %w", err)
+		return nil, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("parseScoredJSON: %v", err), err)
 	}
 	return results, nil
 }
@@ -395,7 +395,7 @@ func parseScoredJSON(jsonStr string) ([]ScoredID, error) {
 func parseIDsJSON(jsonStr string) ([]string, error) {
 	var ids []string
 	if err := json.Unmarshal([]byte(jsonStr), &ids); err != nil {
-		return nil, fmt.Errorf("parseIDsJSON: %w", err)
+		return nil, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("parseIDsJSON: %v", err), err)
 	}
 	return ids, nil
 }

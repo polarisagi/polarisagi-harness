@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
+
 	"github.com/mrlaoliai/polaris-harness/internal/protocol"
 	"github.com/mrlaoliai/polaris-harness/pkg/substrate/observability"
 )
@@ -73,10 +75,10 @@ func (e *ComputerUseEngine) ExecuteAction(ctx context.Context, intent string, sc
 	}
 
 	if e.provider == nil {
-		return nil, fmt.Errorf("lam: provider not injected")
+		return nil, perrors.New(perrors.CodeInternal, "lam: provider not injected")
 	}
 	if screenState == nil {
-		return nil, fmt.Errorf("lam: screenState is nil")
+		return nil, perrors.New(perrors.CodeInternal, "lam: screenState is nil")
 	}
 
 	// 截图超出上限时降级为 DOM-only（保护 Tier 0 内存预算）
@@ -174,15 +176,15 @@ func (e *ComputerUseEngine) resolveAction(ctx context.Context, intent string, st
 
 	resp, err := e.provider.Infer(ctx, req)
 	if err != nil {
-		return nil, fmt.Errorf("lam: VLM resolve action: %w", err)
+		return nil, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("lam: VLM resolve action: %v", err), err)
 	}
 
 	var out vlmActionOutput
 	if err := json.Unmarshal([]byte(resp.Content), &out); err != nil {
-		return nil, fmt.Errorf("lam: parse VLM output: %w", err)
+		return nil, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("lam: parse VLM output: %v", err), err)
 	}
 	if out.Action == "" {
-		return nil, fmt.Errorf("lam: VLM returned empty action")
+		return nil, perrors.New(perrors.CodeInternal, "lam: VLM returned empty action")
 	}
 
 	// 重新序列化：去掉 reasoning，只传 executor 需要的字段

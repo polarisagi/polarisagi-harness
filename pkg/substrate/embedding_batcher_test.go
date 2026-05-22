@@ -2,7 +2,7 @@ package substrate
 
 import (
 	"context"
-	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -66,7 +66,7 @@ func TestFlushBatch_Success(t *testing.T) {
 }
 
 func TestFlushBatch_APIError(t *testing.T) {
-	apiErr := errors.New("rate limit")
+	apiErr := perrors.New(perrors.CodeInternal, "rate limit")
 	b := NewEmbeddingBatcher(10*time.Millisecond, 100, makeEmbedFn(nil, apiErr))
 
 	_, err := b.flushBatch(context.Background(), []string{"text"}, "text-emb-3")
@@ -80,7 +80,7 @@ func TestFlushBatch_APIError(t *testing.T) {
 	if pe == nil || pe.Code != perrors.CodeInternal {
 		t.Errorf("expected CodeInternal, got: %v", err)
 	}
-	if pe.Cause == nil || pe.Cause.Error() != "rate limit" {
+	if pe.Cause == nil || !strings.Contains(pe.Cause.Error(), "rate limit") {
 		t.Errorf("expected wrapped cause, got: %v", pe.Cause)
 	}
 }

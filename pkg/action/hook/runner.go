@@ -11,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
 )
 
 const defaultTimeout = 30 * time.Second
@@ -78,7 +80,7 @@ func runCommand(ctx context.Context, cfg HandlerConfig, input HookInput) HookRes
 		return HookResult{
 			Event:   input.Event,
 			Handler: cfg.Command,
-			Err:     fmt.Errorf("hook: marshal input: %w", err),
+			Err:     perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("hook: marshal input: %v", err), err),
 		}
 	}
 

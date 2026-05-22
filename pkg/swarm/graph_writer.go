@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
+
 	"github.com/mrlaoliai/polaris-harness/internal/protocol"
 	"github.com/mrlaoliai/polaris-harness/pkg/substrate"
 )
@@ -81,7 +83,7 @@ func (pc *ProviderLLMClient) ExtractEntities(ctx context.Context, text string) (
 	}
 	resp, err := pc.provider.Infer(ctx, req)
 	if err != nil {
-		return nil, fmt.Errorf("LLM entity extraction failed: %w", err)
+		return nil, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("LLM entity extraction failed: %v", err), err)
 	}
 	return parseEntityJSON(resp.Content)
 }
@@ -109,7 +111,7 @@ func (pc *ProviderLLMClient) ExtractRelations(ctx context.Context, entities []*E
 	}
 	resp, err := pc.provider.Infer(ctx, req)
 	if err != nil {
-		return nil, fmt.Errorf("LLM relation extraction failed: %w", err)
+		return nil, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("LLM relation extraction failed: %v", err), err)
 	}
 	return parseRelationJSON(resp.Content)
 }
@@ -136,7 +138,7 @@ func parseEntityJSON(content string) ([]*Entity, error) {
 		Type string `json:"type"`
 	}
 	if err := json.Unmarshal([]byte(content), &raw); err != nil {
-		return nil, fmt.Errorf("parse entity JSON: %w", err)
+		return nil, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("parse entity JSON: %v", err), err)
 	}
 	entities := make([]*Entity, len(raw))
 	for i, r := range raw {
@@ -158,7 +160,7 @@ func parseRelationJSON(content string) ([]*Relation, error) {
 		Type string `json:"type"`
 	}
 	if err := json.Unmarshal([]byte(content), &raw); err != nil {
-		return nil, fmt.Errorf("parse relation JSON: %w", err)
+		return nil, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("parse relation JSON: %v", err), err)
 	}
 	relations := make([]*Relation, len(raw))
 	for i, r := range raw {

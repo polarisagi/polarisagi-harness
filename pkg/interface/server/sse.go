@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
+
 	"github.com/mrlaoliai/polaris-harness/internal/protocol"
 )
 
@@ -292,7 +294,7 @@ func (s *Server) handleAgentStream(w http.ResponseWriter, r *http.Request) { //n
 		inferErr = "推理返回空内容，请检查模型配置或重试"
 	}
 	if inferErr != "" {
-		slog.Warn("server: empty inference response", "session", sessionID, "reason", inferErr)
+		slog.Warn("server: empty inference response", "session", sessionID, "reason", inferErr, "err", perrors.New(perrors.CodeInternal, "log event"))
 		if tw != nil {
 			tw.WriteError("empty_response", inferErr)
 		}

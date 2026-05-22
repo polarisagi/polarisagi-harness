@@ -209,9 +209,9 @@ func (e *ContextRefExpander) resolveOne(ctx context.Context, typ, val string) (c
 	case "url":
 		return e.resolveURL(ctx, val)
 	case "git":
-		return "", 0, fmt.Errorf("git references not yet supported")
+		return "", 0, perrors.New(perrors.CodeInternal, "git references not yet supported")
 	default:
-		return "", 0, fmt.Errorf("unknown reference type: %s", typ)
+		return "", 0, perrors.New(perrors.CodeInternal, fmt.Sprintf("unknown reference type: %s", typ))
 	}
 }
 
@@ -248,7 +248,7 @@ func (e *ContextRefExpander) resolveFile(_ context.Context, val string) (string,
 		return "", 0, perrors.Wrap(perrors.CodeInternal, "resolve path", err)
 	}
 	if isSensitivePath(abs) {
-		return "", 0, fmt.Errorf("blocked: sensitive path %q", abs)
+		return "", 0, perrors.New(perrors.CodeInternal, fmt.Sprintf("blocked: sensitive path %q", abs))
 	}
 
 	data, err := os.ReadFile(abs)
@@ -263,7 +263,7 @@ func (e *ContextRefExpander) resolveFile(_ context.Context, val string) (string,
 	if lineEnd > 0 {
 		lines := strings.Split(string(data), "\n")
 		if lineStart > len(lines) {
-			return "", 0, fmt.Errorf("line %d exceeds file length %d", lineStart, len(lines))
+			return "", 0, perrors.New(perrors.CodeInternal, fmt.Sprintf("line %d exceeds file length %d", lineStart, len(lines)))
 		}
 		if lineEnd > len(lines) {
 			lineEnd = len(lines)
@@ -301,7 +301,7 @@ func (e *ContextRefExpander) resolveURL(ctx context.Context, val string) (string
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return "", 0, fmt.Errorf("HTTP %d", resp.StatusCode)
+		return "", 0, perrors.New(perrors.CodeInternal, fmt.Sprintf("HTTP %d", resp.StatusCode))
 	}
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, int64(maxSingleURLBytes)))

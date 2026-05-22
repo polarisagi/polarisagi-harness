@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
+
 	"github.com/gorilla/websocket"
 )
 
@@ -62,7 +64,7 @@ func (m *Manager) wecomConnect(ctx context.Context, channelID, botID, secret, ws
 	dialer := websocket.Dialer{HandshakeTimeout: 20 * time.Second}
 	conn, _, err := dialer.DialContext(ctx, wsURL, nil)
 	if err != nil {
-		return fmt.Errorf("wecom: dial: %w", err)
+		return perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("wecom: dial: %v", err), err)
 	}
 	defer conn.Close()
 
@@ -79,7 +81,7 @@ func (m *Manager) wecomConnect(ctx context.Context, channelID, botID, secret, ws
 		},
 	}
 	if err := conn.WriteJSON(authMsg); err != nil {
-		return fmt.Errorf("wecom: auth write: %w", err)
+		return perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("wecom: auth write: %v", err), err)
 	}
 
 	var mu sync.Mutex
@@ -124,7 +126,7 @@ func (m *Manager) wecomConnect(ctx context.Context, channelID, botID, secret, ws
 		}
 		_, raw, err := conn.ReadMessage()
 		if err != nil {
-			return fmt.Errorf("wecom: read: %w", err)
+			return perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("wecom: read: %v", err), err)
 		}
 		var payload struct {
 			Cmd     string         `json:"cmd"`

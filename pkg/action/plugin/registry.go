@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
 )
 
 // Registry 持有并管理已加载的 Plugin 实例。
@@ -25,7 +27,7 @@ func (r *Registry) Register(p *Plugin) error {
 	defer r.mu.Unlock()
 
 	if _, exists := r.plugins[p.Manifest.Name]; exists {
-		return fmt.Errorf("plugin: %q already registered; unregister first", p.Manifest.Name)
+		return perrors.New(perrors.CodeInternal, fmt.Sprintf("plugin: %q already registered; unregister first", p.Manifest.Name))
 	}
 	r.plugins[p.Manifest.Name] = p
 	return nil
@@ -45,7 +47,7 @@ func (r *Registry) SetEnabled(name string, enabled bool) error {
 
 	p, ok := r.plugins[name]
 	if !ok {
-		return fmt.Errorf("plugin: %q not found", name)
+		return perrors.New(perrors.CodeInternal, fmt.Sprintf("plugin: %q not found", name))
 	}
 	p.Enabled = enabled
 	return nil
@@ -81,7 +83,7 @@ func (r *Registry) ScanDir(dir string) (int, error) {
 		if os.IsNotExist(err) {
 			return 0, nil
 		}
-		return 0, fmt.Errorf("plugin: scan %s: %w", dir, err)
+		return 0, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("plugin: scan %s: %v", dir, err), err)
 	}
 
 	count := 0

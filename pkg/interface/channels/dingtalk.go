@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
+
 	"github.com/gorilla/websocket"
 )
 
@@ -46,12 +48,12 @@ func (m *Manager) runDingTalkPoller(ctx context.Context, channelID, clientID, cl
 func (m *Manager) dingTalkConnect(ctx context.Context, channelID, clientID, clientSecret string, cfg map[string]any) error {
 	wsURL, err := dingTalkGetEndpoint(ctx, m.httpClient, clientID, clientSecret)
 	if err != nil {
-		return fmt.Errorf("dingtalk: get endpoint: %w", err)
+		return perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("dingtalk: get endpoint: %v", err), err)
 	}
 	dialer := websocket.Dialer{HandshakeTimeout: 15 * time.Second}
 	conn, _, err := dialer.DialContext(ctx, wsURL, nil)
 	if err != nil {
-		return fmt.Errorf("dingtalk: dial: %w", err)
+		return perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("dingtalk: dial: %v", err), err)
 	}
 	defer conn.Close()
 
@@ -63,7 +65,7 @@ func (m *Manager) dingTalkConnect(ctx context.Context, channelID, clientID, clie
 		}
 		_, raw, err := conn.ReadMessage()
 		if err != nil {
-			return fmt.Errorf("dingtalk: read: %w", err)
+			return perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("dingtalk: read: %v", err), err)
 		}
 		var frame dingTalkFrame
 		if json.Unmarshal(raw, &frame) != nil {
@@ -126,13 +128,13 @@ func dingTalkGetEndpoint(ctx context.Context, client *http.Client, clientID, cli
 	defer resp.Body.Close()
 	b, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("dingtalk: endpoint status %d: %s", resp.StatusCode, b)
+		return "", perrors.New(perrors.CodeInternal, fmt.Sprintf("dingtalk: endpoint status %d: %s", resp.StatusCode, b))
 	}
 	var result struct {
 		Endpoint string `json:"endpoint"`
 	}
 	if json.Unmarshal(b, &result) != nil || result.Endpoint == "" {
-		return "", fmt.Errorf("dingtalk: empty endpoint returned")
+		return "", perrors.New(perrors.CodeInternal, "dingtalk: empty endpoint returned")
 	}
 	return result.Endpoint, nil
 }
@@ -154,7 +156,7 @@ func dingTalkSendMessage(ctx context.Context, client *http.Client, sessionWebhoo
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
 		b, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		return fmt.Errorf("dingtalk: send status %d: %s", resp.StatusCode, b)
+		return perrors.New(perrors.CodeInternal, fmt.Sprintf("dingtalk: send status %d: %s", resp.StatusCode, b))
 	}
 	return nil
 }

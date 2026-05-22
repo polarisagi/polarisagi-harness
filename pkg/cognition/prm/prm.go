@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
+
 	"github.com/mrlaoliai/polaris-harness/internal/protocol"
 )
 
@@ -45,7 +47,7 @@ func NewDefaultPRM(cfg PRMConfig, provider protocol.Provider) *DefaultPRM {
 // complexity 来自 TaskModel.Complexity，低于 ComplexityGate 时跳过打分直接返回第一个候选。
 func (p *DefaultPRM) SelectBest(ctx context.Context, goal string, complexity float64, candidates []*protocol.DAGModel) (*protocol.DAGModel, error) {
 	if len(candidates) == 0 {
-		return nil, fmt.Errorf("prm: no candidates provided")
+		return nil, perrors.New(perrors.CodeInternal, "prm: no candidates provided")
 	}
 	// 简单任务、单候选、或未启用——零开销返回
 	if !p.config.Enabled || len(candidates) == 1 || complexity < p.config.ComplexityGate {
@@ -128,15 +130,15 @@ func (p *DefaultPRM) scoreCandidate(ctx context.Context, goal string, plan *prot
 
 	resp, err := p.provider.Infer(ctx, req)
 	if err != nil {
-		return 0, fmt.Errorf("prm: infer failed: %w", err)
+		return 0, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("prm: infer failed: %v", err), err)
 	}
 
 	var out scoringOutput
 	if err := json.Unmarshal([]byte(resp.Content), &out); err != nil {
-		return 0, fmt.Errorf("prm: parse score: %w", err)
+		return 0, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("prm: parse score: %v", err), err)
 	}
 	if out.Score < 0 || out.Score > 1 {
-		return 0, fmt.Errorf("prm: score out of range: %f", out.Score)
+		return 0, perrors.New(perrors.CodeInternal, fmt.Sprintf("prm: score out of range: %f", out.Score))
 	}
 	return out.Score, nil
 }

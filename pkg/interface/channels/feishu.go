@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
+
 	"github.com/gorilla/websocket"
 )
 
@@ -68,16 +70,16 @@ func (m *Manager) runFeishuPoller(ctx context.Context, channelID, appID, appSecr
 func (m *Manager) feishuWSConnect(ctx context.Context, channelID, appID, appSecret, domain string, cfg map[string]any) error { //nolint:gocyclo
 	token, err := feishuGetTenantToken(ctx, m.httpClient, domain, appID, appSecret)
 	if err != nil {
-		return fmt.Errorf("get tenant token: %w", err)
+		return perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("get tenant token: %v", err), err)
 	}
 	wsURL, err := feishuGetWSEndpoint(ctx, m.httpClient, domain, appID, token)
 	if err != nil {
-		return fmt.Errorf("get ws endpoint: %w", err)
+		return perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("get ws endpoint: %v", err), err)
 	}
 	dialer := websocket.Dialer{HandshakeTimeout: 15 * time.Second}
 	conn, _, err := dialer.DialContext(ctx, wsURL, nil)
 	if err != nil {
-		return fmt.Errorf("dial: %w", err)
+		return perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("dial: %v", err), err)
 	}
 	defer conn.Close()
 
@@ -102,7 +104,7 @@ func (m *Manager) feishuWSConnect(ctx context.Context, channelID, appID, appSecr
 		}
 		_, raw, err := conn.ReadMessage()
 		if err != nil {
-			return fmt.Errorf("read: %w", err)
+			return perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("read: %v", err), err)
 		}
 		var frame feishuWSFrame
 		if json.Unmarshal(raw, &frame) != nil {
@@ -175,7 +177,7 @@ func feishuGetTenantToken(ctx context.Context, client *http.Client, domain, appI
 		TenantAccessToken string `json:"tenant_access_token"`
 	}
 	if json.NewDecoder(resp.Body).Decode(&result) != nil || result.TenantAccessToken == "" {
-		return "", fmt.Errorf("feishu: empty tenant_access_token (code=%d)", result.Code)
+		return "", perrors.New(perrors.CodeInternal, fmt.Sprintf("feishu: empty tenant_access_token (code=%d)", result.Code))
 	}
 	return result.TenantAccessToken, nil
 }
@@ -200,7 +202,7 @@ func feishuGetWSEndpoint(ctx context.Context, client *http.Client, domain, appID
 		Code int `json:"code"`
 	}
 	if json.Unmarshal(b, &result) != nil || result.Data.URL == "" {
-		return "", fmt.Errorf("feishu: empty ws endpoint (code=%d)", result.Code)
+		return "", perrors.New(perrors.CodeInternal, fmt.Sprintf("feishu: empty ws endpoint (code=%d)", result.Code))
 	}
 	return result.Data.URL, nil
 }
@@ -226,7 +228,7 @@ func feishuSendMessage(ctx context.Context, client *http.Client, domain, token, 
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
 		b, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("feishu sendMessage %d: %s", resp.StatusCode, b)
+		return perrors.New(perrors.CodeInternal, fmt.Sprintf("feishu sendMessage %d: %s", resp.StatusCode, b))
 	}
 	return nil
 }

@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
 )
 
 // LINE
@@ -33,7 +35,7 @@ func lineSendMessage(ctx context.Context, client *http.Client, accessToken, repl
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
 		b, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("line replyMessage %d: %s", resp.StatusCode, b)
+		return perrors.New(perrors.CodeInternal, fmt.Sprintf("line replyMessage %d: %s", resp.StatusCode, b))
 	}
 	return nil
 }
@@ -57,7 +59,7 @@ func linePushMessage(ctx context.Context, client *http.Client, accessToken, to, 
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
 		b, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("line pushMessage %d: %s", resp.StatusCode, b)
+		return perrors.New(perrors.CodeInternal, fmt.Sprintf("line pushMessage %d: %s", resp.StatusCode, b))
 	}
 	return nil
 }
@@ -96,7 +98,7 @@ func whatsappSendMessage(ctx context.Context, client *http.Client, phoneNumberID
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
 		b, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("whatsapp sendMessage %d: %s", resp.StatusCode, b)
+		return perrors.New(perrors.CodeInternal, fmt.Sprintf("whatsapp sendMessage %d: %s", resp.StatusCode, b))
 	}
 	return nil
 }

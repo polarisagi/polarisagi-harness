@@ -134,7 +134,6 @@ func (c *PooledCredential) CooldownUntil() time.Time {
 // 推荐使用模式（带失败反馈）：
 //
 //	cred := pool.Pick()
-//	if cred == nil { return perrors.New(perrors.CodeProviderExhausted, "all credentials cooling down") }
 //	adapter := NewAnthropicAdapter(model, cred.CredFn(), client)
 //	ch, err := adapter.StreamInfer(ctx, req)
 //	cred.RecordResult(err)   // 自动分类并设置冷却

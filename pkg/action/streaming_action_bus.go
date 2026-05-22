@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
 )
 
 // StreamingActionBus 是 LAM 连续动作流的速率限制和裁剪总线。
@@ -90,14 +92,14 @@ func (b *StreamingActionBus) StreamAction(ctx context.Context, action Continuous
 	b.mu.Lock()
 	if b.stepCount >= b.maxSteps {
 		b.mu.Unlock()
-		return fmt.Errorf("streaming_action_bus: max steps (%d) reached", b.maxSteps)
+		return perrors.New(perrors.CodeInternal, fmt.Sprintf("streaming_action_bus: max steps (%d) reached", b.maxSteps))
 	}
 	b.stepCount++
 	b.mu.Unlock()
 
 	// 令牌桶速率控制
 	if err := b.rateLimiter.Acquire(ctx); err != nil {
-		return fmt.Errorf("streaming_action_bus: rate limit: %w", err)
+		return perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("streaming_action_bus: rate limit: %v", err), err)
 	}
 
 	// 向量钳制

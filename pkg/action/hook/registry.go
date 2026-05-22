@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
+
 	"gopkg.in/yaml.v3"
 )
 
@@ -28,12 +30,12 @@ func Load(paths ...string) (*Registry, error) {
 			if os.IsNotExist(err) {
 				continue
 			}
-			return nil, fmt.Errorf("hook: read %s: %w", p, err)
+			return nil, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("hook: read %s: %v", p, err), err)
 		}
 
 		var cfg Config
 		if err := yaml.Unmarshal(data, &cfg); err != nil {
-			return nil, fmt.Errorf("hook: parse %s: %w", p, err)
+			return nil, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("hook: parse %s: %v", p, err), err)
 		}
 
 		for event, groups := range cfg.Hooks {

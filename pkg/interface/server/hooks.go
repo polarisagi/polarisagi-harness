@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
 )
 
 // HookRunner 执行 $POLARIS_DATA_DIR/hooks/ 下的 Shell Script Hooks。
@@ -92,7 +94,7 @@ func (h *HookRunner) exec(event string, env map[string]string, timeout time.Dura
 
 	if runErr := cmd.Run(); runErr != nil {
 		if ctx.Err() == context.DeadlineExceeded {
-			slog.Warn("hook: timeout", "event", event, "timeout", timeout)
+			slog.Warn("hook: timeout", "event", event, "timeout", timeout, "err", perrors.New(perrors.CodeInternal, "log event"))
 			return 1, buf.String(), nil
 		}
 		var exitErr *exec.ExitError
