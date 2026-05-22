@@ -413,8 +413,13 @@ Outbox Worker 消费事件走写连接（保证读己写）。Agent 查询 Episo
 
 - 引擎: **[Storage-SQLite]** (modernc.org/sqlite, 纯 Go CGO-Free)
   - 用途: 系统控制轴。唯一的绝对真相源 (EventLog)、任务状态机、ACID 队列 (Outbox)。零 FFI 开销，最高稳定性。
-- 引擎: **[Storage-SurrealDB-Core]** (Rust cdylib via purego, CGO-Free FFI)
-  - 用途: 认知检索轴。内置 SurrealDB-Core KV + HNSW 向量索引 + CSR 知识图谱 + FTS 全文检索。单栈闭环提供 process_turn 级别的 Agent 原语。决策与被驳方案（Qdrant+neo4j+ES / 仅 SQLite 自建 / BoltDB / 全 Rust 重写）见 [ADR-0010](./decisions/ADR-0010-surrealdb-cognitive-storage.md)。
+- 引擎: **[Storage-SurrealDB-Core]** ([surrealdb](https://github.com/surrealdb/surrealdb) crate，Rust cdylib via purego, CGO-Free FFI)
+  - 用途: 认知检索轴。SurrealDB 嵌入式模式原生提供 KV + HNSW 向量索引 + 有向图遍历 + BM25 全文检索，单一 crate 四轴闭环。决策与被驳方案（Qdrant+neo4j+ES / 仅 SQLite 自建 / BoltDB / 全 Rust 重写 / rust-rocksdb 直接使用）见 [ADR-0010](./decisions/ADR-0010-surrealdb-cognitive-storage.md)。
+  - **Rust crate**: `surrealdb = { version = "2", features = ["kv-rocksdb"] }`
+  - > [!IMPORTANT]
+    > **Tier 分级存储策略 (纯内存 vs 磁盘持久化)**
+    > - **Tier 0 (≤8GB)**: 项目自建兼容内存实现（`BTreeMap` + 暴力扫描），**不引入 surrealdb crate**，保持 Tier-0 依赖最小化；进程重启后认知数据丢失，完全依赖 SQLite Outbox 投影在启动时重建。
+    > - **Tier 1+ (≥16GB)**: 启用真正的 `surrealdb` crate（嵌入模式 + `kv-rocksdb` 后端），数据持久化写入 `~/.polaris-harness/surreal_rust.db`，HNSW 索引自动激活，实现高性能本地存储落盘。
 - 引擎: **[Storage-Ristretto]** (纯 Go)
   - 用途: 热缓存轴。纯内存态的 L0 Working Memory。
 
