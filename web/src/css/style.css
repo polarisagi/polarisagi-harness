@@ -23,7 +23,7 @@
 
 /* 全局圆角配置 (类似 Codex 风格) */
 :root {
-  --rounded-box: 1.5rem;
+  --rounded-box: 2.25rem;
   --rounded-btn: 9999px;
   --rounded-badge: 9999px;
 }

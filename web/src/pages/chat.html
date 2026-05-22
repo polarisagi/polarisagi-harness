@@ -112,7 +112,7 @@
 
   <!-- Input Area -->
   <div class="p-4 shrink-0 w-full max-w-4xl mx-auto transition-all duration-500 ease-in-out" :class="($store.chat.messages.length === 0 && $store.chat.state === 'IDLE') ? '' : 'pb-8'" x-data="chatInput">
-    <div class="relative bg-base-100 rounded-[32px] shadow-md border border-base-200 focus-within:border-primary/30 focus-within:shadow-lg transition-all flex flex-col p-2 px-4">
+    <div class="relative bg-base-100 rounded-box shadow-md border border-base-200 focus-within:border-primary/30 focus-within:shadow-lg transition-all flex flex-col p-2 px-4">
       
       <!-- Command Menu -->
       <div class="absolute bottom-full left-0 mb-2 w-full bg-base-100 border border-base-300 rounded-box shadow-xl z-50 overflow-hidden" x-show="showSlash" x-cloak>
