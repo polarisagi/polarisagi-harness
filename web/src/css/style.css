@@ -22,10 +22,14 @@
 }
 
 /* 全局圆角配置 (类似 Codex 风格) */
-:root, [data-theme] {
-  --rounded-box: 3.5rem !important;
-  --rounded-btn: 9999px !important;
-  --rounded-badge: 9999px !important;
+.rounded-box {
+  border-radius: 3.5rem !important;
+}
+.rounded-btn {
+  border-radius: 9999px !important;
+}
+.rounded-badge {
+  border-radius: 9999px !important;
 }
 
 [x-cloak] { display: none !important; }
