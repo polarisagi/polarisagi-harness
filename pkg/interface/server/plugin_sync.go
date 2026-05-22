@@ -7,7 +7,195 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
+
+// parseSkillMD 从 SKILL.md 中解析 Frontmatter 元数据。
+// 这么做是为了提取技能名称、描述和标签，避免将其作为一个整体的大仓库对待。
+func parseSkillMD(content string) (string, string, []string) {
+	lines := strings.Split(content, "\n")
+	firstDash := -1
+	secondDash := -1
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "---" {
+			if firstDash == -1 {
+				firstDash = i
+			} else {
+				secondDash = i
+				break
+			}
+		}
+	}
+
+	if firstDash != -1 && secondDash != -1 && secondDash > firstDash+1 {
+		yamlContent := strings.Join(lines[firstDash+1:secondDash], "\n")
+		var fm struct {
+			Name        string   `yaml:"name"`
+			Description string   `yaml:"description"`
+			Tags        []string `yaml:"tags"`
+		}
+		if err := yaml.Unmarshal([]byte(yamlContent), &fm); err == nil {
+			return fm.Name, fm.Description, fm.Tags
+		}
+	}
+	return "", "", nil
+}
+
+// formatName 将连字符分隔的目录名格式化为人类可读的名称。
+// 这是为了在 Frontmatter 中没有指定 name 字段时提供一个优雅的后备方案。
+func formatName(s string) string {
+	parts := strings.Split(s, "-")
+	for i, p := range parts {
+		if len(p) > 0 {
+			parts[i] = strings.ToUpper(p[:1]) + p[1:]
+		}
+	}
+	return strings.Join(parts, " ")
+}
+
+// parseSkillEntry 解析技能市场的 SKILL.md 文件并返回 CatalogEntry。
+func parseSkillEntry(path string, mpDir string, mp Marketplace) (*CatalogEntry, error) {
+	relDir, err := filepath.Rel(mpDir, filepath.Dir(path))
+	if err != nil {
+		return nil, err
+	}
+	relPath := filepath.ToSlash(relDir)
+
+	contentBytes, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	name, desc, tags := parseSkillMD(string(contentBytes))
+	if name == "" {
+		name = filepath.Base(filepath.Dir(path))
+		name = formatName(name)
+	}
+	if desc == "" {
+		desc = "Auto-detected skill in " + relPath
+	}
+
+	url := mp.RepoURL
+	if strings.Contains(url, "github.com") {
+		url = strings.TrimSuffix(url, "/") + "/tree/main/" + relPath
+	}
+
+	return &CatalogEntry{
+		ID:          mp.ID + "/" + relPath,
+		Publisher:   mp.Publisher,
+		Type:        "skill",
+		TrustTier:   mp.TrustTier,
+		Name:        name,
+		Description: desc,
+		URL:         url,
+		Tags:        tags,
+		Timeout:     60,
+	}, nil
+}
+
+// parsePluginEntry 解析插件市场的 plugin.json 文件并返回 CatalogEntry。
+func parsePluginEntry(path string, mpDir string, mp Marketplace) (*CatalogEntry, error) {
+	relDir, err := filepath.Rel(mpDir, filepath.Dir(path))
+	if err != nil {
+		return nil, err
+	}
+
+	// 如果 plugin.json 在 .claude-plugin 目录下，其上级目录才是插件主目录
+	if filepath.Base(relDir) == ".claude-plugin" {
+		relDir = filepath.Dir(relDir)
+	}
+
+	relPath := filepath.ToSlash(relDir)
+
+	contentBytes, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var pJSON struct {
+		Name        string   `json:"name"`
+		Description string   `json:"description"`
+		Keywords    []string `json:"keywords"`
+	}
+	var name, desc string
+	var tags []string
+	if err := json.Unmarshal(contentBytes, &pJSON); err == nil {
+		name = pJSON.Name
+		desc = pJSON.Description
+		tags = pJSON.Keywords
+	}
+
+	if name == "" {
+		name = filepath.Base(relDir)
+		name = formatName(name)
+	}
+	if desc == "" {
+		desc = "Auto-detected plugin in " + relPath
+	}
+
+	url := mp.RepoURL
+	if strings.Contains(url, "github.com") {
+		url = strings.TrimSuffix(url, "/") + "/tree/main/" + relPath
+	}
+
+	return &CatalogEntry{
+		ID:          mp.ID + "/" + relPath,
+		Publisher:   mp.Publisher,
+		Type:        "plugin",
+		TrustTier:   mp.TrustTier,
+		Name:        name,
+		Description: desc,
+		URL:         url,
+		Tags:        tags,
+		Timeout:     60,
+	}, nil
+}
+
+// discoverMarketplaceEntries 递归遍历市场目录，自动发现所有的插件和技能。
+// 这解决了插件/技能页面只列出整个市场仓库的系统漏洞。
+func discoverMarketplaceEntries(mpDir string, mp Marketplace) ([]CatalogEntry, error) {
+	var entries []CatalogEntry
+
+	err := filepath.Walk(mpDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			if info.Name() == ".git" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		// 处理技能类型市场：寻找所有 SKILL.md
+		if mp.Type == "skill" && info.Name() == "SKILL.md" {
+			entry, err := parseSkillEntry(path, mpDir, mp)
+			if err != nil {
+				return err
+			}
+			if entry != nil {
+				entries = append(entries, *entry)
+			}
+		}
+
+		// 处理插件类型市场：寻找所有 plugin.json
+		if mp.Type == "plugin" && info.Name() == "plugin.json" {
+			entry, err := parsePluginEntry(path, mpDir, mp)
+			if err != nil {
+				return err
+			}
+			if entry != nil {
+				entries = append(entries, *entry)
+			}
+		}
+
+		return nil
+	})
+
+	return entries, err
+}
 
 // handleSyncMarketplaces 刷新/同步市场
 func (s *Server) handleSyncMarketplaces(w http.ResponseWriter, r *http.Request) {
@@ -51,24 +239,30 @@ func (s *Server) handleSyncMarketplaces(w http.ResponseWriter, r *http.Request) 
 
 		b, err := os.ReadFile(filepath.Join(mpDir, "catalog.json"))
 		if err != nil {
-			// Fallback: If no catalog.json, generate mock entries for demonstration
-			mockEntries := []CatalogEntry{
-				{
-					ID:          mp.ID + "/example-plugin",
-					Name:        mp.Name + " - Core Module",
-					Description: "Auto-detected core module from repository.",
-					Type:        "plugin",
-					URL:         mp.RepoURL,
-				},
-				{
-					ID:          mp.ID + "/example-skill",
-					Name:        mp.Name + " - Assistant Skill",
-					Description: "Auto-detected assistant skill from repository.",
-					Type:        "skill",
-					URL:         mp.RepoURL,
-				},
+			// 若不存在 catalog.json，则通过扫描目录动态提取各个插件/技能
+			entries, scanErr := discoverMarketplaceEntries(mpDir, mp)
+			if scanErr == nil && len(entries) > 0 {
+				b, _ = json.Marshal(entries)
+			} else {
+				// 若扫描结果为空或失败，再退化到原有的 mock 模式，确保系统鲁棒性
+				mockEntries := []CatalogEntry{
+					{
+						ID:          mp.ID + "/example-plugin",
+						Name:        mp.Name + " - Core Module",
+						Description: "Auto-detected core module from repository.",
+						Type:        "plugin",
+						URL:         mp.RepoURL,
+					},
+					{
+						ID:          mp.ID + "/example-skill",
+						Name:        mp.Name + " - Assistant Skill",
+						Description: "Auto-detected assistant skill from repository.",
+						Type:        "skill",
+						URL:         mp.RepoURL,
+					},
+				}
+				b, _ = json.Marshal(mockEntries)
 			}
-			b, _ = json.Marshal(mockEntries)
 		}
 
 		var entries []CatalogEntry

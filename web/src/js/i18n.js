@@ -20,8 +20,8 @@ export const zh = {
   plugins_installed:    '已安装',
   plugins_refresh:      '刷新',
   plugins_filter_all:   '全部',
-  plugins_filter_skill: '技能库',
-  plugins_filter_plugin:'插件包',
+  plugins_filter_skill: '技能',
+  plugins_filter_plugin:'插件',
   plugins_search_hint:  '搜索名称、发布者、标签...',
   plugins_empty:        '没有匹配的插件',
   plugins_install:      '安装',
@@ -87,7 +87,7 @@ export const zh = {
   approvals_unreachable:  '⚠ 审批服务不可达，请刷新页面',
 
   // 技能页
-  skills_title:      '技能库',
+  skills_title:      '技能',
   skills_empty_title:'暂无已安装技能',
   skills_empty_hint: '通过 CLI 安装技能后刷新页面',
 

@@ -252,7 +252,7 @@ Alpine.store('plugins', {
   },
 
   typeLabel(type) {
-    return { mcp: 'MCP 服务', skill: '技能库', plugin: '插件包', app: '应用', marketplace: '市场' }[type] || type || '插件'
+    return { mcp: 'MCP 服务', skill: '技能', plugin: '插件', app: '应用', marketplace: '市场' }[type] || type || '插件'
   },
   typeColor(type) {
     return { mcp: '#3b82f6', skill: '#8b5cf6', plugin: '#f59e0b', app: '#10b981', marketplace: '#ec4899' }[type] || '#3b82f6'
