@@ -21,10 +21,15 @@ import (
 // 架构文档: docs/arch/M02-Storage-Fabric.md §1.1
 //
 // 设计约束:
-//   - MaxOpenConns=1：SQLite 写连接单实例，业务写操作走 MutationBus 串行化
+//   - MaxOpenConns=1：SQLite 写连接单实例，所有调用方共享同一 *sql.DB。
+//     MaxOpenConns=1 + WAL busy_timeout=5000ms 保证写串行化，无需额外互斥锁。
 //   - WAL + synchronous=NORMAL：读写不互斥，崩溃恢复安全
 //   - kv_store 表：通用键值存储，供 M5/M10/M12 上层封装使用
-//   - Txn(fn) 供内部迁移/初始化使用；业务写操作禁止绕过 MutationBus 直接调用
+//
+// 写路径分层（均安全，无死锁风险）:
+//   - MutationBus（高频/批量）: events / decision_log 走 DatabaseWriter 批量提交
+//   - Store.Put/Txn（同步/中频）: M5 记忆层 / scheduler / eval store
+//   - store.DB() 直接写（CAS/复杂 SQL）: Blackboard CAS / interface/server 配置管理
 type SQLiteStore struct {
 	db       *sql.DB
 	path     string
@@ -181,7 +186,9 @@ func (s *SQLiteStore) Get(ctx context.Context, key []byte) ([]byte, error) {
 	return val, err
 }
 
-// Put 写入（或覆盖）键值。业务写应走 MutationBus；此方法供迁移和测试使用。
+// Put 写入（或覆盖）键值。
+// 同步写路径：适合低频、需要立即确认的操作（M5 记忆层、scheduler、eval store）。
+// 高频批量写（events/decision_log）应走 MutationBus 以获得批量提交优化。
 func (s *SQLiteStore) Put(ctx context.Context, key, value []byte) error {
 	_, err := s.db.ExecContext(ctx,
 		"INSERT OR REPLACE INTO kv_store(key, value, updated_at) VALUES(?,?,datetime('now'))",
@@ -269,7 +276,12 @@ func (s *SQLiteStore) Capabilities() protocol.StoreCapabilities {
 	}
 }
 
-// DB 暴露底层 *sql.DB，仅供 pkg/substrate 内部的 MutationBus.DatabaseWriter 使用。
+// DB 暴露底层 *sql.DB（MaxOpenConns=1，WAL 模式）。
+// 适用场景：
+//   - MutationBus.DatabaseWriter（AI 核心数据批量写）
+//   - SQLiteBlackboard（CAS 操作，需同步确认）
+//   - pkg/interface/server（配置管理 CRUD，复杂 SQL 无法走 KV 接口）
+// 所有调用方共享同一实例，MaxOpenConns=1 保证写串行化，无需额外锁。
 func (s *SQLiteStore) DB() *sql.DB { return s.db }
 
 func (s *SQLiteStore) Close() error { return s.db.Close() }

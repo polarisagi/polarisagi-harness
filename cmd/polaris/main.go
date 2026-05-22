@@ -198,6 +198,22 @@ func run() error { //nolint:gocyclo
 	}()
 	slog.Info("polaris: outbox worker started", "poll_interval_s", 5)
 
+	// ─── 2.8 DatabaseWriter（AI 核心数据单写者）──────────────────────────────────
+	// 所有 AI 认知数据（events/decision_log）的写操作经此总线串行化 + 批量提交。
+	// 配置类数据（channels/preferences/cron）属独立关注点，直接走 store.DB()，不经此总线。
+	// 消费者：SQLiteEventLog / SQLiteDecisionLog / EventWriteBuffer / GraphWriter。
+	dbWriter := substrate.NewDatabaseWriter(store.DB(), nil)
+	dbWriterDone := make(chan struct{})
+	go func() {
+		dbWriter.Run(ctx) // ctx 取消时自动 flush + 退出
+		close(dbWriterDone)
+	}()
+	eventLog := storage.NewSQLiteEventLog(dbWriter)
+	decisionLog := storage.NewSQLiteDecisionLog(dbWriter)
+	_ = eventLog    // 待 M4 Agent Kernel 注入（事件持久化）
+	_ = decisionLog // 待 M3 观测层注入（决策审计）
+	slog.Info("polaris: mutation bus (database writer) started")
+
 	// ─── 月度成本报告 (M13 §1.1) ──────────────────────────────────────────────────
 	scheduler.StartMonthlyCostReport(ctx, filepath.Join(dataDir, "reports"))
 
@@ -538,6 +554,15 @@ func run() error { //nolint:gocyclo
 	defer shutdownCancel()
 	_ = httpServer.Shutdown(shutdownCtx)
 	reaperStop()
+
+	// 等待 DatabaseWriter flush 残余批次后再 Close（保证 AI 核心数据不丢失）
+	select {
+	case <-dbWriterDone:
+	case <-shutdownCtx.Done():
+		slog.Warn("polaris: database writer flush timeout during shutdown")
+	}
+	dbWriter.Close()
+
 	slog.Info("polaris: shutdown complete")
 	return nil
 }

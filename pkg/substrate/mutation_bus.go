@@ -7,8 +7,10 @@ import (
 	"time"
 )
 
-// MutationBus -- 串行写总线，DatabaseWriter 单写者。
-// 禁止业务 goroutine 直接 BEGIN IMMEDIATE 写 SQLite。
+// MutationBus -- AI 核心数据串行写总线（events/decision_log）。
+// 适用于高频、需要批量提交的 AI 认知数据写操作。
+// 配置类数据（channels/preferences/cron）和 CAS 操作（Blackboard 任务状态）
+// 允许直接写 store.DB()，MaxOpenConns=1 保证串行化。
 // 架构文档: docs/arch/M02-Storage-Fabric.md §2.3
 
 type MutationIntent struct {

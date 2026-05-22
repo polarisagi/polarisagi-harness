@@ -6,7 +6,12 @@
 //   - Reaper goroutine: 每秒扫描过期 Claimed → 回归 Pending（DefaultLeaseTTL=60s）
 //   - KillSwitch FullStop: StopAll() → 所有 Executing → Suspended(oom_evicted)
 //   - 订阅 fan-out: 每个 Subscribe 调用获得独立 chan，黑板事件广播
-//   - 底层存储: 委托 MutationBus 串行化写操作（SQLiteBlackboard 不直接 BEGIN WRITE）
+//
+// 写路径说明:
+//   - 直接持有 *sql.DB（MaxOpenConns=1），不经 MutationBus。
+//   - CAS 操作（ClaimTask/CompleteTask/FailTask）需要同步确认 RowsAffected，
+//     MutationBus 的异步批量模型无法满足此语义，故保留直接写。
+//   - 串行化由 sql.DB MaxOpenConns=1 + WAL busy_timeout=5000ms 保证，不会死锁。
 
 package swarm
 
