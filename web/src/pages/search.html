@@ -14,7 +14,7 @@
     </div>
 
     <!-- Empty States -->
-    <div class="flex flex-col items-center justify-center py-20 text-base-content/40" x-show="!$store.search.searched && !$store.search.loading">
+    <div class="flex flex-col items-center justify-center py-20 text-base-content/60" x-show="!$store.search.searched && !$store.search.loading">
       <svg class="w-16 h-16 mb-4 opacity-50" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/></svg>
       <p class="text-lg" x-text="$store.i18n.t('search_empty')"></p>
     </div>
@@ -31,12 +31,12 @@
           <div class="card-body p-4">
             <div class="flex justify-between items-start mb-2">
               <h3 class="font-bold text-sm" x-text="sr.title || sr.session_id.slice(0,16)+'…'"></h3>
-              <span class="text-xs text-base-content/50" x-text="new Date(sr.updated_at).toLocaleString('zh-CN')"></span>
+              <span class="text-xs text-base-content/70" x-text="new Date(sr.updated_at).toLocaleString('zh-CN')"></span>
             </div>
             <div class="space-y-2">
               <template x-for="(m, i) in sr.matches" :key="i">
                 <div class="bg-base-100 rounded-box p-3 border-l-4 border-primary">
-                  <div class="text-[10px] font-bold text-base-content/50 mb-1 uppercase" x-text="m.role === 'user' ? '用户' : 'AI'"></div>
+                  <div class="text-[10px] font-bold text-base-content/70 mb-1 uppercase" x-text="m.role === 'user' ? '用户' : 'AI'"></div>
                   <div class="text-sm leading-relaxed" x-html="m.snippet.replace(/\*\*(.*?)\*\*/g, '<mark class=\'bg-primary/20 text-primary px-1 rounded\'>$1</mark>')"></div>
                 </div>
               </template>

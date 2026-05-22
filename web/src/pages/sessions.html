@@ -9,13 +9,13 @@
     </div>
 
     <!-- Loading State -->
-    <div x-show="$store.sessions.loading" class="flex flex-col items-center justify-center py-20 text-base-content/40">
+    <div x-show="$store.sessions.loading" class="flex flex-col items-center justify-center py-20 text-base-content/60">
       <span class="loading loading-spinner loading-lg mb-4 text-primary"></span>
       <p x-text="$store.i18n.t('loading')"></p>
     </div>
 
     <!-- Empty State -->
-    <div class="flex flex-col items-center justify-center py-20 text-base-content/40" x-show="!$store.sessions.loading && $store.sessions.list.length === 0">
+    <div class="flex flex-col items-center justify-center py-20 text-base-content/60" x-show="!$store.sessions.loading && $store.sessions.list.length === 0">
       <svg class="w-16 h-16 mb-4 opacity-50" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z"/>
       </svg>
@@ -33,7 +33,7 @@
                 <span x-show="sess.source && sess.source !== 'web'" x-text="$store.sessions.sourceIcon(sess.source)" class="text-base-content/60" :title="sess.source"></span>
                 <h3 class="font-bold text-sm truncate" x-text="sess.title || sess.id"></h3>
               </div>
-              <p class="text-xs text-base-content/50 font-mono" x-text="`${sess.id.slice(0,12)}…  ·  ${sess.message_count || 0} 条消息  ·  ${new Date(sess.updated_at || sess.created_at).toLocaleString('zh-CN')}`"></p>
+              <p class="text-xs text-base-content/70 font-mono" x-text="`${sess.id.slice(0,12)}…  ·  ${sess.message_count || 0} 条消息  ·  ${new Date(sess.updated_at || sess.created_at).toLocaleString('zh-CN')}`"></p>
             </div>
             <div class="flex gap-2 shrink-0">
               <button class="btn btn-sm btn-ghost" @click.stop="$store.sessions.openSession(sess.id)" x-text="$store.i18n.t('sessions_continue')"></button>

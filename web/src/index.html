@@ -16,7 +16,7 @@
       <h1 class="text-xl font-bold tracking-widest text-primary flex items-center gap-2">
         ⭐ POLARIS
       </h1>
-      <p class="text-[10px] text-base-content/50 mt-1 uppercase tracking-widest font-semibold">AI Agent Harness</p>
+      <p class="text-[10px] text-base-content/70 mt-1 uppercase tracking-widest font-semibold">AI Agent Harness</p>
     </div>
 
     <!-- Menu -->
@@ -191,13 +191,13 @@
     </div>
   </div>
   <div id="log-entries-drawer" class="flex-1 overflow-y-auto font-mono text-[11px] p-3 space-y-1" x-ref="logEntries">
-    <div x-show="$store.logs.entries.length === 0" class="text-center py-8 text-base-content/50">暂无日志</div>
+    <div x-show="$store.logs.entries.length === 0" class="text-center py-8 text-base-content/70">暂无日志</div>
     <template x-for="(e, idx) in $store.logs.entries" :key="idx">
       <div class="flex gap-2 border-b border-base-200/50 pb-1"
            :class="{'text-error': e.level==='error', 'text-warning': e.level==='warn'}">
-        <span class="text-base-content/40 shrink-0 mt-[1px]" x-text="e.ts"></span>
+        <span class="text-base-content/60 shrink-0 mt-[1px]" x-text="e.ts"></span>
         <span class="shrink-0 font-bold w-10 mt-[1px]"
-              :class="{'text-error': e.level==='error', 'text-warning': e.level==='warn', 'text-base-content/40': e.level==='debug', 'text-success': !['error','warn','debug'].includes(e.level)}"
+              :class="{'text-error': e.level==='error', 'text-warning': e.level==='warn', 'text-base-content/60': e.level==='debug', 'text-success': !['error','warn','debug'].includes(e.level)}"
               x-text="(e.level || 'info').toUpperCase()"></span>
         <span class="flex-1 break-all" x-text="e.message || e.msg || ''"></span>
       </div>
