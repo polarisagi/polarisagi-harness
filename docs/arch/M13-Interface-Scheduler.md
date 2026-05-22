@@ -137,11 +137,13 @@ PUT    /v1/channels/{channelID}            更新渠道
 DELETE /v1/channels/{channelID}            删除渠道
 POST   /v1/webhooks/{channelType}/{channelID}   Webhook 入站接收
 
-─── 自动化（Automation）──────────────────────────────── 
-GET    /v1/automations                     列出定时自动化任务
+─── 自动化（Automation）────────────────────────────────
+GET    /v1/automations                     列出自动化任务（含执行状态）
 POST   /v1/automations                     创建自动化任务
-PUT    /v1/automations/{id}               更新自动化任务
-DELETE /v1/automations/{id}               删除自动化任务
+PUT    /v1/automations/{id}               更新（patch 语义）
+DELETE /v1/automations/{id}               删除（含执行历史）
+GET    /v1/automations/{id}/runs          执行历史（limit 默认 20）
+POST   /v1/automations/{id}/trigger       手动立即触发
 
 ─── HITL 审批 ──────────────────────────────────────────
 GET  /v1/approvals/pending                 [ESCALATE] 待审批列表
@@ -585,53 +587,96 @@ const legacyPageMap = {
 
 ## 8.7 自动化中心（`/automation` 页）
 
+> §跳读: DB 表 / 触发模型 / 执行流 / HITL 审批 / 与聊天的关系 / API
+
 ### DB 表
 
-| 表 | 用途 | 关键字段 |
+| 表 | 用途 | 迁移文件 |
 |----|------|---------|
-| `automations` | 定时/触发式自动化任务 | `id, name, prompt, cron_schedule, workspace_dir, env_type(local\|worktree\|chat), model_id, reasoning_effort(low\|medium\|high\|ultra), sandbox_level(1\|2\|3), cedar_rules_json, enabled` |
-| `channels` | Webhook 入站渠道（触发器） | `id, type(webhook\|email\|slack), config_json, enabled` |
-| HITL 状态 | 挂起任务（M8 Blackboard TaskEntry） | `tasks.status=Suspended + tasks.intent_taint` |
+| `automations` | 自动化任务配置（SSoT） | 017 |
+| `automation_runs` | 执行历史，每次触发一条记录 | 017 |
+| `channels` | Webhook 入站渠道（trigger_type=webhook 时关联） | 012 |
+| `chat_sessions` | 每次执行生成独立 session（打 automation_id 标签） | 013 |
 
-### 自动化任务字段说明
+**automations 关键字段**：
 
-- `cron_schedule`: 标准 cron 表达式（`0 9 * * 1-5`）或语义别名（`@daily/@hourly/@every 30m`）
-- `env_type`: `local`=当前目录；`worktree`=Git Worktree 隔离；`chat`=新对话 Session
-- `cedar_rules_json`: JSON 数组，每项为 Cedar 显式授权规则，例如 `[{"action":"write_network","resource":"api.github.com"}]`
-- `sandbox_level`: 1=InProcess；2=Wasm（默认）；3=Container/MicroVM（Tier1+）
+| 字段 | 说明 |
+|------|------|
+| `trigger_type` | `cron`=定时 / `webhook`=事件驱动 / `both`=两者 / `manual`=仅手动触发 |
+| `cron_schedule` | 标准 5 字段 cron 表达式；trigger_type=webhook 时可空 |
+| `channel_id` | 关联 channels.id；webhook 触发时非空 |
+| `env_type` | `chat`=纯对话（无目录）/ `local`=读写项目文件 / `worktree`=Git 隔离可生成 PR |
+| `projects_json` | JSON 字符串数组，多个项目路径；env_type=chat 时为 `[]` |
+| `reasoning_effort` | `low/medium/high/ultra`，自动映射 model_roles（用户不感知模型名） |
+| `result_action` | `session`=追加到自动 session / `channel:{id}`=渠道推送 / `silent`=静默 |
+| `next_run_at` | 预计算下次触发时间，cronTick 按此列索引，避免全表扫描 |
+| `last_run_status` | `ok/error/running`，卡片展示上次执行状态 |
+
+**禁止**：`model_id` 不对用户暴露（固定 `auto`），系统根据 `reasoning_effort` 自动映射 model_roles 中的模型。
+
+### 触发模型
+
+```
+trigger_type=cron    → cronTick(60s) 检查 next_run_at <= NOW() → executeAutomation
+trigger_type=webhook → POST /v1/webhooks/{type}/{channelID} → HMAC 验签 → executeAutomation
+trigger_type=both    → 两路均可触发，互不干扰
+trigger_type=manual  → POST /v1/automations/{id}/trigger → executeAutomation
+```
 
 ### 业务流：Cron 后台运行器
 
 ```
 startCronRunner (goroutine, 60s ticker):
-  cronTick() → SELECT id,prompt,cron_schedule FROM automations WHERE enabled=1
-             → 对每条到期任务（cron_schedule 匹配当前时间）：
-               → Agent.SendIntent(TriggerIntentReceived, prompt)
-               → 更新 last_run_at = NOW()
+  cronTick():
+    SELECT ... FROM automations
+    WHERE enabled=1 AND trigger_type IN ('cron','both')
+      AND (next_run_at='' OR next_run_at <= NOW())
+    → 对每条到期任务：go executeAutomation(ctx, &a, "cron")
 
-未来：automations 表补 next_run_at 列，cronTick 只拉 next_run_at <= NOW() 的行
+executeAutomation(ctx, a, trigger):
+  1. INSERT automation_runs (status='running')
+  2. UPDATE automations SET last_run_status='running', next_run_at=calcNextRun(cron_schedule)
+  3. go:
+       agent.SetTaskIntent([]byte(a.Prompt))
+       agent.SendIntent(TriggerIntentReceived)
+       UPDATE automation_runs SET status=ok/error, finished_at=NOW()
+       UPDATE automations SET last_run_status, run_count+1
 ```
+
+### 与聊天的关系
+
+- 自动化执行**不注入**用户正在进行的聊天流——避免干扰体验。
+- 每次执行产生独立 `chat_sessions` 记录（`source='automation'`，打 `automation_id` 标签），在"会话"页可见（标记🤖）。
+- 用户在聊天中说"创建一个每天整理 PR 的自动化" → M4 Agent 识别意图 → 引导跳转自动化页面或调用内置工具直接创建（M4 职责，不在本模块）。
+- 用户在自动化任务的执行历史中可点击"查看会话记录"跳转对应 session，继续与 Agent 对话。
 
 ### 业务流：HITL 审批
 
 ```
-Agent 后台执行触发危险操作（write_network / Privileged / 超预算）
+Agent 执行触发危险操作（write_network / Privileged / 超预算）
   → M11 Cedar-Gate 拦截 → tasks.status = Suspended
   → SSE push event:approval_pending → 前端 approvals badge +1
 
-用户进入 Automation → 待办审批
-  → GET /v1/approvals/pending → [{ id, task_id, reason, risk_level, context_json, created_at }]
-  → 查看意图与风险
-
-用户决策 → POST /v1/approvals/{id}/resolve
-  body: { decision: "approve"|"deny", note? }
-  后端: → M8 Blackboard TaskEntry.status = Running|Cancelled
-        → Agent 收到恢复信号继续执行（或 Saga 回滚）
+用户 → Automation → 待办审批 Tab
+  GET /v1/approvals/pending
+  → 查看意图与风险 → POST /v1/approvals/{id}/resolve {decision, note?}
+  → M8 Blackboard TaskEntry.status = Running|Cancelled
 ```
 
-### 外部触发器
+### 外部触发器（Webhook）
 
-Webhook 入站 `POST /v1/webhooks/{channelType}/{channelID}` → M13 ChannelManager → 匹配 automations（按 channel 关联）→ 触发 Agent 执行。安全：Webhook 消息经 HMAC-SHA256 验签（密钥存 CredentialVault），验签失败 → 401，不触发 Agent。
+`POST /v1/webhooks/{channelType}/{channelID}` → M13 ChannelManager → 查 `automations WHERE channel_id=channelID AND enabled=1` → HMAC-SHA256 验签（密钥存 CredentialVault，验签失败 401）→ `executeAutomation(..., "webhook")`。
+
+### API 汇总
+
+```
+GET    /v1/automations              列出全部自动化任务
+POST   /v1/automations              创建（trigger_type/cron_schedule/env_type/projects_json/reasoning_effort/result_action）
+PUT    /v1/automations/{id}         更新（patch 语义）
+DELETE /v1/automations/{id}         删除（同时删除 automation_runs）
+GET    /v1/automations/{id}/runs    执行历史（limit 默认 20）
+POST   /v1/automations/{id}/trigger 手动立即触发
+```
 
 ---
 

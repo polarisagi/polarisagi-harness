@@ -1,4 +1,4 @@
-<!-- 自动化页（Tab：日常 | 触发器 | 待办审批）-->
+<!-- 自动化页（Tab：日常 · 触发器 · 待办审批）-->
 <div x-show="$store.nav.page === 'automation'" x-cloak class="page-container flex flex-col"
      style="overflow:hidden;padding:0"
      x-data="{ tab: 'routine', _cronLoaded: false, _approvalsLoaded: false }">
@@ -6,65 +6,117 @@
   <!-- Tab 导航条 -->
   <div class="tab-bar" style="padding:0 24px">
     <button class="tab-btn" :class="{ active: tab === 'routine' }"
-            @click="tab = 'routine'; if (!_cronLoaded) { $store.cron.load(); _cronLoaded = true }"
-            x-text="'日常'"></button>
+            @click="tab = 'routine'; if (!_cronLoaded) { $store.cron.load(); _cronLoaded = true }">日常</button>
     <button class="tab-btn" :class="{ active: tab === 'triggers' }"
-            @click="tab = 'triggers'"
-            x-text="'触发器'"></button>
+            @click="tab = 'triggers'">触发器</button>
     <button class="tab-btn" :class="{ active: tab === 'approvals' }"
             @click="tab = 'approvals'; if (!_approvalsLoaded) { _approvalsLoaded = true }">
       待办审批
-      <span x-show="$store.approvals.list.length > 0"
-            x-text="$store.approvals.list.length"
+      <span x-show="$store.approvals.list.length > 0" x-text="$store.approvals.list.length"
             style="background:var(--color-error);color:white;border-radius:9px;padding:0 5px;font-size:10px;font-weight:700;margin-left:6px"></span>
     </button>
   </div>
 
-  <!-- ── 常规 (Routines) Tab ─────────────────────────────── -->
+  <!-- ══════════════════════════════════════════
+       日常 Tab
+  ══════════════════════════════════════════ -->
   <div x-show="tab === 'routine'" style="flex:1;min-height:0;overflow-y:auto;padding:24px">
     <div class="max-w-5xl mx-auto w-full flex flex-col min-h-full">
 
-      <!-- Codex 风格大标题 -->
-      <div class="page-header" style="text-align:center;display:flex;flex-direction:column;align-items:center;padding:40px 0;position:relative">
-        <div class="page-title" style="font-size:32px;margin-bottom:12px">自动化</div>
-        <div class="page-subtitle" style="font-size:16px">通过设置定期对话，实现工作自动化。 <a href="#" style="color:var(--color-accent)">了解更多</a></div>
-        <button class="btn btn-primary" style="position:absolute;right:24px;top:24px;border-radius:20px;padding:8px 16px" @click="$store.cron.openCreate()">
-          + 新建自动化功能
-        </button>
+      <!-- 页头 -->
+      <div style="text-align:center;display:flex;flex-direction:column;align-items:center;padding:40px 0 28px;position:relative">
+        <div style="font-size:32px;font-weight:700;margin-bottom:10px">自动化</div>
+        <div style="font-size:15px;color:var(--color-text-dim)">按计划或按需运行 Agent 任务，结果自动归入会话历史</div>
+        <button class="btn btn-primary" style="position:absolute;right:0;top:32px;border-radius:20px;padding:8px 18px"
+                @click="$store.cron.openCreate()">+ 新建</button>
       </div>
 
+      <!-- 加载中 -->
       <div x-show="$store.cron.loading" class="empty-state" x-text="$store.i18n.t('loading')"></div>
 
-      <div class="empty-state" x-show="!$store.cron.loading && $store.cron.list.length === 0">
-        <svg fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
-        </svg>
-        <h3 x-text="$store.i18n.t('cron_empty_title', '暂无自动化任务')"></h3>
-        <p x-text="$store.i18n.t('cron_empty_hint', '点击右上角创建新的自动化工作流')"></p>
+      <!-- 空态：展示模板入口 -->
+      <div x-show="!$store.cron.loading && $store.cron.list.length === 0"
+           style="display:flex;flex-direction:column;align-items:center;gap:24px;padding:20px 0">
+        <div style="width:56px;height:56px;opacity:.3">
+          <svg fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
+          </svg>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:18px;font-weight:600;margin-bottom:6px">创建首个自动化</div>
+          <div style="font-size:13px;color:var(--color-text-dim)">选择模板快速开始，或自定义配置</div>
+        </div>
+        <!-- 模板快捷按钮 -->
+        <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+          <template x-for="t in $store.cron.templates.slice(0,3)" :key="t.name">
+            <button style="border:1px solid var(--color-border);background:var(--color-surface);border-radius:20px;padding:6px 14px;cursor:pointer;font-size:13px;color:var(--color-text);display:flex;align-items:center;gap:6px"
+                    @click="$store.cron.openCreate(); $nextTick(()=>$store.cron.applyTemplate(t))">
+              <span x-text="t.icon"></span>
+              <span x-text="t.name"></span>
+            </button>
+          </template>
+        </div>
       </div>
 
-      <!-- Codex 风格的卡片网格 -->
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px">
+      <!-- 卡片网格 -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px"
+           x-show="!$store.cron.loading && $store.cron.list.length > 0">
         <template x-for="job in $store.cron.list" :key="job.id">
-          <div style="background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:16px;padding:20px;display:flex;flex-direction:column;box-shadow:0 4px 12px rgba(0,0,0,0.05)"
-               :style="!job.enabled ? 'opacity:0.6' : ''">
-            <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px">
-              <div style="font-size:24px" x-text="job.icon || '🤖'"></div>
+          <div style="background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:14px;padding:18px;display:flex;flex-direction:column;box-shadow:0 2px 8px rgba(0,0,0,.04);transition:box-shadow .2s"
+               :style="!job.enabled ? 'opacity:0.55' : ''"
+               @mouseenter="$el.style.boxShadow='0 4px 16px rgba(0,0,0,.09)'"
+               @mouseleave="$el.style.boxShadow='0 2px 8px rgba(0,0,0,.04)'">
+
+            <!-- 顶部：图标 + 开关 -->
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px">
+              <div style="font-size:22px" x-text="($store.cron.envTypes.find(e=>e.value===job.env_type)||{icon:'🤖'}).icon"></div>
               <label class="toggle" @click.stop>
-                <input type="checkbox" :name="'cron-job-' + job.id" :checked="job.enabled" @change="$store.cron.toggle(job)">
+                <input type="checkbox" :name="'job-'+job.id" :checked="job.enabled" @change="$store.cron.toggle(job)">
                 <span class="toggle-slider"></span>
               </label>
             </div>
-            
-            <div style="font-weight:600;font-size:16px;margin-bottom:8px" x-text="job.name || job.id.slice(0,12)"></div>
-            <div style="font-size:13px;color:var(--color-text-dim);line-height:1.6;flex:1;margin-bottom:16px"
+
+            <!-- 名称 -->
+            <div style="font-weight:600;font-size:15px;margin-bottom:6px;line-height:1.3"
+                 x-text="job.name || job.id.slice(0,12)"></div>
+
+            <!-- Prompt 摘要 -->
+            <div style="font-size:12px;color:var(--color-text-dim);line-height:1.5;flex:1;margin-bottom:12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden"
                  x-text="job.prompt"></div>
-                 
-            <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--color-border);padding-top:12px">
-              <div style="font-size:12px;color:var(--color-text-dim);font-family:monospace" x-text="job.schedule"></div>
+
+            <!-- 元信息行 -->
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+              <!-- 定时 -->
+              <span style="font-size:11px;color:var(--color-text-dim);background:var(--color-surface);border:1px solid var(--color-border);border-radius:10px;padding:2px 8px;font-family:monospace"
+                    x-text="$store.cron.cronLabel(job.cron_schedule) || job.trigger_type"></span>
+              <!-- 环境 -->
+              <span style="font-size:11px;color:var(--color-text-dim)" x-text="($store.cron.envTypes.find(e=>e.value===job.env_type)||{label:job.env_type}).label"></span>
+              <!-- 推理档位 -->
+              <span style="font-size:11px;color:var(--color-text-dim)" x-text="'推理：'+($store.cron.reasoningLevels.find(r=>r.value===job.reasoning_effort)||{label:'中'}).label"></span>
+            </div>
+
+            <!-- 上次运行状态 -->
+            <div style="font-size:11px;color:var(--color-text-dim);margin-bottom:12px;display:flex;align-items:center;gap:6px"
+                 x-show="job.last_run_at">
+              <span :style="'color:'+$store.cron.statusColor(job.last_run_status)"
+                    x-text="$store.cron.statusIcon(job.last_run_status)"></span>
+              <span x-text="'上次: ' + (job.last_run_at ? new Date(job.last_run_at).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—')"></span>
+              <span x-show="job.run_count > 0" x-text="'· 共 '+job.run_count+' 次'"></span>
+            </div>
+            <div x-show="!job.last_run_at"
+                 style="font-size:11px;color:var(--color-text-dim);margin-bottom:12px">从未运行</div>
+
+            <!-- 操作栏 -->
+            <div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--color-border);padding-top:12px">
+              <button class="btn btn-ghost btn-sm" style="font-size:12px"
+                      @click="$store.cron.openRuns(job)">历史</button>
               <div style="display:flex;gap:8px">
-                <button class="btn btn-ghost btn-sm" @click="$store.cron.openEdit(job)">编辑</button>
-                <button class="btn btn-danger btn-sm" @click="$store.cron.del(job.id)">删除</button>
+                <button class="btn btn-ghost btn-sm" style="font-size:12px"
+                        @click="$store.cron.trigger(job)" :disabled="!job.enabled">立即运行</button>
+                <button class="btn btn-ghost btn-sm" style="font-size:12px"
+                        @click="$store.cron.openEdit(job)">编辑</button>
+                <button class="btn btn-danger btn-sm" style="font-size:12px"
+                        @click="$store.cron.del(job.id)">删除</button>
               </div>
             </div>
           </div>
@@ -72,27 +124,54 @@
       </div>
 
     </div>
-  </div><!-- /routine tab -->
+  </div><!-- /routine -->
 
-  <!-- ── 触发器 Tab ──────────────────────────── -->
+  <!-- ══════════════════════════════════════════
+       触发器 Tab
+  ══════════════════════════════════════════ -->
   <div x-show="tab === 'triggers'" style="flex:1;min-height:0;overflow-y:auto;padding:24px">
-    <div class="max-w-5xl mx-auto w-full flex flex-col min-h-full">
+    <div class="max-w-5xl mx-auto w-full">
       <div class="page-header">
-        <div>
-          <div class="page-title" x-text="$store.i18n.t('auto_triggers_title', '触发器')"></div>
-          <div class="page-subtitle" x-text="$store.i18n.t('auto_triggers_subtitle', '通过外部事件、Webhook 或数据驱动自动触发 Agent')"></div>
+        <div class="page-title">触发器</div>
+        <div class="page-subtitle">通过 Webhook 或外部事件触发 Agent 执行——在自动化任务中将触发类型设为"Webhook"后，在此查看并管理入站端点</div>
+      </div>
+
+      <!-- 使用渠道作为 Webhook 入站（channels 表复用） -->
+      <div style="background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:12px;padding:20px;margin-top:16px">
+        <div style="font-weight:600;margin-bottom:8px">Webhook 入站端点</div>
+        <div style="font-size:13px;color:var(--color-text-dim);margin-bottom:12px">
+          在"设置 → 渠道"中创建 Webhook 渠道，然后在自动化任务中将触发类型选为 <code>Webhook</code> 并绑定对应渠道。<br>
+          入站地址格式：<code>POST /v1/webhooks/webhook/{channelID}</code>，需附带 HMAC-SHA256 签名头 <code>X-Hub-Signature-256</code>。
+        </div>
+        <button class="btn btn-primary btn-sm"
+                @click="$store.nav.goto('settings'); $nextTick(()=>{ /* 跳到渠道 Tab */ })">
+          前往渠道设置 →
+        </button>
+      </div>
+
+      <!-- 有 webhook trigger 的自动化任务列表 -->
+      <div style="margin-top:20px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--color-text-dim)">已配置 Webhook 触发的自动化</div>
+        <template x-for="job in $store.cron.list.filter(j=>j.trigger_type==='webhook'||j.trigger_type==='both')" :key="job.id">
+          <div style="background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:8px;padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <div style="font-weight:500" x-text="job.name || job.id.slice(0,12)"></div>
+              <div style="font-size:12px;color:var(--color-text-dim)" x-text="'渠道: ' + (job.channel_id || '未绑定')"></div>
+            </div>
+            <button class="btn btn-ghost btn-sm" @click="$store.cron.openEdit(job)">编辑</button>
+          </div>
+        </template>
+        <div x-show="!$store.cron.list.some(j=>j.trigger_type==='webhook'||j.trigger_type==='both')"
+             style="font-size:13px;color:var(--color-text-dim);padding:12px 0">
+          暂无 Webhook 触发任务。新建自动化时将触发类型选为"Webhook"即可。
         </div>
       </div>
-      <div class="empty-state">
-        <svg fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24" style="width:48px;height:48px;margin-bottom:12px;opacity:.4">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z"/>
-        </svg>
-        <div style="font-size:13px;color:var(--color-text-dim)" x-text="$store.i18n.t('auto_triggers_coming', '触发器功能正在开发中，敬请期待')"></div>
-      </div>
     </div>
-  </div><!-- /triggers tab -->
+  </div><!-- /triggers -->
 
-  <!-- ── 待办审批 Tab ──────────────────────────────────── -->
+  <!-- ══════════════════════════════════════════
+       待办审批 Tab
+  ══════════════════════════════════════════ -->
   <div x-show="tab === 'approvals'" style="flex:1;min-height:0;overflow-y:auto;padding:24px">
     <div class="max-w-5xl mx-auto w-full flex flex-col min-h-full">
       <div class="page-header">
@@ -101,8 +180,7 @@
       </div>
 
       <div class="warning-banner" x-show="$store.approvals.pollFailures >= 3" x-cloak
-           x-text="$store.i18n.t('approvals_unreachable')">
-      </div>
+           x-text="$store.i18n.t('approvals_unreachable')"></div>
 
       <div class="empty-state" x-show="$store.approvals.list.length === 0 && $store.approvals.pollFailures < 3">
         <svg fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24" style="width:48px;height:48px;margin-bottom:12px;opacity:.4">
@@ -125,20 +203,20 @@
             <div class="approval-header">
               <div>
                 <div style="font-weight:600;margin-bottom:4px" x-text="req.action"></div>
-                <div style="font-size:11px;color:var(--color-text-dim)" x-text="`Agent: ${req.agent_id || req.agentID}  ·  ${req.id?.slice(0,12)}`"></div>
+                <div style="font-size:11px;color:var(--color-text-dim)"
+                     x-text="`Agent: ${req.agent_id || req.agentID}  ·  ${req.id?.slice(0,12)}`"></div>
               </div>
               <span class="risk-badge" :class="req.risk_level || 'medium'"
                     x-text="(req.risk_level || 'medium').toUpperCase()"></span>
             </div>
-
             <div class="approval-body">
               <p style="font-size:13px;color:var(--color-text-dim);white-space:pre-wrap" x-text="req.detail"></p>
               <div style="margin-top:10px">
-                <input type="text" name="approval-comment" :aria-label="$store.i18n.t('tasks_approval_note')" :placeholder="$store.i18n.t('tasks_note_optional')" x-model="comment"
+                <input type="text" name="approval-comment" :placeholder="$store.i18n.t('tasks_note_optional')"
+                  x-model="comment"
                   style="width:100%;padding:6px 10px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;color:var(--color-text);font-size:12px;outline:none" />
               </div>
             </div>
-
             <div class="approval-footer">
               <span class="countdown"
                 :class="remaining > 60000 ? 'ok' : remaining > 0 ? 'warn' : 'expired'"
@@ -147,7 +225,8 @@
                   : '⌛ 已超时'">
               </span>
               <div style="display:flex;gap:8px">
-                <button class="btn btn-danger btn-sm" @click="$store.approvals.resolve(req.id, 'deny', comment)"
+                <button class="btn btn-danger btn-sm"
+                        @click="$store.approvals.resolve(req.id, 'deny', comment)"
                         x-text="$store.i18n.t('approvals_deny')"></button>
                 <button class="btn btn-primary btn-sm" :disabled="remaining <= 0"
                         @click="$store.approvals.resolve(req.id, 'approve', comment)"
@@ -157,169 +236,263 @@
           </div>
         </template>
       </div>
-
     </div>
-  </div><!-- /approvals tab -->
+  </div><!-- /approvals -->
 
-  <!-- Codex 风格自动化配置弹窗 -->
+  <!-- ══════════════════════════════════════════
+       创建/编辑弹窗
+  ══════════════════════════════════════════ -->
   <div x-show="$store.cron.showModal" x-cloak
-       style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;display:flex;align-items:center;justify-content:center"
+       style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;display:flex;align-items:center;justify-content:center"
        @click.self="$store.cron.showModal=false">
-    
-    <div style="background:var(--color-surface);border-radius:16px;width:720px;max-width:95vw;display:flex;flex-direction:column;box-shadow:0 12px 48px rgba(0,0,0,0.15);overflow:visible">
-      
-      <!-- 头部：标题与右上角操作 -->
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:24px 32px 16px;">
-        <input type="text" x-model="$store.cron.form.name" placeholder="自动化功能标题"
-               style="font-size:20px;font-weight:600;border:none;background:transparent;outline:none;width:50%;color:var(--color-text)" />
-               
-        <div style="display:flex;align-items:center;gap:12px;font-size:13px;color:var(--color-text-dim)">
-          <button style="border:none;background:transparent;cursor:pointer;color:inherit"
-                  @click="$store.cron.form.prompt=''">清除</button>
-          
-          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:16px;height:16px;opacity:0.6"><path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z"/></svg>
 
-          <button style="border:1px solid var(--color-border);background:var(--color-surface);border-radius:16px;padding:4px 12px;cursor:pointer;color:var(--color-text);font-weight:500">使用模板</button>
-          
-          <button style="border:none;background:transparent;cursor:pointer;color:inherit"
+    <div style="background:var(--color-surface);border-radius:16px;width:740px;max-width:96vw;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 16px 56px rgba(0,0,0,.18);overflow:hidden">
+
+      <!-- 弹窗头部 -->
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:20px 28px 0">
+        <input type="text" x-model="$store.cron.form.name"
+               :placeholder="$store.cron.editMode==='create' ? '自动化名称（可选）' : ''"
+               style="font-size:18px;font-weight:600;border:none;background:transparent;outline:none;flex:1;color:var(--color-text)" />
+        <div style="display:flex;align-items:center;gap:10px">
+          <!-- 使用模板 -->
+          <div style="position:relative">
+            <button style="font-size:12px;border:1px solid var(--color-border);border-radius:12px;padding:4px 10px;background:transparent;cursor:pointer;color:var(--color-text)"
+                    @click="$store.cron.showTemplates=!$store.cron.showTemplates">使用模板</button>
+            <!-- 模板下拉 -->
+            <div x-show="$store.cron.showTemplates" @click.away="$store.cron.showTemplates=false" x-cloak
+                 style="position:absolute;top:calc(100%+6px);right:0;background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.12);width:340px;z-index:10;overflow:hidden">
+              <div style="padding:10px 14px;font-size:12px;color:var(--color-text-dim);border-bottom:1px solid var(--color-border)">自动化模板</div>
+              <template x-for="t in $store.cron.templates" :key="t.name">
+                <div style="padding:10px 14px;cursor:pointer;display:flex;align-items:flex-start;gap:10px;border-bottom:1px solid var(--color-border)"
+                     @click="$store.cron.applyTemplate(t)"
+                     @mouseenter="$el.style.background='var(--color-surface-hover)'"
+                     @mouseleave="$el.style.background='transparent'">
+                  <span style="font-size:18px;line-height:1" x-text="t.icon"></span>
+                  <div>
+                    <div style="font-size:13px;font-weight:500" x-text="t.name"></div>
+                    <div style="font-size:11px;color:var(--color-text-dim);margin-top:2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden"
+                         x-text="t.prompt.slice(0,80)+'…'"></div>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+          <button style="border:none;background:transparent;cursor:pointer;color:var(--color-text-dim)"
                   @click="$store.cron.showModal=false">
-            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:16px;height:16px"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:18px;height:18px">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+            </svg>
           </button>
         </div>
       </div>
 
-      <!-- 主体：Prompt 文本域 -->
-      <div style="padding:0 32px;flex:1;min-height:240px">
-        <textarea x-model="$store.cron.form.prompt" 
-                  placeholder="添加提示词，例如：在 $sentry 中查找崩溃"
-                  style="width:100%;height:100%;border:none;background:transparent;outline:none;resize:none;font-size:14px;color:var(--color-text);line-height:1.6;font-family:inherit"></textarea>
+      <!-- Prompt 文本域 -->
+      <div style="padding:12px 28px;flex:1;overflow-y:auto">
+        <textarea x-model="$store.cron.form.prompt"
+                  placeholder="描述你希望 Agent 做什么，例如：每天汇总昨日的 GitHub PR 和 Issue，生成简报"
+                  style="width:100%;min-height:180px;max-height:300px;border:none;background:transparent;outline:none;resize:vertical;font-size:14px;color:var(--color-text);line-height:1.7;font-family:inherit"></textarea>
       </div>
 
-      <!-- 底部 Toolbar：下拉选项与按钮 -->
-      <div style="padding:16px 32px 24px;display:flex;justify-content:space-between;align-items:center;position:relative" 
-           x-data="{ activeDropdown: null }">
-        
-        <div style="display:flex;align-items:center;gap:16px;color:var(--color-text-dim);font-size:13px">
-          
-          <!-- 工作树 -->
-          <div style="position:relative">
-            <button style="display:flex;align-items:center;gap:6px;border:none;background:transparent;cursor:pointer;color:inherit"
-                    @click="activeDropdown = activeDropdown === 'env' ? null : 'env'">
-              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:16px;height:16px"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941"/></svg>
-              工作树 <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:12px;height:12px"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
-            </button>
-            <div x-show="activeDropdown === 'env'" @click.away="activeDropdown = null" x-cloak
-                 style="position:absolute;bottom:100%;left:0;margin-bottom:8px;background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.1);padding:8px;width:140px;z-index:10">
-              <div style="font-size:11px;color:var(--color-text-dim);padding:4px 8px;margin-bottom:4px">运行环境</div>
-              <div class="dropdown-item" style="padding:6px 8px;border-radius:4px;cursor:pointer;display:flex;align-items:center;gap:8px"><span>💻</span> 本地</div>
-              <div class="dropdown-item" style="padding:6px 8px;border-radius:4px;cursor:pointer;display:flex;align-items:center;gap:8px;background:var(--color-surface-hover)"><span>🌿</span> 工作树</div>
-              <div class="dropdown-item" style="padding:6px 8px;border-radius:4px;cursor:pointer;display:flex;align-items:center;gap:8px"><span>💬</span> 对话</div>
-            </div>
-          </div>
+      <!-- 配置区域 -->
+      <div style="padding:0 28px 16px;border-top:1px solid var(--color-border);padding-top:16px">
 
-          <!-- 选择项目 -->
-          <div style="position:relative">
-            <button style="display:flex;align-items:center;gap:6px;border:none;background:transparent;cursor:pointer;color:inherit"
-                    @click="activeDropdown = activeDropdown === 'proj' ? null : 'proj'">
-              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:16px;height:16px"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z"/></svg>
-              <span x-text="$store.cron.form.workspace_dir || '选择项目'"></span>
-              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:12px;height:12px"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
-            </button>
-            <div x-show="activeDropdown === 'proj'" @click.away="activeDropdown = null" x-cloak
-                 style="position:absolute;bottom:100%;left:0;margin-bottom:8px;background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.1);padding:8px;width:180px;z-index:10">
-              <div style="font-size:11px;color:var(--color-text-dim);padding:4px 8px;margin-bottom:4px">项目</div>
-              <template x-for="p in ['polaris-gateway', 'ai-agent', 'polaris-harness', '聊天']">
-                <div class="dropdown-item" style="padding:6px 8px;border-radius:4px;cursor:pointer;display:flex;align-items:center;gap:8px"
-                     @click="$store.cron.form.workspace_dir = p; activeDropdown = null">
-                  <span>📁</span> <span x-text="p"></span>
-                </div>
+        <!-- 第一行：触发类型 + 定时设置 + 推理 -->
+        <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:14px" x-data="{ activePicker: null }">
+
+          <!-- 触发类型 -->
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <div style="font-size:11px;color:var(--color-text-dim);font-weight:500">触发方式</div>
+            <div style="display:flex;gap:6px">
+              <template x-for="t in [{value:'cron',label:'定时'},{value:'webhook',label:'Webhook'},{value:'both',label:'两者'},{value:'manual',label:'手动'}]">
+                <button style="font-size:12px;border:1px solid var(--color-border);border-radius:8px;padding:4px 10px;cursor:pointer;transition:all .15s"
+                        :style="$store.cron.form.trigger_type===t.value ? 'background:var(--color-accent);color:white;border-color:var(--color-accent)' : 'background:transparent;color:var(--color-text)'"
+                        @click="$store.cron.form.trigger_type=t.value"
+                        x-text="t.label"></button>
               </template>
             </div>
           </div>
 
-          <!-- 计划时间 -->
-          <div style="position:relative">
-            <button style="display:flex;align-items:center;gap:6px;border:none;background:transparent;cursor:pointer;color:inherit"
-                    @click="activeDropdown = activeDropdown === 'time' ? null : 'time'">
-              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:16px;height:16px"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
-              <span x-text="$store.cron.form.schedule || '计划时间'"></span>
-              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:12px;height:12px"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
+          <!-- 定时选择（仅 cron/both 时显示） -->
+          <div x-show="$store.cron.form.trigger_type==='cron'||$store.cron.form.trigger_type==='both'"
+               style="display:flex;flex-direction:column;gap:4px;position:relative">
+            <div style="font-size:11px;color:var(--color-text-dim);font-weight:500">执行时间</div>
+            <button style="font-size:12px;border:1px solid var(--color-border);border-radius:8px;padding:5px 10px;cursor:pointer;background:transparent;color:var(--color-text);display:flex;align-items:center;gap:6px;white-space:nowrap"
+                    @click="activePicker=activePicker==='schedule'?null:'schedule'">
+              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:13px;height:13px"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+              <span x-text="$store.cron.cronLabel($store.cron.form.cron_schedule) || '选择时间'"></span>
             </button>
-            <div x-show="activeDropdown === 'time'" @click.away="activeDropdown = null" x-cloak
-                 style="position:absolute;bottom:100%;left:0;margin-bottom:8px;background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.1);padding:8px;width:120px;z-index:10">
-              <div style="font-size:11px;color:var(--color-text-dim);padding:4px 8px;margin-bottom:4px">计划</div>
-              <template x-for="t in ['每小时', '每天', '工作日 9:00', '每周', '自定义']">
-                <div class="dropdown-item" style="padding:6px 8px;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:space-between"
-                     @click="$store.cron.form.schedule = t; activeDropdown = null">
-                  <span x-text="t"></span>
-                  <span x-show="$store.cron.form.schedule === t" style="color:var(--color-accent)">✓</span>
+            <div x-show="activePicker==='schedule'" @click.away="activePicker=null" x-cloak
+                 style="position:absolute;top:calc(100%+4px);left:0;background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.1);padding:6px;width:180px;z-index:20">
+              <template x-for="p in $store.cron.schedulePresets" :key="p.value">
+                <div style="padding:6px 10px;border-radius:6px;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:space-between"
+                     @click="$store.cron.form.cron_schedule=p.value;activePicker=null"
+                     @mouseenter="$el.style.background='var(--color-surface-hover)'"
+                     @mouseleave="$el.style.background='transparent'">
+                  <span x-text="p.label"></span>
+                  <span x-show="$store.cron.form.cron_schedule===p.value" style="color:var(--color-accent)">✓</span>
                 </div>
               </template>
+              <div style="border-top:1px solid var(--color-border);margin:4px 0;padding-top:4px">
+                <div style="font-size:11px;color:var(--color-text-dim);padding:2px 10px 4px">自定义 Cron</div>
+                <input type="text" x-model="$store.cron.form.cron_schedule"
+                       placeholder="0 9 * * 1-5"
+                       style="width:100%;padding:5px 10px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;font-size:12px;font-family:monospace;color:var(--color-text);outline:none"
+                       @click.stop />
+              </div>
             </div>
           </div>
 
-          <!-- 模型选择 -->
-          <div style="position:relative">
-            <button style="border:none;background:transparent;cursor:pointer;color:inherit;padding:4px;border-radius:4px"
-                    @click="activeDropdown = activeDropdown === 'plugin' ? null : 'plugin'">
-              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:16px;height:16px"><path stroke-linecap="round" stroke-linejoin="round" d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9"/></svg>
+          <!-- 推理档位 -->
+          <div style="display:flex;flex-direction:column;gap:4px;position:relative">
+            <div style="font-size:11px;color:var(--color-text-dim);font-weight:500">推理深度</div>
+            <button style="font-size:12px;border:1px solid var(--color-border);border-radius:8px;padding:5px 10px;cursor:pointer;background:transparent;color:var(--color-text);display:flex;align-items:center;gap:6px"
+                    @click="activePicker=activePicker==='reason'?null:'reason'">
+              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:13px;height:13px"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3"/></svg>
+              <span x-text="($store.cron.reasoningLevels.find(r=>r.value===$store.cron.form.reasoning_effort)||{label:'中'}).label"></span>
             </button>
-            <div x-show="activeDropdown === 'plugin'" @click.away="activeDropdown = null" x-cloak
-                 style="position:absolute;bottom:100%;left:0;margin-bottom:8px;background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.1);padding:8px;width:160px;z-index:10">
-              <div style="font-size:11px;color:var(--color-text-dim);padding:4px 8px;margin-bottom:4px">模型</div>
-              <template x-for="m in ['自动选型', 'GPT-5.5', 'GPT-5.4', 'GPT-5.4-Mini', 'GPT-5.3-Codex', 'GPT-5.2']">
-                <div class="dropdown-item" style="padding:6px 8px;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:space-between"
-                     @click="$store.cron.form.model_id = (m === '自动选型' ? 'auto' : m); activeDropdown = null">
-                  <div style="display:flex;align-items:center;gap:6px">
-                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:12px;height:12px;opacity:0.6"><path stroke-linecap="round" stroke-linejoin="round" d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9"/></svg>
-                    <span x-text="m"></span>
+            <div x-show="activePicker==='reason'" @click.away="activePicker=null" x-cloak
+                 style="position:absolute;top:calc(100%+4px);left:0;background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.1);padding:6px;width:200px;z-index:20">
+              <template x-for="r in $store.cron.reasoningLevels" :key="r.value">
+                <div style="padding:7px 10px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:space-between"
+                     @click="$store.cron.form.reasoning_effort=r.value;activePicker=null"
+                     @mouseenter="$el.style.background='var(--color-surface-hover)'"
+                     @mouseleave="$el.style.background='transparent'">
+                  <div>
+                    <div style="font-size:12px;font-weight:500" x-text="r.label"></div>
+                    <div style="font-size:11px;color:var(--color-text-dim)" x-text="r.desc"></div>
                   </div>
-                  <span x-show="($store.cron.form.model_id === 'auto' ? '自动选型' : $store.cron.form.model_id) === m" style="color:var(--color-accent)">✓</span>
+                  <span x-show="$store.cron.form.reasoning_effort===r.value" style="color:var(--color-accent)">✓</span>
                 </div>
               </template>
             </div>
           </div>
 
-          <!-- 推理大脑 -->
-          <div style="position:relative">
-            <button style="border:none;background:transparent;cursor:pointer;color:inherit;padding:4px;border-radius:4px"
-                    @click="activeDropdown = activeDropdown === 'brain' ? null : 'brain'">
-              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:16px;height:16px"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.974 0-5.699-1.086-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418"/></svg>
+          <!-- 结果分发 -->
+          <div style="display:flex;flex-direction:column;gap:4px;position:relative">
+            <div style="font-size:11px;color:var(--color-text-dim);font-weight:500">执行后</div>
+            <button style="font-size:12px;border:1px solid var(--color-border);border-radius:8px;padding:5px 10px;cursor:pointer;background:transparent;color:var(--color-text);display:flex;align-items:center;gap:6px"
+                    @click="activePicker=activePicker==='result'?null:'result'">
+              <span x-text="($store.cron.resultActions.find(a=>a.value===$store.cron.form.result_action)||{label:'保存到会话'}).label"></span>
             </button>
-            <div x-show="activeDropdown === 'brain'" @click.away="activeDropdown = null" x-cloak
-                 style="position:absolute;bottom:100%;left:0;margin-bottom:8px;background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.1);padding:8px;width:120px;z-index:10">
-              <div style="font-size:11px;color:var(--color-text-dim);padding:4px 8px;margin-bottom:4px">推理</div>
-              <template x-for="r in ['低', '中', '高', '超高']">
-                <div class="dropdown-item" style="padding:6px 8px;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:space-between"
-                     @click="$store.cron.form.reasoning_effort = r; activeDropdown = null">
-                  <div style="display:flex;align-items:center;gap:6px">
-                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:12px;height:12px;opacity:0.6"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3"/></svg>
-                    <span x-text="r"></span>
-                  </div>
-                  <span x-show="($store.cron.form.reasoning_effort || '中') === r" style="color:var(--color-accent)">✓</span>
+            <div x-show="activePicker==='result'" @click.away="activePicker=null" x-cloak
+                 style="position:absolute;top:calc(100%+4px);left:0;background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.1);padding:6px;width:220px;z-index:20">
+              <template x-for="a in $store.cron.resultActions" :key="a.value">
+                <div style="padding:7px 10px;border-radius:6px;cursor:pointer"
+                     @click="$store.cron.form.result_action=a.value;activePicker=null"
+                     @mouseenter="$el.style.background='var(--color-surface-hover)'"
+                     @mouseleave="$el.style.background='transparent'">
+                  <div style="font-size:12px;font-weight:500" x-text="a.label"></div>
+                  <div style="font-size:11px;color:var(--color-text-dim)" x-text="a.desc"></div>
                 </div>
               </template>
             </div>
           </div>
-          
         </div>
 
-        <div style="display:flex;gap:12px">
-          <button style="border:none;background:transparent;cursor:pointer;color:var(--color-text-dim);font-weight:500;padding:6px 12px"
-                  @click="$store.cron.showModal=false">取消</button>
-          <button style="border:none;background:var(--color-text-dim);color:var(--color-surface);border-radius:16px;padding:6px 16px;font-weight:500;cursor:pointer"
-                  :style="$store.cron.form.prompt ? 'background:var(--color-text)' : 'opacity:0.5'"
-                  @click="$store.cron.save()"
-                  x-text="($store.cron.editMode==='create' ? '创建' : '保存')"></button>
+        <!-- 第二行：执行环境 + 项目 -->
+        <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+          <div style="font-size:11px;color:var(--color-text-dim);font-weight:500;width:100%">执行环境</div>
+          <template x-for="e in $store.cron.envTypes" :key="e.value">
+            <button style="font-size:12px;border:1px solid var(--color-border);border-radius:10px;padding:6px 14px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:6px"
+                    :style="$store.cron.form.env_type===e.value ? 'background:var(--color-accent);color:white;border-color:var(--color-accent)' : 'background:transparent;color:var(--color-text)'"
+                    @click="$store.cron.form.env_type=e.value"
+                    :title="e.desc">
+              <span x-text="e.icon"></span>
+              <span x-text="e.label"></span>
+            </button>
+          </template>
         </div>
+
+        <!-- 项目路径输入（仅 local/worktree 时显示） -->
+        <div x-show="$store.cron.form.env_type!=='chat'" style="margin-bottom:14px"
+             x-data="{ newPath: '' }">
+          <div style="font-size:11px;color:var(--color-text-dim);font-weight:500;margin-bottom:6px">项目路径</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px">
+            <template x-for="p in $store.cron.getProjects()" :key="p">
+              <span style="display:inline-flex;align-items:center;gap:4px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;padding:3px 8px;font-size:12px;font-family:monospace">
+                <span x-text="p"></span>
+                <button style="border:none;background:transparent;cursor:pointer;color:var(--color-text-dim);line-height:1;padding:0"
+                        @click="$store.cron.removeProject(p)">×</button>
+              </span>
+            </template>
+          </div>
+          <div style="display:flex;gap:6px">
+            <input type="text" x-model="newPath" placeholder="/path/to/project"
+                   style="flex:1;padding:6px 10px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;font-size:12px;font-family:monospace;color:var(--color-text);outline:none"
+                   @keydown.enter="$store.cron.addProject(newPath);newPath=''" />
+            <button class="btn btn-ghost btn-sm" style="font-size:12px"
+                    @click="$store.cron.addProject(newPath);newPath=''">添加</button>
+          </div>
+        </div>
+
       </div>
-      
+
+      <!-- 弹窗底部操作 -->
+      <div style="display:flex;justify-content:flex-end;align-items:center;gap:12px;padding:14px 28px;border-top:1px solid var(--color-border)">
+        <button style="border:none;background:transparent;cursor:pointer;color:var(--color-text-dim);font-size:13px;padding:6px 12px"
+                @click="$store.cron.showModal=false">取消</button>
+        <button style="border:none;border-radius:14px;padding:7px 20px;font-size:13px;font-weight:500;cursor:pointer;transition:opacity .15s"
+                :style="$store.cron.form.prompt.trim() ? 'background:var(--color-text);color:var(--color-surface)' : 'background:var(--color-border);color:var(--color-text-dim);cursor:not-allowed'"
+                :disabled="!$store.cron.form.prompt.trim()"
+                @click="$store.cron.save()"
+                x-text="$store.cron.editMode==='create' ? '创建' : '保存'">
+        </button>
+      </div>
+
     </div>
-  </div>
+  </div><!-- /modal -->
 
-</div><!-- /automation -->
-<style>
-.dropdown-item:hover {
-  background: var(--color-surface-hover);
-}
-</style>
+  <!-- ══════════════════════════════════════════
+       执行历史侧栏
+  ══════════════════════════════════════════ -->
+  <div x-show="$store.cron.showRuns" x-cloak
+       style="position:fixed;inset:0;z-index:190"
+       @click.self="$store.cron.showRuns=false">
+    <div style="position:absolute;right:0;top:0;bottom:0;width:380px;max-width:95vw;background:var(--color-surface);box-shadow:-4px 0 24px rgba(0,0,0,.12);display:flex;flex-direction:column">
+
+      <div style="padding:20px 24px 16px;border-bottom:1px solid var(--color-border);display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-weight:600;font-size:15px" x-text="$store.cron.runsJobName"></div>
+          <div style="font-size:12px;color:var(--color-text-dim)">执行历史（最近 20 条）</div>
+        </div>
+        <button style="border:none;background:transparent;cursor:pointer;color:var(--color-text-dim)"
+                @click="$store.cron.showRuns=false">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:18px;height:18px">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <div style="flex:1;overflow-y:auto;padding:16px 24px">
+        <div x-show="$store.cron.runsLoading" style="color:var(--color-text-dim);font-size:13px">加载中…</div>
+        <div x-show="!$store.cron.runsLoading && $store.cron.runs.length===0"
+             style="color:var(--color-text-dim);font-size:13px">暂无执行记录</div>
+
+        <template x-for="run in $store.cron.runs" :key="run.id">
+          <div style="border-bottom:1px solid var(--color-border);padding:12px 0">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+              <div style="display:flex;align-items:center;gap:8px">
+                <span :style="'color:'+$store.cron.statusColor(run.status)"
+                      x-text="$store.cron.statusIcon(run.status)"></span>
+                <span style="font-size:12px;font-weight:500"
+                      :style="'color:'+$store.cron.statusColor(run.status)"
+                      x-text="run.status==='ok'?'成功':run.status==='error'?'失败':run.status==='running'?'运行中':'超时'"></span>
+                <span style="font-size:11px;color:var(--color-text-dim);background:var(--color-surface);border:1px solid var(--color-border);border-radius:8px;padding:1px 6px" x-text="run.trigger"></span>
+              </div>
+              <span style="font-size:11px;color:var(--color-text-dim)"
+                    x-text="run.started_at ? new Date(run.started_at).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : ''">
+              </span>
+            </div>
+            <div x-show="run.error_msg" style="font-size:11px;color:var(--color-error,#ef4444);margin-top:4px" x-text="run.error_msg"></div>
+            <div x-show="run.session_id"
+                 style="font-size:11px;color:var(--color-accent);margin-top:4px;cursor:pointer"
+                 @click="$store.nav.goto('sessions'); $store.cron.showRuns=false"
+                 x-text="'查看会话记录 →'"></div>
+          </div>
+        </template>
+      </div>
+
+    </div>
+  </div><!-- /runs sidebar -->
+
+</div><!-- /automation page -->
