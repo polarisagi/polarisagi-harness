@@ -23,8 +23,7 @@ type automation struct {
 	TriggerType     string `json:"trigger_type"`
 	CronSchedule    string `json:"cron_schedule"`
 	ChannelID       string `json:"channel_id"`
-	EnvType         string `json:"env_type"`
-	ProjectsJSON    string `json:"projects_json"`
+	WorkingDir      string `json:"working_dir"`
 	ReasoningEffort string `json:"reasoning_effort"`
 	ResultAction    string `json:"result_action"`
 	SandboxLevel    int    `json:"sandbox_level"`
@@ -68,7 +67,7 @@ func newRunID() string {
 func (s *Server) handleListAutomations(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.db.QueryContext(r.Context(), `
 		SELECT id, name, prompt, trigger_type, cron_schedule, channel_id,
-		       env_type, projects_json, reasoning_effort, result_action,
+		       working_dir, reasoning_effort, result_action,
 		       sandbox_level, cedar_rules_json, enabled,
 		       last_run_at, next_run_at, run_count, last_run_status, last_run_error,
 		       created_at, updated_at
@@ -85,7 +84,7 @@ func (s *Server) handleListAutomations(w http.ResponseWriter, r *http.Request) {
 		var enabledInt int
 		if err := rows.Scan(
 			&a.ID, &a.Name, &a.Prompt, &a.TriggerType, &a.CronSchedule, &a.ChannelID,
-			&a.EnvType, &a.ProjectsJSON, &a.ReasoningEffort, &a.ResultAction,
+			&a.WorkingDir, &a.ReasoningEffort, &a.ResultAction,
 			&a.SandboxLevel, &a.CedarRulesJSON, &enabledInt,
 			&a.LastRunAt, &a.NextRunAt, &a.RunCount, &a.LastRunStatus, &a.LastRunError,
 			&a.CreatedAt, &a.UpdatedAt,
@@ -111,8 +110,7 @@ func (s *Server) handleCreateAutomation(w http.ResponseWriter, r *http.Request) 
 		TriggerType     string `json:"trigger_type"`
 		CronSchedule    string `json:"cron_schedule"`
 		ChannelID       string `json:"channel_id"`
-		EnvType         string `json:"env_type"`
-		ProjectsJSON    string `json:"projects_json"`
+		WorkingDir      string `json:"working_dir"`
 		ReasoningEffort string `json:"reasoning_effort"`
 		ResultAction    string `json:"result_action"`
 		CedarRulesJSON  string `json:"cedar_rules_json"`
@@ -126,26 +124,22 @@ func (s *Server) handleCreateAutomation(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "prompt is required", http.StatusBadRequest)
 		return
 	}
-	// trigger_type 默认值与校验
 	if req.TriggerType == "" {
 		req.TriggerType = "cron"
 	}
-	// cron 模式必须有 schedule
 	if (req.TriggerType == "cron" || req.TriggerType == "both") && strings.TrimSpace(req.CronSchedule) == "" {
 		http.Error(w, "cron_schedule is required for trigger_type=cron/both", http.StatusBadRequest)
 		return
 	}
-	// 其余默认值
-	setDefault := func(s *string, def string) {
-		if *s == "" {
-			*s = def
-		}
+	if req.ReasoningEffort == "" {
+		req.ReasoningEffort = "medium"
 	}
-	setDefault(&req.EnvType, "chat")
-	setDefault(&req.ProjectsJSON, "[]")
-	setDefault(&req.ReasoningEffort, "medium")
-	setDefault(&req.ResultAction, "session")
-	setDefault(&req.CedarRulesJSON, "[]")
+	if req.ResultAction == "" {
+		req.ResultAction = "session"
+	}
+	if req.CedarRulesJSON == "" {
+		req.CedarRulesJSON = "[]"
+	}
 
 	enabled := true
 	if req.Enabled != nil {
@@ -162,12 +156,12 @@ func (s *Server) handleCreateAutomation(w http.ResponseWriter, r *http.Request) 
 	_, err := s.db.ExecContext(r.Context(), `
 		INSERT INTO automations(
 			id, name, prompt, trigger_type, cron_schedule, channel_id,
-			env_type, projects_json, reasoning_effort, result_action,
+			working_dir, reasoning_effort, result_action,
 			sandbox_level, cedar_rules_json, enabled,
 			next_run_at, created_at, updated_at
-		) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+		) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 		id, req.Name, req.Prompt, req.TriggerType, req.CronSchedule, req.ChannelID,
-		req.EnvType, req.ProjectsJSON, req.ReasoningEffort, req.ResultAction,
+		req.WorkingDir, req.ReasoningEffort, req.ResultAction,
 		2, req.CedarRulesJSON, boolToInt(enabled),
 		nextRun, now, now,
 	)
@@ -191,8 +185,7 @@ func (s *Server) handleUpdateAutomation(w http.ResponseWriter, r *http.Request) 
 		TriggerType     *string `json:"trigger_type"`
 		CronSchedule    *string `json:"cron_schedule"`
 		ChannelID       *string `json:"channel_id"`
-		EnvType         *string `json:"env_type"`
-		ProjectsJSON    *string `json:"projects_json"`
+		WorkingDir      *string `json:"working_dir"`
 		ReasoningEffort *string `json:"reasoning_effort"`
 		ResultAction    *string `json:"result_action"`
 		CedarRulesJSON  *string `json:"cedar_rules_json"`
@@ -207,11 +200,11 @@ func (s *Server) handleUpdateAutomation(w http.ResponseWriter, r *http.Request) 
 	var enabledInt int
 	err := s.db.QueryRowContext(r.Context(), `
 		SELECT id, name, prompt, trigger_type, cron_schedule, channel_id,
-		       env_type, projects_json, reasoning_effort, result_action,
+		       working_dir, reasoning_effort, result_action,
 		       sandbox_level, cedar_rules_json, enabled
 		FROM automations WHERE id=?`, jobID).
 		Scan(&j.ID, &j.Name, &j.Prompt, &j.TriggerType, &j.CronSchedule, &j.ChannelID,
-			&j.EnvType, &j.ProjectsJSON, &j.ReasoningEffort, &j.ResultAction,
+			&j.WorkingDir, &j.ReasoningEffort, &j.ResultAction,
 			&j.SandboxLevel, &j.CedarRulesJSON, &enabledInt)
 	if err != nil {
 		http.Error(w, "automation not found", http.StatusNotFound)
@@ -219,7 +212,6 @@ func (s *Server) handleUpdateAutomation(w http.ResponseWriter, r *http.Request) 
 	}
 	j.Enabled = enabledInt == 1
 
-	// 字段级更新（patch 语义）
 	if req.Name != nil {
 		j.Name = *req.Name
 	}
@@ -235,11 +227,8 @@ func (s *Server) handleUpdateAutomation(w http.ResponseWriter, r *http.Request) 
 	if req.ChannelID != nil {
 		j.ChannelID = *req.ChannelID
 	}
-	if req.EnvType != nil {
-		j.EnvType = *req.EnvType
-	}
-	if req.ProjectsJSON != nil {
-		j.ProjectsJSON = *req.ProjectsJSON
+	if req.WorkingDir != nil {
+		j.WorkingDir = *req.WorkingDir
 	}
 	if req.ReasoningEffort != nil {
 		j.ReasoningEffort = *req.ReasoningEffort
@@ -263,11 +252,11 @@ func (s *Server) handleUpdateAutomation(w http.ResponseWriter, r *http.Request) 
 	_, err = s.db.ExecContext(r.Context(), `
 		UPDATE automations
 		SET name=?, prompt=?, trigger_type=?, cron_schedule=?, channel_id=?,
-		    env_type=?, projects_json=?, reasoning_effort=?, result_action=?,
+		    working_dir=?, reasoning_effort=?, result_action=?,
 		    cedar_rules_json=?, enabled=?, next_run_at=?, updated_at=?
 		WHERE id=?`,
 		j.Name, j.Prompt, j.TriggerType, j.CronSchedule, j.ChannelID,
-		j.EnvType, j.ProjectsJSON, j.ReasoningEffort, j.ResultAction,
+		j.WorkingDir, j.ReasoningEffort, j.ResultAction,
 		j.CedarRulesJSON, boolToInt(j.Enabled), nextRun, now, jobID,
 	)
 	if err != nil {
@@ -339,10 +328,10 @@ func (s *Server) handleTriggerAutomation(w http.ResponseWriter, r *http.Request)
 	var a automation
 	var enabledInt int
 	err := s.db.QueryRowContext(r.Context(), `
-		SELECT id, name, prompt, env_type, projects_json, reasoning_effort,
+		SELECT id, name, prompt, working_dir, reasoning_effort,
 		       result_action, cedar_rules_json, enabled
 		FROM automations WHERE id=?`, jobID).
-		Scan(&a.ID, &a.Name, &a.Prompt, &a.EnvType, &a.ProjectsJSON,
+		Scan(&a.ID, &a.Name, &a.Prompt, &a.WorkingDir,
 			&a.ReasoningEffort, &a.ResultAction, &a.CedarRulesJSON, &enabledInt)
 	if err != nil {
 		http.Error(w, "automation not found", http.StatusNotFound)
@@ -382,7 +371,7 @@ func (s *Server) cronTick(ctx context.Context) {
 	now := time.Now().UTC().Format(time.RFC3339)
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, name, prompt, trigger_type, cron_schedule,
-		       env_type, projects_json, reasoning_effort, result_action, cedar_rules_json
+		       working_dir, reasoning_effort, result_action, cedar_rules_json
 		FROM automations
 		WHERE enabled=1
 		  AND (trigger_type='cron' OR trigger_type='both')
@@ -400,7 +389,7 @@ func (s *Server) cronTick(ctx context.Context) {
 		var a automation
 		if err := rows.Scan(
 			&a.ID, &a.Name, &a.Prompt, &a.TriggerType, &a.CronSchedule,
-			&a.EnvType, &a.ProjectsJSON, &a.ReasoningEffort, &a.ResultAction, &a.CedarRulesJSON,
+			&a.WorkingDir, &a.ReasoningEffort, &a.ResultAction, &a.CedarRulesJSON,
 		); err != nil {
 			continue
 		}
@@ -450,7 +439,7 @@ func (s *Server) executeAutomation(ctx context.Context, a *automation, trigger s
 			s.agent.SetTaskIntent([]byte(a.Prompt))
 			s.agent.SendIntent(protocol.TriggerIntentReceived)
 			slog.Info("automation: agent triggered", "id", a.ID, "run", runID,
-				"env", a.EnvType, "effort", a.ReasoningEffort)
+				"dir", a.WorkingDir, "effort", a.ReasoningEffort)
 		} else {
 			// agent 未初始化（测试环境）
 			slog.Info("automation: agent not available, skipping exec", "id", a.ID)

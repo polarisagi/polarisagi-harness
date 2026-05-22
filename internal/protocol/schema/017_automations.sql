@@ -6,7 +6,7 @@
 -- 与 chat_sessions(013)关联：每次执行产生独立 session（带 automation_id 标签）。
 -- result_action: session=追加到自动 session | channel:{id}=渠道推送 | silent=静默
 -- trigger_type: cron=定时 | webhook=外部事件 | both=两者 | manual=仅手动
--- env_type: local=当前目录读写 | worktree=Git Worktree 隔离 | chat=纯对话无目录
+-- working_dir: 可选文件操作根路径（任意目录；留空则 Agent 自主决定是否操作文件）
 -- reasoning_effort: low/medium/high/ultra 自动映射 model_roles（用户不选模型）
 -- ============================================================================
 
@@ -17,8 +17,7 @@ CREATE TABLE IF NOT EXISTS automations (
     trigger_type      TEXT    NOT NULL DEFAULT 'cron',  -- 'cron' | 'webhook' | 'both' | 'manual'
     cron_schedule     TEXT    NOT NULL DEFAULT '',       -- cron 表达式；trigger_type=webhook 时可空
     channel_id        TEXT    NOT NULL DEFAULT '',       -- channels.id；webhook 触发时非空
-    env_type          TEXT    NOT NULL DEFAULT 'chat',   -- 'local' | 'worktree' | 'chat'
-    projects_json     TEXT    NOT NULL DEFAULT '[]',     -- JSON 字符串数组，项目目录绝对路径列表
+    working_dir       TEXT    NOT NULL DEFAULT '',       -- 可选文件操作根路径；留空=Agent 自主决定
     reasoning_effort  TEXT    NOT NULL DEFAULT 'medium', -- 'low' | 'medium' | 'high' | 'ultra'
     result_action     TEXT    NOT NULL DEFAULT 'session',-- 'session' | 'channel:{id}' | 'silent'
     sandbox_level     INTEGER NOT NULL DEFAULT 2,        -- Sandbox-L2（Wasm，默认）

@@ -69,7 +69,7 @@
 
             <!-- 顶部：图标 + 开关 -->
             <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px">
-              <div style="font-size:22px" x-text="($store.cron.envTypes.find(e=>e.value===job.env_type)||{icon:'🤖'}).icon"></div>
+              <div style="font-size:22px">🤖</div>
               <label class="toggle" @click.stop>
                 <input type="checkbox" :name="'job-'+job.id" :checked="job.enabled" @change="$store.cron.toggle(job)">
                 <span class="toggle-slider"></span>
@@ -89,8 +89,8 @@
               <!-- 定时 -->
               <span style="font-size:11px;color:var(--color-text-dim);background:var(--color-surface);border:1px solid var(--color-border);border-radius:10px;padding:2px 8px;font-family:monospace"
                     x-text="$store.cron.cronLabel(job.cron_schedule) || job.trigger_type"></span>
-              <!-- 环境 -->
-              <span style="font-size:11px;color:var(--color-text-dim)" x-text="($store.cron.envTypes.find(e=>e.value===job.env_type)||{label:job.env_type}).label"></span>
+              <!-- 工作目录（有值才展示） -->
+              <span x-show="job.working_dir" style="font-size:11px;color:var(--color-text-dim);font-family:monospace" x-text="job.working_dir"></span>
               <!-- 推理档位 -->
               <span style="font-size:11px;color:var(--color-text-dim)" x-text="'推理：'+($store.cron.reasoningLevels.find(r=>r.value===job.reasoning_effort)||{label:'中'}).label"></span>
             </div>
@@ -389,40 +389,12 @@
           </div>
         </div>
 
-        <!-- 第二行：执行环境 + 项目 -->
-        <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px">
-          <div style="font-size:11px;color:var(--color-text-dim);font-weight:500;width:100%">执行环境</div>
-          <template x-for="e in $store.cron.envTypes" :key="e.value">
-            <button style="font-size:12px;border:1px solid var(--color-border);border-radius:10px;padding:6px 14px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:6px"
-                    :style="$store.cron.form.env_type===e.value ? 'background:var(--color-accent);color:white;border-color:var(--color-accent)' : 'background:transparent;color:var(--color-text)'"
-                    @click="$store.cron.form.env_type=e.value"
-                    :title="e.desc">
-              <span x-text="e.icon"></span>
-              <span x-text="e.label"></span>
-            </button>
-          </template>
-        </div>
-
-        <!-- 项目路径输入（仅 local/worktree 时显示） -->
-        <div x-show="$store.cron.form.env_type!=='chat'" style="margin-bottom:14px"
-             x-data="{ newPath: '' }">
-          <div style="font-size:11px;color:var(--color-text-dim);font-weight:500;margin-bottom:6px">项目路径</div>
-          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px">
-            <template x-for="p in $store.cron.getProjects()" :key="p">
-              <span style="display:inline-flex;align-items:center;gap:4px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;padding:3px 8px;font-size:12px;font-family:monospace">
-                <span x-text="p"></span>
-                <button style="border:none;background:transparent;cursor:pointer;color:var(--color-text-dim);line-height:1;padding:0"
-                        @click="$store.cron.removeProject(p)">×</button>
-              </span>
-            </template>
-          </div>
-          <div style="display:flex;gap:6px">
-            <input type="text" x-model="newPath" placeholder="/path/to/project"
-                   style="flex:1;padding:6px 10px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;font-size:12px;font-family:monospace;color:var(--color-text);outline:none"
-                   @keydown.enter="$store.cron.addProject(newPath);newPath=''" />
-            <button class="btn btn-ghost btn-sm" style="font-size:12px"
-                    @click="$store.cron.addProject(newPath);newPath=''">添加</button>
-          </div>
+        <!-- 第二行：工作目录（可选） -->
+        <div style="margin-bottom:14px">
+          <div style="font-size:11px;color:var(--color-text-dim);font-weight:500;margin-bottom:6px">工作目录（可选）</div>
+          <input type="text" x-model="$store.cron.form.working_dir"
+                 placeholder="留空则 Agent 自主决定，例如 /home/user/myproject"
+                 style="width:100%;padding:6px 10px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;font-size:12px;font-family:monospace;color:var(--color-text);outline:none" />
         </div>
 
       </div>

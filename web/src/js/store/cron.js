@@ -13,7 +13,6 @@ const TEMPLATES = [
     prompt: '扫描最近的 commit（自上次运行以来，或过去 24 小时内），查找可能的 bug 并提出最小修复方案，依据规则：只使用仓库中的具体证据（commit SHA, PR, 文件路径, diff, 失败的测试, CI 信号），不要猜测 bug；如果证据不足，请说明并跳过；优先选择最小且安全的修复；避免重构和无关清理。',
     trigger_type: 'cron',
     cron_schedule: '0 9 * * 1-5',
-    env_type: 'worktree',
     reasoning_effort: 'high',
   },
   {
@@ -22,7 +21,6 @@ const TEMPLATES = [
     prompt: '根据已合并的 PR 起草每周发布说明（如有链接请附上），严格检查：仅报告当前仓库中的内容，不要凭空想象当周历史，如果代码库中没有历史记录，说明并跳过；避免对审查者或评论者施加不当影响；区分"已完成"与"进行中"。',
     trigger_type: 'cron',
     cron_schedule: '0 9 * * 1',
-    env_type: 'chat',
     reasoning_effort: 'medium',
   },
   {
@@ -31,7 +29,6 @@ const TEMPLATES = [
     prompt: '为站会总结 git 状态，依据规则：陈述应对 commitPR 文件有具体支撑，不要臆测未来工作，保持简洁，确保合同团队同步，并有足够的细节以便快速连线并保持合作。',
     trigger_type: 'cron',
     cron_schedule: '0 8 * * 1-5',
-    env_type: 'chat',
     reasoning_effort: 'low',
   },
   {
@@ -40,7 +37,6 @@ const TEMPLATES = [
     prompt: '总结上一个 CI 窗口中的 CI 失败和不稳定测试；提出首要修复建议，依据规则：只使用确切的工具作为依据；测试、CI 日志、代码变更历史日志；避免过于自信地直接断言原因；区分"已观察"与"推测"。',
     trigger_type: 'cron',
     cron_schedule: '0 10 * * 1-5',
-    env_type: 'worktree',
     reasoning_effort: 'high',
   },
   {
@@ -49,7 +45,6 @@ const TEMPLATES = [
     prompt: '根据近期 PR 和 Code Review，建议下一步需要深入提升的具体技能，依据规则：每条建议都要有具体证据（PR 主题、审查意见、反复出现的问题），避免泛空泛的建议；复盘出现的问题；忽视空洞泛化的措辞；每条建议都要具体可执行。',
     trigger_type: 'cron',
     cron_schedule: '0 17 * * 5',
-    env_type: 'chat',
     reasoning_effort: 'medium',
   },
   {
@@ -58,7 +53,6 @@ const TEMPLATES = [
     prompt: '为当前项目创建每日状态报告：包括最新提交摘要、未解决的 issue、开放的 PR 状态、测试覆盖率趋势（如可获取）。使用简洁的 Markdown 格式输出。',
     trigger_type: 'cron',
     cron_schedule: '0 9 * * *',
-    env_type: 'chat',
     reasoning_effort: 'medium',
   },
 ]
@@ -71,13 +65,6 @@ const SCHEDULE_PRESETS = [
   { label: '每周一 09:00', value: '0 9 * * 1' },
   { label: '每天 18:00', value: '0 18 * * *' },
   { label: '每月 1 日', value: '0 9 1 * *' },
-]
-
-// 环境选项
-const ENV_TYPES = [
-  { value: 'chat', label: '对话', icon: '💬', desc: '纯对话，不绑定代码库' },
-  { value: 'local', label: '本地', icon: '💻', desc: '读写项目文件，直接执行' },
-  { value: 'worktree', label: '工作树', icon: '🌿', desc: 'Git 隔离，可生成 PR' },
 ]
 
 // 推理档位（不暴露模型名称，系统自动映射）
@@ -140,8 +127,7 @@ Alpine.store('cron', {
     trigger_type: 'cron',
     cron_schedule: '0 9 * * 1-5',
     channel_id: '',
-    env_type: 'chat',
-    projects_json: '[]',
+    working_dir: '',
     reasoning_effort: 'medium',
     result_action: 'session',
     cedar_rules_json: '[]',
@@ -151,7 +137,6 @@ Alpine.store('cron', {
   // 暴露给模板的常量
   templates: TEMPLATES,
   schedulePresets: SCHEDULE_PRESETS,
-  envTypes: ENV_TYPES,
   reasoningLevels: REASONING_LEVELS,
   resultActions: RESULT_ACTIONS,
 
@@ -172,7 +157,7 @@ Alpine.store('cron', {
     this.form = {
       id: '', name: '', prompt: '',
       trigger_type: 'cron', cron_schedule: '0 9 * * 1-5', channel_id: '',
-      env_type: 'chat', projects_json: '[]',
+      working_dir: '',
       reasoning_effort: 'medium', result_action: 'session',
       cedar_rules_json: '[]', enabled: true,
     }
@@ -182,7 +167,7 @@ Alpine.store('cron', {
   },
 
   openEdit(job) {
-    this.form = { ...job, projects_json: job.projects_json || '[]' }
+    this.form = { ...job }
     this.editMode = 'edit'
     this.showTemplates = false
     this.showModal = true
@@ -193,33 +178,12 @@ Alpine.store('cron', {
     this.form.prompt = t.prompt
     this.form.trigger_type = t.trigger_type || 'cron'
     this.form.cron_schedule = t.cron_schedule || '0 9 * * 1-5'
-    this.form.env_type = t.env_type || 'chat'
     this.form.reasoning_effort = t.reasoning_effort || 'medium'
     this.showTemplates = false
   },
 
-  // projects_json 便捷操作（解析为数组，UI 展示用）
-  getProjects() {
-    try { return JSON.parse(this.form.projects_json) } catch { return [] }
-  },
-  addProject(path) {
-    const arr = this.getProjects()
-    if (path && !arr.includes(path)) {
-      arr.push(path)
-      this.form.projects_json = JSON.stringify(arr)
-    }
-  },
-  removeProject(path) {
-    const arr = this.getProjects().filter(p => p !== path)
-    this.form.projects_json = JSON.stringify(arr)
-  },
-
   async save() {
     const body = { ...this.form }
-    // env_type=chat 时清空项目列表
-    if (body.env_type === 'chat') {
-      body.projects_json = '[]'
-    }
     try {
       let r
       if (this.editMode === 'create') {
