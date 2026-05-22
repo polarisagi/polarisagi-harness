@@ -22,6 +22,7 @@ import (
 	"github.com/mrlaoliai/polaris-harness/pkg/cognition/memory"
 	"github.com/mrlaoliai/polaris-harness/pkg/interface/channels"
 	"github.com/mrlaoliai/polaris-harness/pkg/substrate/inference"
+	"github.com/mrlaoliai/polaris-harness/pkg/substrate/inference/stt"
 	"github.com/mrlaoliai/polaris-harness/pkg/substrate/observability"
 	webui "github.com/mrlaoliai/polaris-harness/web"
 
@@ -165,6 +166,8 @@ func NewServer(addr string, dataDir string, agent *kernel.Agent, bb protocol.Bla
 		s.dispatchChannelMessage(channelType, channelID, cfg, msg)
 	}, channels.WithSafeDialer(safeDialer))
 
+	initSTTEngine(dataDir)
+
 	mux := http.NewServeMux()
 
 	// API 端点
@@ -209,6 +212,9 @@ func NewServer(addr string, dataDir string, agent *kernel.Agent, bb protocol.Bla
 	mux.HandleFunc("GET /v1/sessions", s.handleListSessions)
 	mux.HandleFunc("GET /v1/sessions/{sessionID}", s.handleGetSession)
 	mux.HandleFunc("DELETE /v1/sessions/{sessionID}", s.handleDeleteSession)
+
+	// 语音识别 API
+	mux.HandleFunc("POST /v1/audio/transcriptions", s.handleAudioTranscriptions)
 
 	// VFS 通用文件上传
 	mux.HandleFunc("POST /v1/workspace/upload", s.handleVFSUpload)
@@ -297,6 +303,19 @@ func NewServer(addr string, dataDir string, agent *kernel.Agent, bb protocol.Bla
 	}
 
 	return s
+}
+
+func initSTTEngine(dataDir string) {
+	sttDir := filepath.Join(dataDir, "models", "sensevoice")
+	if err := os.MkdirAll(sttDir, 0755); err != nil {
+		slog.Warn("polaris-server: failed to create stt dir", "err", err)
+	}
+	if err := stt.LoadLibrary(filepath.Join(sttDir, "libsherpa-onnx-c-api.dylib")); err != nil {
+		slog.Warn("polaris-server: stt purego library failed to load, stt will use mock", "err", err)
+	}
+	if engine, err := stt.NewEngine(sttDir); err == nil {
+		SetSTTEngine(engine)
+	}
 }
 
 func (s *Server) setupWebUI(mux *http.ServeMux) {

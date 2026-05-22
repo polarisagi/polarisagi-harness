@@ -19,7 +19,8 @@ Alpine.store('chat', {
   attachments: [],       // [{ uri, mime_type, name, dataUrl }]
   ttsEnabled: false,
   isRecording: false,
-  _recognition: null,
+  _mediaRecorder: null,
+  _audioChunks: [],
 
   get isActive() { return this.state !== 'IDLE' && this.state !== 'COMPLETE' && this.state !== 'ERROR' },
 
@@ -75,46 +76,72 @@ Alpine.store('chat', {
     this.attachments.splice(index, 1);
   },
 
-  toggleRecording() {
+  async toggleRecording() {
     if (this.isRecording) {
-      if (this._recognition) this._recognition.stop();
+      if (this._mediaRecorder && this._mediaRecorder.state !== 'inactive') {
+        this._mediaRecorder.stop();
+      }
       return;
     }
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert(Alpine.store('i18n').t('chat_stt_unsupported') || 'Your browser does not support Speech Recognition.');
-      return;
-    }
-    
-    this._recognition = new SpeechRecognition();
-    this._recognition.lang = 'zh-CN'; // Defaulting to Chinese, can be made dynamic
-    this._recognition.interimResults = true;
-    this._recognition.continuous = false; // We can set to true if we want it to keep listening
 
-    // Optional: reference to the alpine component's input model so we can append text.
-    // Alpine store doesn't directly hold the `input` value (it's in x-data="chatInput").
-    // The easiest way is to let the chatInput component handle the text append, 
-    // we can fire a custom event on window.
-    this._recognition.onresult = (event) => {
-      let finalTranscript = '';
-      for (let i = event.resultIndex; i < event.results.length; ++i) {
-        if (event.results[i].isFinal) {
-          finalTranscript += event.results[i][0].transcript;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      this._mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      this._audioChunks = [];
+
+      this._mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          this._audioChunks.push(e.data);
         }
-      }
-      if (finalTranscript) {
-        window.dispatchEvent(new CustomEvent('stt-result', { detail: finalTranscript }));
-      }
-    };
+      };
 
-    this._recognition.onstart = () => { this.isRecording = true; };
-    this._recognition.onend = () => { this.isRecording = false; };
-    this._recognition.onerror = (e) => {
-      console.warn('Speech recognition error:', e.error);
-      this.isRecording = false;
-    };
+      this._mediaRecorder.onstop = async () => {
+        this.isRecording = false;
+        stream.getTracks().forEach(track => track.stop());
 
-    this._recognition.start();
+        const audioBlob = new Blob(this._audioChunks, { type: 'audio/webm' });
+        this._audioChunks = [];
+        
+        if (Alpine.store('toast')) {
+          Alpine.store('toast').show('ok', '正在识别语音...');
+        }
+
+        const formData = new FormData();
+        formData.append('file', audioBlob, 'recording.webm');
+        
+        try {
+          const headers = authHeaders();
+          delete headers['Content-Type'];
+
+          const resp = await fetch('/v1/audio/transcriptions', {
+            method: 'POST',
+            headers: headers,
+            body: formData
+          });
+
+          if (resp.ok) {
+            const data = await resp.json();
+            if (data.text) {
+              window.dispatchEvent(new CustomEvent('stt-result', { detail: data.text }));
+            }
+          } else {
+            throw new Error(`Status ${resp.status}`);
+          }
+        } catch (e) {
+          console.error("STT Failed", e);
+          if (Alpine.store('toast')) {
+            Alpine.store('toast').show('error', '语音识别失败');
+          }
+        }
+      };
+
+      this._mediaRecorder.start();
+      this.isRecording = true;
+
+    } catch (e) {
+      console.error("Failed to start recording", e);
+      alert('无法访问麦克风，请检查浏览器权限');
+    }
   },
 
   async submit(input) {
