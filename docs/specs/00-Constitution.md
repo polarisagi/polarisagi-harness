@@ -16,6 +16,9 @@
 | R1.8 | comment 解释"是什么" | `// 创建用户` 在 `CreateUser` 函数上 | comment 只写"为什么"——设计意图、约束、坑 |
 | R1.9 | LLM 自由流转 | `while true { call LLM }` 无状态机包裹 | Go FSM 持有控制流，LLM 是协处理器 |
 | R1.10 | 概率过滤当安全边界 | `if rand > 0.5 { block }` 当安全措施 | 物理断裂：TaintTracking + sandbox + capability token |
+| R1.11 | 绕过 Provider 直接调 LLM | pkg/ 内 `http.Post("api.openai.com/...")` 构造 LLM 请求 | `protocol.Provider.Infer/StreamInfer`（XR-09） |
+| R1.12 | 业务路径直接打印 | `fmt.Printf` / `log.Printf` / `fmt.Println` 在 pkg/ 下 | `slog.Info/Warn/Error`（XR-08） |
+| R1.13 | 绕过沙箱执行外部命令 | `os/exec.Command(...)` 在 pkg/cognition/ pkg/swarm/ pkg/governance/ pkg/edge/ | `protocol.ToolRegistry.ExecuteTool` + Sandbox（XR-10） |
 
 ## R2 命名规范字典
 

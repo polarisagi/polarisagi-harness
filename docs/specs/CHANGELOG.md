@@ -4,6 +4,22 @@
 
 格式：`YYYY-MM-DD | 文件 | 变更摘要`
 
+## 2026-05-22（集成接口规范 + DB 写路径澄清）
+
+**规范新增**：
+- `docs/arch/00-Global-Dictionary.md §1-ter` | 新增 XR-08（日志规范）、XR-09（LLM 调用）、XR-10（工具/技能/插件执行）、XR-11（文件系统操作分层）；更新 XR-04（DB 写路径三层规范澄清）；更新 `[Storage-SQLite]` 条目
+- `docs/specs/00-Constitution.md §R1` | 新增反模式 R1.11（绕过 Provider）、R1.12（直接打印）、R1.13（绕过沙箱执行命令）
+- `docs/specs/01-Go-Code.md` | 新增 F8（日志规范+必选 key 约定+级别表）、F9（HTTP Handler 四段式）、F10（Context 传播+deadline 规范）
+- `docs/specs/07-Reference-Implementation.md §7.1` | 新增 canonical：HTTP Handler（channels.go）、LLM 调用（adapter_anthropic.go）、MutationBus 写（mutation_bus.go）、Store 同步写（store.go§Put/Txn）
+
+**代码修复**（同日）：
+- `cmd/polaris/main.go` | 接入 MutationBus（DatabaseWriter + EventLog + DecisionLog），修复 MutationBus 从未运行的架构断层；添加优雅退出等待 flush
+- `pkg/swarm/sqlite_blackboard.go` | 修正注释（删除"委托 MutationBus"的错误声明，说明 CAS 需要直接写的原因）
+- `pkg/substrate/mutation_bus.go` | 修正适用范围注释
+- `pkg/substrate/storage/store.go` | 修正 Put/DB() 注释，澄清三层写路径定位
+
+**背景**：AI 编程大模型在以下场景无规范可依，导致生成代码跑偏：(1) 数据库写路径（MutationBus/Store.Put/裸SQL 各自适用场景不清）；(2) 日志（`fmt.Printf` 与 `slog` 混用）；(3) LLM 调用（绕过 Provider 直接构造 HTTP）；(4) 工具/技能执行（绕过 ToolRegistry 直接调用具体实现）；(5) HTTP Handler 结构（SQL 内嵌 handler）。本次规范补全覆盖以上全部缺口。
+
 ## 2026-05-22（DDL 修改策略 + Schema 整合）
 
 **规范新增**：

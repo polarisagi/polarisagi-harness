@@ -107,3 +107,93 @@ import (
 - 测试文件与被测文件同级同包
 - 表驱动测试（subscription-based test table）
 - 私有函数通过公开接口间接测试，不对私有函数直接写 tests——除非逻辑复杂需要直接单元测试
+
+## F8 日志规范（XR-08）
+
+全项目唯一日志器：`log/slog`（Go 1.21+ stdlib，结构化，不依赖第三方库）。
+
+```go
+// ✅ 正确
+slog.Info("blackboard: task claimed", "agent", agentID, "task_id", taskID)
+slog.Warn("storage: migration skipped", "file", filename, "err", err)
+slog.Error("provider: inference failed", "provider", name, "err", err)
+
+// ❌ 禁止
+fmt.Printf("task %s claimed\n", taskID)     // R1.12
+log.Printf("migration skipped: %v", err)    // R1.12
+```
+
+**必选 key 约定**（全仓库统一，新增 key 须先补入本表）：
+
+| key | 类型 | 含义 |
+|-----|------|------|
+| `"err"` | error | 错误值（Warn/Error 必须带） |
+| `"agent"` | string | AgentID |
+| `"task_id"` | string | TaskID |
+| `"session"` | string | SessionID |
+| `"provider"` | string | Provider 名称 |
+| `"file"` | string | 文件路径 |
+| `"latency_ms"` | int64 | 耗时毫秒 |
+
+**级别选择**：
+
+| 级别 | 使用场景 |
+|------|---------|
+| `Error` | 需要人工介入的故障（数据丢失、服务不可用） |
+| `Warn` | 可降级或自动恢复的异常（超时重试、fallback 触发） |
+| `Info` | 启动/关闭/状态变更/重要里程碑（每个事件级别，非每请求） |
+| `Debug` | 高频热路径细节（每请求级别，生产环境默认关闭） |
+
+## F9 HTTP Handler 规范（interface/server）
+
+Handler 必须遵循四段式结构：
+
+```go
+func (s *Server) handleXxx(w http.ResponseWriter, r *http.Request) {
+    // 1. 解析输入（只在此处做 input validation）
+    var req XxxRequest
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        http.Error(w, "invalid request body", http.StatusBadRequest)
+        return
+    }
+
+    // 2. 业务逻辑调用（调用 service/store，不在 handler 内写 SQL）
+    result, err := s.doXxx(r.Context(), req)
+    if err != nil {
+        slog.Warn("server: handleXxx failed", "err", err)
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+
+    // 3. 序列化响应
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(result) //nolint:errcheck
+}
+```
+
+禁止：
+- handler 内直接写 `db.ExecContext`（SQL 嵌入 handler 中）——应抽到方法或 store 层
+- handler 内调 `protocol.Provider.Infer`（LLM 调用不属于 HTTP 层）
+- handler 返回裸 Go error 消息给客户端（用户可读的错误必须单独定义）
+
+## F10 Context 传播规范
+
+- 所有函数第一参数必须是 `ctx context.Context`（测试 helper 除外）
+- 禁止：`context.Background()` 在 pkg/ 业务路径（仅 main/test/cleanup goroutine 允许）
+- 跨 goroutine 必须传入或派生 ctx，禁止无 ctx 的 goroutine 脱离父 ctx 生命周期
+- 设置 deadline：调 LLM / 外部 HTTP / DB 操作必须有超时，通过 `context.WithTimeout` 派生
+
+```go
+// LLM 调用必须有超时
+inferCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+defer cancel()
+resp, err := provider.Infer(inferCtx, req)
+
+// 禁止：后台 goroutine 使用 context.Background()
+go func() {
+    // ❌ 脱离父生命周期
+    store.Put(context.Background(), key, val)
+    // ✅ 应传入派生 ctx
+    store.Put(ctx, key, val)
+}()
+```
