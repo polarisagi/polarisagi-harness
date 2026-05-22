@@ -10,10 +10,19 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$PROJECT_ROOT"
 
 FULL_BUILD=false
-[[ "${1:-}" == "--full" ]] && FULL_BUILD=true
+TIER1_BUILD=false
+for arg in "$@"; do
+  if [[ "$arg" == "--full" ]]; then
+    FULL_BUILD=true
+  elif [[ "$arg" == "--tier1" ]]; then
+    TIER1_BUILD=true
+  fi
+done
 
 PORT=29999
-LOG_FILE="/tmp/polaris.log"
+DATA_DIR="${POLARIS_DATA_DIR:-$HOME/.polaris-harness}"
+mkdir -p "$DATA_DIR"
+LOG_FILE="$DATA_DIR/polaris.log"
 CONFIG="configs/config.yaml"
 LOG_MAX_BYTES=10485760  # 10 MB，超过则截断
 
@@ -74,7 +83,12 @@ fi
 # ── 2. Rust FFI（--full 时重建；否则验证 dylib 存在）──────
 if $FULL_BUILD; then
   echo "→ 构建 Rust FFI（--full 模式，约 60~120s）..."
-  cargo build --release --manifest-path rust/substrate/Cargo.toml
+  CARGO_CMD="cargo build --release --manifest-path rust/substrate/Cargo.toml"
+  if $TIER1_BUILD; then
+    CARGO_CMD="$CARGO_CMD --features tier1"
+    echo "  已启用 tier1 硬件特性构建"
+  fi
+  eval $CARGO_CMD
 else
   if [[ ! -f "$DYLIB_SRC" ]]; then
     echo "✗ Rust dylib 不存在：$DYLIB_SRC"
@@ -103,7 +117,12 @@ cd ..
 echo "→ 构建 Go 后端..."
 mkdir -p bin/lib
 cp "$DYLIB_SRC" "$DYLIB_DST"
-CGO_ENABLED=0 go build -o bin/polaris ./cmd/polaris
+GO_CMD="CGO_ENABLED=0 go build"
+if $TIER1_BUILD; then
+  GO_CMD="$GO_CMD -tags tier1"
+fi
+GO_CMD="$GO_CMD -o bin/polaris ./cmd/polaris"
+eval $GO_CMD
 
 # ── 5. 启动 ───────────────────────────────────────────────
 echo "→ 启动 Polaris..."
