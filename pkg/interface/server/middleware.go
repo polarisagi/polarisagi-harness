@@ -144,7 +144,36 @@ func extractIP(r *http.Request) string {
 	return ip
 }
 
-// withMiddleware 挂载所有基础网关级别的安全防护（Auth + Rate Limit + CORS）
+// LoggingResponseWriter intercepts HTTP responses to capture the status code and body for logging.
+type LoggingResponseWriter struct {
+	http.ResponseWriter
+	statusCode int
+	body       []byte
+}
+
+func NewLoggingResponseWriter(w http.ResponseWriter) *LoggingResponseWriter {
+	return &LoggingResponseWriter{w, http.StatusOK, nil}
+}
+
+func (lrw *LoggingResponseWriter) WriteHeader(code int) {
+	lrw.statusCode = code
+	lrw.ResponseWriter.WriteHeader(code)
+}
+
+func (lrw *LoggingResponseWriter) Write(b []byte) (int, error) {
+	if lrw.statusCode >= 400 {
+		lrw.body = append(lrw.body, b...)
+	}
+	return lrw.ResponseWriter.Write(b)
+}
+
+func (lrw *LoggingResponseWriter) Flush() {
+	if flusher, ok := lrw.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
+// withMiddleware 挂载所有基础网关级别的安全防护（Auth + Rate Limit + CORS + Logging）
 func (s *Server) withMiddleware(next http.Handler) http.Handler {
 	// 按照 M13 规范，为每个 IP 分配一个单独的桶，限制默认并发 QPS
 	limiter := NewRateLimitManager(20, 50)
@@ -154,6 +183,22 @@ func (s *Server) withMiddleware(next http.Handler) http.Handler {
 	expectedKey := os.Getenv("POLARIS_API_KEY")
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		lrw := NewLoggingResponseWriter(w)
+		w = lrw
+
+		clientIP := extractIP(r)
+
+		isAPI := strings.HasPrefix(r.URL.Path, "/v1/") || r.URL.Path == "/healthz"
+		defer func() {
+			if isAPI {
+				if lrw.statusCode >= 500 {
+					slog.Error("http: request failed", "method", r.Method, "path", r.URL.Path, "ip", clientIP, "status", lrw.statusCode, "error", strings.TrimSpace(string(lrw.body)))
+				} else if lrw.statusCode >= 400 {
+					slog.Warn("http: bad request", "method", r.Method, "path", r.URL.Path, "ip", clientIP, "status", lrw.statusCode, "error", strings.TrimSpace(string(lrw.body)))
+				}
+			}
+		}()
+
 		// CORS
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
@@ -163,8 +208,6 @@ func (s *Server) withMiddleware(next http.Handler) http.Handler {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
-
-		clientIP := extractIP(r)
 
 		// 速率限制隔离
 		if !limiter.Allow(clientIP) {
@@ -212,8 +255,8 @@ func (s *Server) withMiddleware(next http.Handler) http.Handler {
 			ctx = WithAuthContext(ctx, authCtx)
 		}
 
-		// 仅记录 API 请求，跳过静态资源
-		if strings.HasPrefix(r.URL.Path, "/v1/") || r.URL.Path == "/healthz" {
+		// 仅记录 API 请求（进入时）
+		if isAPI {
 			slog.Debug("http: request", "method", r.Method, "path", r.URL.Path, "ip", clientIP)
 		}
 		next.ServeHTTP(w, r.WithContext(ctx))

@@ -15,11 +15,22 @@ import (
 	"github.com/mrlaoliai/polaris-harness/pkg/cognition/memory"
 )
 
-// writeSSE 写出标准 text/event-stream 帧：event: <type>\ndata: <json>\n\n
 func writeSSE(w http.ResponseWriter, flusher http.Flusher, eventType string, payload any) {
 	data, _ := json.Marshal(payload)
 	fmt.Fprintf(w, "event: %s\ndata: %s\n\n", eventType, data)
 	flusher.Flush()
+}
+
+func (s *Server) writeSSEError(w http.ResponseWriter, flusher http.Flusher, code, message string, sessionID string, err error) {
+	if code == "hook_blocked" || code == "empty_response" || code == "no_provider" {
+		slog.Warn("server: sse error", "code", code, "session", sessionID, "message", message, "err", err)
+	} else {
+		slog.Error("server: sse error", "code", code, "session", sessionID, "message", message, "err", err)
+	}
+	writeSSE(w, flusher, "error", map[string]string{
+		"code":    code,
+		"message": message,
+	})
 }
 
 // handleAgentStream 处理 SSE 方式的流式对话。
@@ -79,9 +90,7 @@ func (s *Server) handleAgentStream(w http.ResponseWriter, r *http.Request) { //n
 		sessionID = newSessionID()
 	}
 	if err := s.ensureSession(ctx, sessionID); err != nil {
-		writeSSE(w, flusher, "error", map[string]string{
-			"code": "session_error", "message": err.Error(),
-		})
+		s.writeSSEError(w, flusher, "session_error", err.Error(), sessionID, err)
 		return
 	}
 	// session.new hook：用户发起新会话时触发（req.SessionID 为空意味着 /new 后首条消息）
@@ -98,18 +107,14 @@ func (s *Server) handleAgentStream(w http.ResponseWriter, r *http.Request) { //n
 		"POLARIS_SESSION_ID": sessionID,
 		"POLARIS_CHANNEL":    "web",
 	}); blocked {
-		writeSSE(w, flusher, "error", map[string]string{
-			"code": "hook_blocked", "message": reason,
-		})
+		s.writeSSEError(w, flusher, "hook_blocked", reason, sessionID, nil)
 		return
 	}
 
 	// 加载历史消息（多轮上下文）
 	history, err := s.loadMessages(ctx, sessionID)
 	if err != nil {
-		writeSSE(w, flusher, "error", map[string]string{
-			"code": "history_error", "message": err.Error(),
-		})
+		s.writeSSEError(w, flusher, "history_error", err.Error(), sessionID, err)
 		return
 	}
 	isFirstTurn := len(history) == 0
@@ -164,14 +169,10 @@ func (s *Server) handleAgentStream(w http.ResponseWriter, r *http.Request) { //n
 		p = s.registry.PickProvider("general")
 	}
 	if p == nil {
-		slog.Warn("server: no enabled LLM provider configured", "session", sessionID)
 		if tw != nil {
 			tw.WriteError("no_provider", "未配置任何启用的 LLM 厂商")
 		}
-		writeSSE(w, flusher, "error", map[string]string{
-			"code":    "no_provider",
-			"message": "未配置任何启用的 LLM 厂商，请在「模型」页添加并启用厂商",
-		})
+		s.writeSSEError(w, flusher, "no_provider", "未配置任何启用的 LLM 厂商，请在「模型」页添加并启用厂商", sessionID, nil)
 		return
 	}
 
@@ -208,13 +209,10 @@ func (s *Server) handleAgentStream(w http.ResponseWriter, r *http.Request) { //n
 		}
 		ch, err := p.StreamInfer(ctx, inferReq)
 		if err != nil {
-			slog.Error("server: StreamInfer failed", "session", sessionID, "err", err)
 			if tw != nil {
 				tw.WriteError("infer_error", truncate(err.Error(), 300))
 			}
-			writeSSE(w, flusher, "error", map[string]string{
-				"code": "infer_error", "message": truncate(err.Error(), 300),
-			})
+			s.writeSSEError(w, flusher, "infer_error", truncate(err.Error(), 300), sessionID, err)
 			return
 		}
 
@@ -329,11 +327,10 @@ func (s *Server) handleAgentStream(w http.ResponseWriter, r *http.Request) { //n
 		inferErr = "推理返回空内容，请检查模型配置或重试"
 	}
 	if inferErr != "" {
-		slog.Warn("server: empty inference response", "session", sessionID, "reason", inferErr, "err", perrors.New(perrors.CodeInternal, "log event"))
 		if tw != nil {
 			tw.WriteError("empty_response", inferErr)
 		}
-		writeSSE(w, flusher, "error", map[string]string{"code": "empty_response", "message": inferErr})
+		s.writeSSEError(w, flusher, "empty_response", inferErr, sessionID, perrors.New(perrors.CodeInternal, "log event"))
 		return
 	}
 
