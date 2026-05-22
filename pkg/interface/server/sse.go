@@ -171,12 +171,7 @@ func (s *Server) handleAgentStream(w http.ResponseWriter, r *http.Request) { //n
 
 	const maxToolRounds = 10
 	for range maxToolRounds {
-		modelID := s.registry.PickProviderName("default")
-		if modelID == "" {
-			modelID = s.registry.PickProviderName("general")
-		}
 		inferReq := &protocol.InferRequest{
-			Model:       modelID,
 			Messages:    history,
 			MaxTokens:   4096,
 			Temperature: 0.7,

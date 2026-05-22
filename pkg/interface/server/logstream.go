@@ -64,7 +64,12 @@ func (s *LogStore) Handle(ctx context.Context, r slog.Record) error {
 	if r.NumAttrs() > 0 {
 		entry.Attrs = make(map[string]any)
 		r.Attrs(func(a slog.Attr) bool {
-			entry.Attrs[a.Key] = a.Value.Any()
+			val := a.Value.Any()
+			if err, ok := val.(error); ok {
+				entry.Attrs[a.Key] = err.Error()
+			} else {
+				entry.Attrs[a.Key] = val
+			}
 			return true
 		})
 	}
