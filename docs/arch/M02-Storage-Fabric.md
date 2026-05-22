@@ -56,8 +56,10 @@ Route(ctx, req) → Store:
 - 数据类型: 事件日志 | 访问模式: Append-only 写 + 时序扫描 | 延迟要求: <100us 写 | Tier 0: [Storage-SQLite] WAL | Tier 1+: [Storage-SQLite] WAL
 - 数据类型: 技能缓存（热点） | 访问模式: 高频读 | 延迟要求: <10us | Tier 0: [Storage-SurrealDB-Core] | Tier 1+: [Storage-SurrealDB-Core]
 - 数据类型: 知识图谱遍历 | 访问模式: 随机多跳读 | 延迟要求: <10ms | Tier 0: SQLite 邻接表 + 递归 CTE | Tier 1+: [Storage-SurrealDB-Core]（Rust FFI via purego，Datalog 规则引擎原生多跳推理）
-- 数据类型: 全文检索 | 访问模式: ad-hoc 查询 | 延迟要求: <50ms | Tier 0: FTS5 | Tier 1+: [Storage-SurrealDB-Core]
+- 数据类型: 知识片段 (knowledge) / 全文检索 (fulltext) | 访问模式: 批量写 + ad-hoc 查询 | 延迟要求: <50ms | Tier 0: FTS5 | Tier 1+: [Storage-SurrealDB-Core]
 - 数据类型: 路由表/元数据 | 访问模式: 高频读 + 低频写 | 延迟要求: <1us | Tier 0: sync.Map / [Storage-SurrealDB-Core] | Tier 1+: [Storage-SurrealDB-Core]
+
+> **编译部署指南**: 完整 Tier 1+ 引擎 (RocksDB & HNSW) 需要编译参数支持。官方启动脚本支持一键开启：`./scripts/restart.sh --full --tier1`。
 
 ---
 
