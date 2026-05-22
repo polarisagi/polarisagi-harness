@@ -82,8 +82,14 @@ Alpine.store('chat', {
   },
 
   speakText(text) {
-    if (!this.ttsEnabled || !window.speechSynthesis) return;
+    if (!this.ttsEnabled || !window.speechSynthesis || !text) return;
+    window.speechSynthesis.cancel(); // 中断上一条未播完的语音
     const utterance = new SpeechSynthesisUtterance(text);
+    // 优先使用中文语音，回退到系统默认
+    const voices = window.speechSynthesis.getVoices();
+    const zhVoice = voices.find(v => v.lang.startsWith('zh'));
+    if (zhVoice) utterance.voice = zhVoice;
+    utterance.lang = zhVoice ? zhVoice.lang : 'zh-CN';
     window.speechSynthesis.speak(utterance);
   },
 
@@ -147,6 +153,10 @@ Alpine.store('chat', {
     this.thinkingOpen = false
     window._activeSseClient = null
     Alpine.store('statusBar').poll()
+    // 回复结束后自动朗读（TTS 开关打开时）
+    if (this.ttsEnabled && this.currentTokens) {
+      this.speakText(this.currentTokens)
+    }
   },
 
   _onError(err) {

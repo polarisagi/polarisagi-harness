@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -31,17 +32,24 @@ func writeSSE(w http.ResponseWriter, flusher http.Flusher, eventType string, pay
 //	token     → {"content":"<增量文本>"}
 //	complete  → {"session_id":"<id>"}
 //	error     → {"code":"...","message":"..."}
+// sseImagePart 前端上传的图片载荷（base64 字符串，不含 data URI 前缀）。
+type sseImagePart struct {
+	MimeType string `json:"mimeType"`
+	Data     string `json:"data"` // 纯 base64，不含 "data:...;base64," 前缀
+}
+
 func (s *Server) handleAgentStream(w http.ResponseWriter, r *http.Request) { //nolint:gocyclo
 	var req struct {
-		Input     string `json:"input"`
-		SessionID string `json:"session_id,omitempty"`
-		RunID     string `json:"run_id,omitempty"`
+		Input      string         `json:"input"`
+		SessionID  string         `json:"session_id,omitempty"`
+		RunID      string         `json:"run_id,omitempty"`
+		ImageParts []sseImagePart `json:"image_parts,omitempty"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if strings.TrimSpace(req.Input) == "" {
+	if strings.TrimSpace(req.Input) == "" && len(req.ImageParts) == 0 {
 		http.Error(w, "input required", http.StatusBadRequest)
 		return
 	}
@@ -118,8 +126,29 @@ func (s *Server) handleAgentStream(w http.ResponseWriter, r *http.Request) { //n
 		defer tw.Close()
 	}
 
-	// 追加本轮用户消息
-	history = append(history, protocol.Message{Role: "user", Content: req.Input})
+	// 追加本轮用户消息（含图片 Parts）
+	userMsg := protocol.Message{Role: "user", Content: req.Input}
+	if len(req.ImageParts) > 0 {
+		// 构造多模态 Parts：先放文本，再附图片
+		parts := make([]any, 0, 1+len(req.ImageParts))
+		if req.Input != "" {
+			parts = append(parts, map[string]any{"type": "text", "text": req.Input})
+		}
+		for _, ip := range req.ImageParts {
+			raw, err := base64.StdEncoding.DecodeString(ip.Data)
+			if err != nil {
+				slog.Warn("server: invalid image base64, skipping", "err", err)
+				continue
+			}
+			parts = append(parts, protocol.ImagePart{
+				Type:      "image",
+				MediaType: ip.MimeType,
+				Data:      raw,
+			})
+		}
+		userMsg.Parts = parts
+	}
+	history = append(history, userMsg)
 	if err := s.saveMessage(ctx, sessionID, "user", req.Input); err != nil {
 		slog.Error("server: saveMessage user", "session", sessionID, "err", err)
 	}

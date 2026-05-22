@@ -228,15 +228,25 @@ func (r *ProviderRegistry) PickProviderName(role string) string {
 	return e.name
 }
 
-// best 按 healthScore 降序返回第一个 CircuitBreaker 允许的 entry。
+// best 按 healthScore 降序返回第一个 CircuitBreaker 允许且满足多模态能力要求的 entry。
 func (r *ProviderRegistry) best(req *protocol.InferRequest) *providerEntry {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
+
+	needsVision := req != nil && req.HasImageParts()
+	needsVideo := req != nil && req.HasVideoParts()
 
 	var chosen *providerEntry
 	bestScore := -1.0
 	for _, e := range r.entries {
 		if !e.cb.Allow() {
+			continue
+		}
+		caps := e.provider.Capabilities()
+		if needsVision && !caps.SupportsVision {
+			continue
+		}
+		if needsVideo && !caps.SupportsVideo {
 			continue
 		}
 		if s := e.healthScore(); s > bestScore {
@@ -318,6 +328,15 @@ func (ir *InferenceRouter) Capabilities() protocol.ProviderCapabilities {
 		}
 		if c.SupportsTools {
 			caps.SupportsTools = true
+		}
+		if c.SupportsVision {
+			caps.SupportsVision = true
+		}
+		if c.SupportsVideo {
+			caps.SupportsVideo = true
+		}
+		if c.SupportsTTS {
+			caps.SupportsTTS = true
 		}
 		if c.MaxContextTokens > caps.MaxContextTokens {
 			caps.MaxContextTokens = c.MaxContextTokens

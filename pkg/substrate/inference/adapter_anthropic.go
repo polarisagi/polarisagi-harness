@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -53,6 +54,7 @@ func NewAnthropicAdapter(model string, credFn func() string, client *http.Client
 			SupportsStreaming: true,
 			SupportsTools:     true,
 			SupportsThinking:  true,
+			SupportsVision:    true, // Claude 3+ 全系支持图像输入
 			MaxContextTokens:  200000,
 			CostPer1KInput:    3.0,
 			CostPer1KOutput:   15.0,
@@ -215,7 +217,7 @@ func (a *AnthropicAdapter) buildAnthropicRequest(req *protocol.InferRequest, str
 						"source": map[string]any{
 							"type":       "base64",
 							"media_type": v.MediaType,
-							"data":       string(v.Data), // Assuming base64 string
+							"data":       base64.StdEncoding.EncodeToString(v.Data),
 						},
 					})
 				default:

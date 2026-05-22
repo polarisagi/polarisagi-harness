@@ -3,6 +3,7 @@ package inference
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -271,7 +272,7 @@ func parseImagePart(ip protocol.ImagePart) map[string]any {
 	return map[string]any{
 		"type": "image_url",
 		"image_url": map[string]string{
-			"url": "data:" + ip.MediaType + ";base64," + string(ip.Data),
+			"url": "data:" + ip.MediaType + ";base64," + base64.StdEncoding.EncodeToString(ip.Data),
 		},
 	}
 }

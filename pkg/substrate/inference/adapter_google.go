@@ -45,6 +45,8 @@ func NewGoogleAgentPlatformAdapter(model, projectID, location string, credFn fun
 		caps: protocol.ProviderCapabilities{
 			SupportsStreaming: true,
 			SupportsTools:     true,
+			SupportsVision:    true, // Gemini 全系支持图像输入
+			SupportsVideo:     true, // Gemini 1.5+ 支持视频文件输入
 			MaxContextTokens:  1000000,
 			CostPer1KInput:    0.075,
 			CostPer1KOutput:   0.30,
