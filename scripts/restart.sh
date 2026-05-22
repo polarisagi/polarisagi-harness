@@ -3,6 +3,7 @@
 # 用法：
 #   ./scripts/restart.sh          # 构建前端 + Go，重启（复用已有 Rust dylib）
 #   ./scripts/restart.sh --full   # 同上 + 重新构建 Rust FFI（Rust 代码有变更时使用）
+#   ./scripts/restart.sh --full --tier1  # 完全体构建（开启 RocksDB & HNSW）
 
 set -euo pipefail
 
