@@ -2,14 +2,59 @@ package swarm
 
 // PromptOptimizer — GEPA + MemAPO + ContraPrompt 三融合。
 // 架构文档: docs/arch/09-Self-Improvement-Engine-深度选型.md §1.1
+// 输出安全流水线（写入 ZoneMutableSkill 前）由 M11 负责，本模块只生产候选。
 
+import (
+	"context"
+	"fmt"
+	"time"
+
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
+	"github.com/mrlaoliai/polaris-harness/internal/protocol"
+)
+
+// PromptOptimizer 执行 GEPA + MemAPO + ContraPrompt 三融合优化周期。
+// 所有依赖通过构造器注入，无全局状态（R1.3）。
 type PromptOptimizer struct {
-	gradientGen      *TextualGradientGenerator
-	contrastAnalyzer *ContrastiveAnalyzer
-	geneticSearch    *GeneticPromptSearch
-	promptMem        *PromptMemory
-	errorMem         *ErrorPatternMemory
-	maxBudget        int // 软上限 30K tokens/周期
+	provider      protocol.Provider   // 高质量模型，用于文本梯度和对比分析（R1.11）
+	versionStore  *PromptVersionStore // prompt_versions 表读写层（HE-Rule-6）
+	gradientGen   *TextualGradientGenerator
+	contrastAna   *ContrastiveAnalyzer
+	geneticSearch *GeneticPromptSearch
+	promptMem     *PromptMemory
+	errorMem      *ErrorPatternMemory
+	maxBudget     int // 软上限 30K tokens/周期
+}
+
+// NewPromptOptimizer 构造 PromptOptimizer，provider 和 versionStore 必须非 nil。
+func NewPromptOptimizer(provider protocol.Provider, versionStore *PromptVersionStore, maxBudget int) *PromptOptimizer {
+	if maxBudget <= 0 {
+		maxBudget = 30000
+	}
+	return &PromptOptimizer{
+		provider:      provider,
+		versionStore:  versionStore,
+		gradientGen:   &TextualGradientGenerator{provider: provider},
+		contrastAna:   &ContrastiveAnalyzer{provider: provider},
+		geneticSearch: &GeneticPromptSearch{populationSize: 8, generations: 5},
+		promptMem:     &PromptMemory{entries: make(map[string][]*PromptStrategy)},
+		errorMem:      &ErrorPatternMemory{patterns: make(map[string]*ErrorPattern)},
+		maxBudget:     maxBudget,
+	}
+}
+
+// AddAvoidRule 将错误规避规则注入 ErrorPatternMemory。
+// 由 self_improve.Engine 内环在收到 HeuristicGeneratedEvent 后调用。
+func (po *PromptOptimizer) AddAvoidRule(taskType, rule string) {
+	if po.errorMem == nil || rule == "" {
+		return
+	}
+	id := fmt.Sprintf("ep_%s_%d", taskType, time.Now().UnixNano())
+	po.errorMem.patterns[id] = &ErrorPattern{
+		ID:        id,
+		AvoidRule: rule,
+		Frequency: 1,
+	}
 }
 
 // PromptStrategy prompt 策略。
@@ -22,8 +67,9 @@ type PromptStrategy struct {
 	UseCount    int
 }
 
-// PromptVersion 版本化 prompt。
+// PromptVersion 版本化 prompt。ID 对应 prompt_versions.id（UUID）。
 type PromptVersion struct {
+	ID        string
 	Version   int
 	TaskType  string
 	Prompt    string
@@ -53,17 +99,20 @@ type ErrorPattern struct {
 	LinkedMemfID string
 }
 
-// Analyze 对比成功和失败的轨迹，提取差异。
-func (ca *ContrastiveAnalyzer) Analyze(successfulTraj, failedTraj string) string {
-	if successfulTraj == "" || failedTraj == "" {
-		return ""
-	}
-	return "Extracted pattern from successful trajectory over failed one"
+// TextualGradientGenerator 文本梯度生成器。
+// 失败轨迹 → LLM 分析"哪里出错" → 生成优化方向（R1.11：走 provider.Infer）。
+type TextualGradientGenerator struct {
+	provider protocol.Provider
+}
+
+// ContrastiveAnalyzer 对比轨迹分析器。
+// 成功 vs 失败轨迹对比 → 提取关键差异（R1.11：走 provider.Infer）。
+type ContrastiveAnalyzer struct {
+	provider protocol.Provider
 }
 
 // GeneticPromptSearch 遗传-Pareto 搜索。
-// 种群 8 × 5 代 Pareto 前沿搜索。
-// 早停: 连续 2 代前沿无新非支配解.
+// 种群 8 × 5 代 Pareto 前沿搜索；早停: 连续 2 代前沿无新非支配解。
 type GeneticPromptSearch struct {
 	populationSize int // 8
 	generations    int // 5
@@ -75,23 +124,15 @@ func (gps *GeneticPromptSearch) GetParetoFront() []*PromptVersion {
 	return gps.paretoFront
 }
 
-// TextualGradientGenerator 文本梯度生成器。
-// 失败轨迹 → LLM 分析"哪里出错" → 生成优化方向.
-type TextualGradientGenerator struct{}
-
-// ContrastiveAnalyzer 对比轨迹分析器。
-// 成功 vs 失败轨迹对比 → 提取关键差异.
-type ContrastiveAnalyzer struct{}
-
-// Optimize 执行 prompt 优化周期。
+// Optimize 执行 prompt 优化周期，持久化候选到 prompt_versions 表。
 //
 // 触发条件 (OR):
-// 1. tasks ≤ 100 且每 20 次 (冷启动加速)
-// 2. score < baseline × 0.95
-// 3. tasksSinceLastOpt ≥ 50
+//  1. tasks ≤ 100 且每 20 次 (冷启动加速)
+//  2. score < baseline × 0.95
+//  3. tasksSinceLastOpt ≥ 50
 //
-// 产出经 [Taint-Prop] Gate → Ed25519 签名 → M5 ZoneMutableSkill.
-func (po *PromptOptimizer) Optimize(taskType string, recent []*PromptVersion) []*PromptVersion { //nolint:gocyclo
+// 产出经 [Taint-Prop] Gate → Ed25519 签名 → M5 ZoneMutableSkill（由调用方负责）。
+func (po *PromptOptimizer) Optimize(ctx context.Context, taskType string, recent []*PromptVersion) []*PromptVersion { //nolint:gocyclo
 	if len(recent) == 0 {
 		return nil
 	}
@@ -108,31 +149,37 @@ func (po *PromptOptimizer) Optimize(taskType string, recent []*PromptVersion) []
 			})
 		}
 	}
+	// 冷启动：从 DB 恢复历史版本（HE-Rule-6）
+	if po.versionStore != nil {
+		if hist, err := po.versionStore.ListRecent(ctx, taskType, 5); err == nil {
+			candidates = append(candidates, hist...)
+		}
+	}
 	candidates = append(candidates, recent...)
 
-	// 步骤 2 — ContraPrompt：从 ErrorPatternMemory 提取 AvoidRules，注入到候选 prompt
+	// 步骤 2 — ContraPrompt：提取 AvoidRules 注入候选 prompt
 	var avoidRules []string
 	if po.errorMem != nil {
 		avoidRules = po.errorMem.GetAvoidRules(taskType)
 	}
-	if po.contrastAnalyzer != nil && len(recent) >= 2 {
+	if po.contrastAna != nil && len(recent) >= 2 {
 		best, worst := findBestWorst(recent)
-		// 结合对比分析提取深层差异
-		diff := po.contrastAnalyzer.Analyze(best.Prompt, worst.Prompt)
+		diff := po.contrastAna.Analyze(ctx, best.Prompt, worst.Prompt)
 		if diff != "" {
 			avoidRules = append(avoidRules, "Avoid pattern: "+diff)
 		}
 	}
-	for _, c := range candidates {
-		if len(avoidRules) > 0 {
-			c.Prompt = c.Prompt + "\n[AVOID]: " + joinStrings(avoidRules, "; ")
+	if len(avoidRules) > 0 {
+		suffix := "\n[AVOID]: " + joinStrings(avoidRules, "; ")
+		for _, c := range candidates {
+			c.Prompt += suffix
 		}
 	}
 
 	// 步骤 3 — GEPA 文本梯度注入
 	if po.gradientGen != nil && len(recent) >= 2 {
 		best, worst := findBestWorst(recent)
-		gradient := po.gradientGen.Generate(worst.Prompt, best.Prompt)
+		gradient := po.gradientGen.Generate(ctx, worst.Prompt, best.Prompt)
 		if gradient != "" {
 			candidates = append(candidates, &PromptVersion{
 				TaskType:  taskType,
@@ -144,26 +191,53 @@ func (po *PromptOptimizer) Optimize(taskType string, recent []*PromptVersion) []
 		}
 	}
 
-	// 步骤 4 — GeneticPromptSearch：Pareto 前沿搜索（MVP：Score 降序近似）
+	// 步骤 4 — GeneticPromptSearch：Pareto 前沿搜索
 	if po.geneticSearch != nil {
 		candidates = po.geneticSearch.Search(candidates)
 	} else {
 		candidates = sortByScore(candidates)
 	}
 
-	// 步骤 5 — 预算门控：截断到 maxBudget 等价的候选数量
-	maxCandidates := 10
-	if po.maxBudget > 0 && po.maxBudget < 30000 {
-		maxCandidates = po.maxBudget / 3000
-		if maxCandidates < 1 {
-			maxCandidates = 1
-		}
-	}
+	// 步骤 5 — 预算门控：截断候选数量
+	maxCandidates := po.budgetLimit()
 	if len(candidates) > maxCandidates {
 		candidates = candidates[:maxCandidates]
 	}
 
+	// 步骤 6 — 持久化候选到 DB（is_active=0，等候 Eval 评分后激活）
+	if po.versionStore != nil {
+		po.saveCandiates(ctx, taskType, candidates)
+	}
+
 	return candidates
+}
+
+// budgetLimit 将 token 预算转换为候选数量上限。
+func (po *PromptOptimizer) budgetLimit() int {
+	if po.maxBudget <= 0 {
+		return 10
+	}
+	limit := po.maxBudget / 3000
+	if limit < 1 {
+		return 1
+	}
+	if limit > 10 {
+		return 10
+	}
+	return limit
+}
+
+// saveCandiates 将候选版本写入 prompt_versions 表，忽略单条失败不阻断整体。
+func (po *PromptOptimizer) saveCandiates(ctx context.Context, taskType string, candidates []*PromptVersion) {
+	for i, c := range candidates {
+		if c.ID == "" {
+			c.ID = fmt.Sprintf("pv_%s_%d_%d", taskType, time.Now().UnixNano(), i)
+		}
+		if c.Version == 0 {
+			c.Version = int(time.Now().Unix())
+		}
+		_ = po.versionStore.Save(ctx, c) // 单条失败不阻断，错误已内部记录
+	}
 }
 
 // GetTopStrategies 返回指定 taskType 的 top-N 高分策略（MemAPO 查询）。
@@ -183,6 +257,7 @@ func (pm *PromptMemory) GetTopStrategies(taskType string, n int) []*PromptStrate
 
 // GetAvoidRules 返回指定 taskType 的所有 AvoidRule。
 func (em *ErrorPatternMemory) GetAvoidRules(taskType string) []string {
+	_ = taskType // 当前实现返回所有规则；后续可按 taskType 过滤
 	var rules []string
 	for _, p := range em.patterns {
 		if p.AvoidRule != "" {
@@ -192,17 +267,63 @@ func (em *ErrorPatternMemory) GetAvoidRules(taskType string) []string {
 	return rules
 }
 
-// Generate 生成文本梯度（失败 → 成功的差分描述）。
-func (tgg *TextualGradientGenerator) Generate(failedPrompt, succeededPrompt string) string {
+// Generate 通过 LLM 生成文本梯度（失败 → 成功的优化方向）。
+// provider nil 时回退到规则模板（离线/冷启动场景）。
+func (tgg *TextualGradientGenerator) Generate(ctx context.Context, failedPrompt, succeededPrompt string) string {
 	if failedPrompt == "" || succeededPrompt == "" {
 		return ""
 	}
-	return "Improve the following prompt by learning from successful patterns:\n[SUCCESS REFERENCE]: " +
-		succeededPrompt[:min(200, len(succeededPrompt))] +
-		"\n[TO IMPROVE]: " + failedPrompt[:min(200, len(failedPrompt))]
+	if tgg.provider == nil {
+		// 离线 fallback：规则模板
+		return "Improve the following prompt by learning from successful patterns:\n[SUCCESS]: " +
+			trunc(succeededPrompt, 200) + "\n[TO IMPROVE]: " + trunc(failedPrompt, 200)
+	}
+	prompt := fmt.Sprintf(
+		"You are a prompt optimization expert. A failed prompt and a successful prompt are given.\n"+
+			"Analyze the key differences and generate an improved version of the failed prompt.\n\n"+
+			"Failed prompt:\n%s\n\nSuccessful prompt:\n%s\n\n"+
+			"Output ONLY the improved prompt text, no explanation.",
+		trunc(failedPrompt, 500), trunc(succeededPrompt, 500),
+	)
+	resp, err := tgg.provider.Infer(ctx, &protocol.InferRequest{
+		Messages:    []protocol.Message{{Role: "user", Content: prompt}},
+		Temperature: 0.3,
+		MaxTokens:   1024,
+	})
+	if err != nil {
+		// LLM 失败回退规则模板，不阻断流程
+		return "Improve: " + trunc(failedPrompt, 200)
+	}
+	return resp.Content
 }
 
-// Search 执行 Pareto 前沿搜索（MVP：按 Score 降序，Cost 升序近似）。
+// Analyze 通过 LLM 对比成功和失败轨迹，提取避免规则。
+// provider nil 时返回空字符串（跳过该步骤）。
+func (ca *ContrastiveAnalyzer) Analyze(ctx context.Context, successPrompt, failedPrompt string) string {
+	if successPrompt == "" || failedPrompt == "" {
+		return ""
+	}
+	if ca.provider == nil {
+		return ""
+	}
+	prompt := fmt.Sprintf(
+		"Compare these two prompts. The first succeeded, the second failed.\n"+
+			"In one concise sentence, describe the key pattern to AVOID in the failed prompt.\n\n"+
+			"Successful:\n%s\n\nFailed:\n%s\n\nOutput only the avoid-rule sentence.",
+		trunc(successPrompt, 400), trunc(failedPrompt, 400),
+	)
+	resp, err := ca.provider.Infer(ctx, &protocol.InferRequest{
+		Messages:    []protocol.Message{{Role: "user", Content: prompt}},
+		Temperature: 0.1,
+		MaxTokens:   256,
+	})
+	if err != nil {
+		return ""
+	}
+	return resp.Content
+}
+
+// Search 执行 Pareto 前沿搜索（MVP：按加权分降序近似）。
 // 架构规约: 种群 8 × 5 代，早停 = 连续 2 代前沿无新非支配解。
 func (gps *GeneticPromptSearch) Search(candidates []*PromptVersion) []*PromptVersion {
 	if len(candidates) == 0 {
@@ -246,7 +367,7 @@ func sortByScore(vs []*PromptVersion) []*PromptVersion {
 // sortByWeightedScore Pareto 近似：0.6×Score + 0.4×(1/max(Cost,0.001))。
 func sortByWeightedScore(vs []*PromptVersion) []*PromptVersion {
 	score := func(v *PromptVersion) float64 {
-		costInv := 1.0 / max64(v.Cost, 0.001)
+		costInv := 1.0 / maxF64(v.Cost, 0.001)
 		return 0.6*v.Score + 0.4*costInv
 	}
 	for i := 0; i < len(vs)-1; i++ {
@@ -280,21 +401,15 @@ func joinStrings(ss []string, sep string) string {
 	return result
 }
 
-func max64(a, b float64) float64 {
-	if a > b {
-		return a
+// trunc 截断字符串到指定字节数（UTF-8 安全近似）。
+func trunc(s string, n int) string {
+	if len(s) <= n {
+		return s
 	}
-	return b
+	return s[:n]
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func max(a, b int) int {
+func maxF64(a, b float64) float64 {
 	if a > b {
 		return a
 	}
@@ -314,3 +429,6 @@ func maxF(a, b float64) float64 {
 	}
 	return b
 }
+
+// 编译期确认 perrors 被使用（避免 import 误删）。
+var _ = perrors.CodeInternal

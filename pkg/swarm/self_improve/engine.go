@@ -3,6 +3,8 @@ package self_improve
 import (
 	"context"
 	"time"
+
+	"github.com/mrlaoliai/polaris-harness/internal/protocol"
 )
 
 // EvolutionLevel defines the scope of automated change. Higher = more gates, deeper rollback chain.
@@ -75,11 +77,29 @@ type TaskResult struct {
 	Output       []byte       `json:"output,omitempty"`
 }
 
-// IsUncontrollable returns true if the failure was due to infrastructure faults
-// (network, provider, quota). Such failures must NOT update skill success-rate
-// EWMA or trigger topology rollback.
+// IsUncontrollable returns true if the failure was due to infrastructure faults.
 func (r *TaskResult) IsUncontrollable() bool {
 	return !r.Success && r.FailureClass == FailureUncontrollable
+}
+
+// =============================================================================
+// PromptOptimizerAdapter — M9 内环通过此接口更新 PromptOptimizer 状态。
+// 由 pkg/swarm.PromptOptimizer 实现；self_improve 包不直接引用 swarm 包
+// （防止循环依赖：swarm → self_improve，self_improve 不可反向引用）。
+// =============================================================================
+
+// PromptOptimizerAdapter M9 内环与外部 PromptOptimizer 的解耦接口。
+type PromptOptimizerAdapter interface {
+	// AddAvoidRule 将 Reflexion 生成的规避规则写入 ErrorPatternMemory。
+	AddAvoidRule(taskType, rule string)
+}
+
+// VersionStoreAdapter M9 外环与外部 PromptVersionStore 的解耦接口。
+type VersionStoreAdapter interface {
+	// UpdateScore 更新候选版本的 Eval 评分。
+	UpdateScore(ctx context.Context, id string, score float64) error
+	// Activate 当候选评分超过基线时激活版本（原子 CAS）。
+	Activate(ctx context.Context, taskType, id string, baselineScore float64) error
 }
 
 // =============================================================================
@@ -88,8 +108,10 @@ func (r *TaskResult) IsUncontrollable() bool {
 //
 // 三环架构:
 //   内环（实时/小时）: 订阅任务完成事件 → ReflexionEngine → MEMF + HeuristicsMemory
+//                      + 订阅 HeuristicGeneratedEvent → 更新 PromptOptimizer.ErrorPatternMemory
 //   中环（日/周）:    2min ticker → AutoCurriculumGenerator
 //   外环（周/月）:    订阅版本变更 → ProgressiveRollout 门控推进
+//                      + 订阅 EvalCompletedEvent → 更新 prompt_versions.score → 触发 Rollout
 // =============================================================================
 
 // TaskCompleteEvent 任务完成事件（由 Blackboard 事件总线推送）。
@@ -125,6 +147,8 @@ type EngineConfig struct {
 	MidLoopInterval time.Duration
 	// MaxConcurrentReflections 并发反思上限（防止在高负载时积压）
 	MaxConcurrentReflections int
+	// BaselinePassRate Eval 基线通过率，低于此值触发 PromptOptimizer（默认 0.8）
+	BaselinePassRate float64
 }
 
 // DefaultEngineConfig 返回默认配置。
@@ -133,6 +157,7 @@ func DefaultEngineConfig() *EngineConfig {
 		InnerLoopInterval:        0, // 事件驱动，不使用 ticker
 		MidLoopInterval:          2 * time.Minute,
 		MaxConcurrentReflections: 3,
+		BaselinePassRate:         0.8,
 	}
 }
 
@@ -171,7 +196,7 @@ type RolloutAdvancer interface {
 }
 
 // Engine M9 Self-Improvement Engine 主结构。
-// 所有依赖通过构造器注入，无全局状态。
+// 所有依赖通过构造器注入，无全局状态（R1.3）。
 type Engine struct {
 	cfg        *EngineConfig
 	reflector  Reflector
@@ -182,6 +207,16 @@ type Engine struct {
 	taskEvents    <-chan TaskCompleteEvent
 	versionEvents <-chan VersionChangeEvent
 
+	// 新增：M9 自改善闭环事件通道
+	// heuristicEvents 由 swarm.ReflexionEngine 写入，Engine 内环消费更新 ErrorPatternMemory
+	heuristicEvents <-chan protocol.HeuristicGeneratedPayload
+	// evalEvents 由 governance/eval.RunnerImpl 写入，Engine 外环消费更新 prompt_versions.score
+	evalEvents <-chan protocol.EvalCompletedPayload
+
+	// 新增：外部适配器（接口解耦，防 swarm→self_improve 循环引用）
+	optimizer    PromptOptimizerAdapter // 可 nil，nil 时跳过 AvoidRule 注入
+	versionStore VersionStoreAdapter    // 可 nil，nil 时跳过评分更新
+
 	// 反思并发信号量（控制 goroutine 数量）
 	sem chan struct{}
 
@@ -190,8 +225,23 @@ type Engine struct {
 }
 
 // SetSurpriseIndexProvider 注入 SurpriseIndex 读取函数（Tier1+ 从 M3 Metrics 读取）。
-// fn 应读取 observability.GlobalSurpriseIndex 或类似实现。
 func (e *Engine) SetSurpriseIndexProvider(fn func() float64) { e.surpriseIndexFn = fn }
+
+// SetOptimizer 注入 PromptOptimizerAdapter（可选；nil 时内环跳过 AvoidRule 注入）。
+func (e *Engine) SetOptimizer(opt PromptOptimizerAdapter) { e.optimizer = opt }
+
+// SetVersionStore 注入 VersionStoreAdapter（可选；nil 时外环跳过评分更新）。
+func (e *Engine) SetVersionStore(vs VersionStoreAdapter) { e.versionStore = vs }
+
+// SetHeuristicEvents 注入 HeuristicGenerated 事件通道（read-only 端）。
+func (e *Engine) SetHeuristicEvents(ch <-chan protocol.HeuristicGeneratedPayload) {
+	e.heuristicEvents = ch
+}
+
+// SetEvalEvents 注入 EvalCompleted 事件通道（read-only 端）。
+func (e *Engine) SetEvalEvents(ch <-chan protocol.EvalCompletedPayload) {
+	e.evalEvents = ch
+}
 
 func (e *Engine) currentSurpriseIndex() float64 {
 	if e.surpriseIndexFn != nil {
@@ -228,10 +278,10 @@ func NewEngine(
 }
 
 // Run 启动三环主循环，阻塞直到 ctx 取消。
-// 内环：消费 taskEvents 频道，并发执行 Reflect（受信号量限制）
+// 内环：消费 taskEvents + heuristicEvents，并发执行 Reflect（受信号量限制）
 // 中环：2min ticker 触发 AutoCurriculumGenerator
-// 外环：消费 versionEvents 频道，触发 Rollout AdvanceGate
-func (e *Engine) Run(ctx context.Context) error {
+// 外环：消费 versionEvents + evalEvents，触发 Rollout AdvanceGate
+func (e *Engine) Run(ctx context.Context) error { //nolint:gocyclo
 	midTicker := time.NewTicker(e.cfg.MidLoopInterval)
 	defer midTicker.Stop()
 
@@ -246,7 +296,6 @@ func (e *Engine) Run(ctx context.Context) error {
 				return nil
 			}
 			if !ev.Success {
-				// 异步执行，受信号量并发限制
 				select {
 				case e.sem <- struct{}{}:
 					go func(event TaskCompleteEvent) {
@@ -260,8 +309,18 @@ func (e *Engine) Run(ctx context.Context) error {
 						_, _ = e.reflector.Reflect(ctx, event.TaskID, event.TaskType, result, nil)
 					}(ev)
 				default:
-					// 信号量满，丢弃（后台任务以尽力而为原则运行）
+					// 信号量满，丢弃（尽力而为原则）
 				}
+			}
+
+		// 内环（新）：HeuristicGenerated → 更新 PromptOptimizer.ErrorPatternMemory
+		case ev, ok := <-e.heuristicEvents:
+			if !ok {
+				e.heuristicEvents = nil
+				continue
+			}
+			if e.optimizer != nil && ev.AvoidRule != "" {
+				e.optimizer.AddAvoidRule(ev.TaskType, ev.AvoidRule)
 			}
 
 		// 中环：定时触发 AutoCurriculum
@@ -282,6 +341,47 @@ func (e *Engine) Run(ctx context.Context) error {
 					_ = e.rollout.AdvanceGate(ctx, event.CandidateVersion, event.Stats)
 				}(ev)
 			}
+
+		// 外环（新）：EvalCompleted → 更新评分 + 触发 Rollout
+		case ev, ok := <-e.evalEvents:
+			if !ok {
+				e.evalEvents = nil
+				continue
+			}
+			e.handleEvalCompleted(ctx, ev)
 		}
+	}
+}
+
+// handleEvalCompleted 处理 Eval 完成事件：更新评分，若达到激活条件则触发 Rollout。
+// 设计：score ≥ baselinePassRate × 1.05 且 !BlockDeploy → 激活候选版本 → AdvanceGate。
+func (e *Engine) handleEvalCompleted(ctx context.Context, ev protocol.EvalCompletedPayload) {
+	if ev.CandidateID == "" || ev.BlockDeploy {
+		return // 基线评测或安全否决，不激活
+	}
+	if e.versionStore == nil {
+		return
+	}
+	// 更新候选版本的 Eval 分数
+	if err := e.versionStore.UpdateScore(ctx, ev.CandidateID, ev.PassRate); err != nil {
+		return
+	}
+	// 超过激活阈值（基线 × 1.05）才触发激活与 Rollout
+	threshold := e.cfg.BaselinePassRate * 1.05
+	if ev.PassRate < threshold {
+		return
+	}
+	// 激活候选（taskType 暂从 suite 字段近似，实际应由上层传入）
+	if err := e.versionStore.Activate(ctx, ev.Suite, ev.CandidateID, e.cfg.BaselinePassRate); err != nil {
+		return
+	}
+	// 通知外环推进 Rollout
+	if e.rollout != nil {
+		go func() {
+			_ = e.rollout.AdvanceGate(ctx, ev.CandidateID, RolloutStats{
+				BaselineErrorRate: 1.0 - e.cfg.BaselinePassRate,
+				ErrorRate:         1.0 - ev.PassRate,
+			})
+		}()
 	}
 }

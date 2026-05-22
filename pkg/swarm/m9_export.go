@@ -35,10 +35,7 @@ func (ag *AutoCurriculumGenerator) IsFrozenPublic(skill string) bool {
 }
 
 // NewPromptOptimizerMVP 创建最简 PromptOptimizer（无外部依赖，用于单元测试）。
+// provider=nil 走规则 fallback；versionStore=nil 跳过 DB 持久化。
 func NewPromptOptimizerMVP() *PromptOptimizer {
-	return &PromptOptimizer{
-		gradientGen:   &TextualGradientGenerator{},
-		geneticSearch: &GeneticPromptSearch{populationSize: 8, generations: 5},
-		maxBudget:     30000,
-	}
+	return NewPromptOptimizer(nil, nil, 0)
 }

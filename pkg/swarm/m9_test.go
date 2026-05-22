@@ -159,7 +159,7 @@ func TestRolloutStore_AdvanceGate_Skips24h(t *testing.T) {
 
 func TestPromptOptimizer_ReturnsNilOnEmpty(t *testing.T) {
 	po := swarm.NewPromptOptimizerMVP()
-	result := po.Optimize("task_a", nil)
+	result := po.Optimize(context.Background(), "task_a", nil)
 	if result != nil {
 		t.Errorf("expected nil for empty recent, got %v", result)
 	}
@@ -172,7 +172,7 @@ func TestPromptOptimizer_ScoreDescending(t *testing.T) {
 		{Prompt: "p2", Score: 0.9, TaskType: "t"},
 		{Prompt: "p3", Score: 0.3, TaskType: "t"},
 	}
-	result := po.Optimize("t", recent)
+	result := po.Optimize(context.Background(), "t", recent)
 	if len(result) == 0 {
 		t.Fatal("expected results")
 	}

@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/mrlaoliai/polaris-harness/internal/protocol"
 )
 
 // ReflexionEngine — Reflexion 反思链（内环失败处理）。
@@ -67,6 +69,8 @@ type ReflexionEngine struct {
 	heuristics *HeuristicsMemory
 	// llmInfer 允许调用方注入真实的 LLM 推理函数；nil 则使用 MVP 规则引擎。
 	llmInfer func(ctx context.Context, prompt string) (string, error)
+	// heuristicCh 非 nil 时，步骤3完成后将 AvoidRule 发布给 self_improve.Engine 内环。
+	heuristicCh chan<- protocol.HeuristicGeneratedPayload
 }
 
 // NewReflexionEngine 创建反思引擎。
@@ -80,6 +84,11 @@ func NewReflexionEngine(
 		heuristics: heuristics,
 		llmInfer:   llmInfer,
 	}
+}
+
+// SetHeuristicChannel 注入事件发布通道（可选；nil 时不发布，HE-Rule-3）。
+func (re *ReflexionEngine) SetHeuristicChannel(ch chan<- protocol.HeuristicGeneratedPayload) {
+	re.heuristicCh = ch
 }
 
 // Reflect 对失败任务执行三步反思，返回 Reflection。
@@ -132,8 +141,7 @@ func (re *ReflexionEngine) Reflect(
 			UseCount:    0,
 			Keywords:    extractKeywords(taskType, cause),
 		}); err != nil {
-			// 写入失败不阻断主流程
-			_ = err
+			_ = err // 写入失败不阻断主流程
 		}
 	}
 
@@ -153,6 +161,22 @@ func (re *ReflexionEngine) Reflect(
 			CreatedAt:        time.Now().Unix(),
 		})
 		ref.MEMFRecordID = recordID
+	}
+
+	// 发布 HeuristicGeneratedPayload 给 self_improve.Engine 内环（闭环关键路径）。
+	// 非阻塞发送：信道满时丢弃，后台尽力而为原则（M9 §6 降级策略）。
+	if re.heuristicCh != nil {
+		select {
+		case re.heuristicCh <- protocol.HeuristicGeneratedPayload{
+			TaskID:    taskID,
+			TaskType:  taskType,
+			Heuristic: heuristicContent,
+			AvoidRule: cause, // 步骤1产出的失败原因作为 AvoidRule 种子
+			CreatedAt: time.Now().Unix(),
+		}:
+		default:
+			// 信道满，丢弃（后台任务尽力而为，不阻断反思主流程）
+		}
 	}
 
 	return ref, nil

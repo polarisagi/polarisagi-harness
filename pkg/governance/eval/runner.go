@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
 	"github.com/mrlaoliai/polaris-harness/internal/protocol"
@@ -17,6 +18,8 @@ type RunnerImpl struct {
 	agent      EvalAgent
 	activeRuns map[string]context.CancelFunc
 	mu         sync.Mutex
+	// evalCh 非 nil 时，RunSuite 完成后将评分结果发布给 M9 外环（HE-Rule-6 闭环）。
+	evalCh chan<- protocol.EvalCompletedPayload
 }
 
 type EvalAgent interface {
@@ -33,11 +36,17 @@ func NewRunner(store protocol.Store, evalStore *SQLiteEvalStore) *RunnerImpl {
 	}
 }
 
+// SetEvalChannel 注入事件发布通道（可选；nil 时不发布，HE-Rule-3）。
+// write 端由 self_improve.Engine 外环持有，RunnerImpl 持有 write 端发布。
+func (r *RunnerImpl) SetEvalChannel(ch chan<- protocol.EvalCompletedPayload) {
+	r.evalCh = ch
+}
+
 func (r *RunnerImpl) InjectAgent(agent EvalAgent) {
 	r.agent = agent
 }
 
-func (r *RunnerImpl) RunSuite(ctx context.Context, suite string, candidateID string) (*protocol.EvalRunReport, error) {
+func (r *RunnerImpl) RunSuite(ctx context.Context, suite string, candidateID string) (*protocol.EvalRunReport, error) { //nolint:gocyclo
 	var report *protocol.EvalRunReport
 	var runErr error
 
@@ -104,6 +113,28 @@ func (r *RunnerImpl) RunSuite(ctx context.Context, suite string, candidateID str
 	if err != nil {
 		runErr = err
 	}
+
+	// 发布 EvalCompletedPayload 给 M9 外环（非阻塞；信道满时丢弃，后台尽力而为）。
+	if r.evalCh != nil && report != nil {
+		total := report.TotalCases
+		if total <= 0 {
+			total = 1
+		}
+		passRate := float64(report.PassCount) / float64(total)
+		select {
+		case r.evalCh <- protocol.EvalCompletedPayload{
+			Suite:       suite,
+			CandidateID: candidateID,
+			PassRate:    passRate,
+			BlockDeploy: report.SafetyFail > 0,
+			RunID:       runID,
+			CreatedAt:   time.Now().Unix(),
+		}:
+		default:
+			// 信道满，丢弃（M9 外环尽力而为，不阻断 Eval 主流程）
+		}
+	}
+
 	return report, runErr
 }
 
