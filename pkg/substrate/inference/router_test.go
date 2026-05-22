@@ -63,6 +63,7 @@ func (m *mockProvider) StreamInfer(_ context.Context, _ *protocol.InferRequest) 
 
 func (m *mockProvider) Capabilities() protocol.ProviderCapabilities { return m.caps }
 func (m *mockProvider) Tokenizer() protocol.TokenizerAdapter        { return &simpleTokenizer{} }
+func (m *mockProvider) ModelID() string                             { return "mock" }
 
 var errProviderUnavailable = perrors.New(perrors.CodeProviderExhausted, "provider unavailable")
 

@@ -106,9 +106,7 @@ func (s *Server) handleAgentStream(w http.ResponseWriter, r *http.Request) { //n
 	isFirstTurn := len(history) == 0
 
 	// 注入 System Prompt
-	if isFirstTurn {
-		history = s.injectSystemPrompt(history)
-	}
+	history = s.injectSystemPrompt(history)
 
 	// ── Transcript ────────────────────────────────────────────────────────
 	// 非阻塞：打开失败只警告，不中断对话。
@@ -351,9 +349,11 @@ func (s *Server) injectSystemPrompt(history []protocol.Message) []protocol.Messa
 	}
 
 	// Sync identity and capabilities
-	modelID := s.registry.PickProviderName("default")
-	if modelID == "" {
-		modelID = s.registry.PickProviderName("general")
+	modelID := ""
+	if p := s.registry.PickProvider("default"); p != nil {
+		modelID = p.ModelID()
+	} else if p := s.registry.PickProvider("general"); p != nil {
+		modelID = p.ModelID()
 	}
 	ic.ModelID = modelID
 

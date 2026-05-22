@@ -40,7 +40,7 @@ func NewDeepSeekAdapter(credFn func() string, httpClient *http.Client) *DeepSeek
 	}
 }
 
-func (d *DeepSeekAdapter) ID() string {
+func (d *DeepSeekAdapter) ModelID() string {
 	return "deepseek-v4-flash" // 或者通过参数动态传入
 }
 

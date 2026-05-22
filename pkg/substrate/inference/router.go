@@ -272,6 +272,14 @@ func NewInferenceRouter(reg *ProviderRegistry, dialer protocol.SafeDialer) *Infe
 	}
 }
 
+func (ir *InferenceRouter) ModelID() string {
+	entry := ir.registry.best()
+	if entry == nil || entry.provider == nil {
+		return "unknown"
+	}
+	return entry.provider.ModelID()
+}
+
 // Infer 路由单次请求到最优 Provider，失败时 failover 至次优。
 func (ir *InferenceRouter) Infer(ctx context.Context, req *protocol.InferRequest) (*protocol.InferResponse, error) {
 	entry := ir.registry.best()

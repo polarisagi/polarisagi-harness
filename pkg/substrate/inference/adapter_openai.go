@@ -50,6 +50,10 @@ func NewOpenAIAdapter(baseURL, model string, credFn func() string, client *http.
 	}
 }
 
+func (a *OpenAIAdapter) ModelID() string {
+	return a.model
+}
+
 func (a *OpenAIAdapter) Capabilities() protocol.ProviderCapabilities {
 	return a.caps
 }

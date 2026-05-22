@@ -69,6 +69,7 @@ func (m *mockJudgeProvider) Capabilities() protocol.ProviderCapabilities {
 	return protocol.ProviderCapabilities{}
 }
 func (m *mockJudgeProvider) Tokenizer() protocol.TokenizerAdapter { return nil }
+func (m *mockJudgeProvider) ModelID() string { return "mock" }
 
 func TestL4LLMJudgeEvaluator(t *testing.T) {
 	eval := &L4LLMJudgeEvaluator{

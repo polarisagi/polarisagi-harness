@@ -438,6 +438,10 @@ func (m *mockProvider) Tokenizer() protocol.TokenizerAdapter {
 	return nil // mock 中无需实际计算 token
 }
 
+func (m *mockProvider) ModelID() string {
+	return "mock"
+}
+
 func TestAgent_HappyPath(t *testing.T) {
 	agent := NewAgentWithDefaults("test-agent-1")
 	agent.InjectProvider(&mockProvider{})

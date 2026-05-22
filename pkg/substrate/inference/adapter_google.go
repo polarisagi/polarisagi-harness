@@ -52,6 +52,7 @@ func NewGoogleAgentPlatformAdapter(model, projectID, location string, credFn fun
 	}
 }
 
+func (a *GoogleAgentPlatformAdapter) ModelID() string { return a.model }
 func (a *GoogleAgentPlatformAdapter) Capabilities() protocol.ProviderCapabilities { return a.caps }
 func (a *GoogleAgentPlatformAdapter) Tokenizer() protocol.TokenizerAdapter        { return &simpleTokenizer{} }
 

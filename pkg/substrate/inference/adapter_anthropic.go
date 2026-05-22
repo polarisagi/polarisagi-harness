@@ -73,6 +73,10 @@ func (a *AnthropicAdapter) messagesURL() string {
 	return base + "/v1/messages"
 }
 
+func (a *AnthropicAdapter) ModelID() string {
+	return a.model
+}
+
 func (a *AnthropicAdapter) Capabilities() protocol.ProviderCapabilities {
 	return a.caps
 }

@@ -15,7 +15,7 @@ type ProviderAdapter struct {
 	tokenizer    protocol.TokenizerAdapter
 }
 
-func (p *ProviderAdapter) ID() string {
+func (p *ProviderAdapter) ModelID() string {
 	return p.id
 }
 

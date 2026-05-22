@@ -34,6 +34,7 @@ type Provider interface {
 	StreamInfer(ctx context.Context, req *InferRequest) (<-chan StreamEvent, error)
 	Capabilities() ProviderCapabilities
 	Tokenizer() TokenizerAdapter
+	ModelID() string
 }
 
 // ============================================================================
