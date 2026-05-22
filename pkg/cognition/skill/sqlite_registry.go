@@ -36,29 +36,26 @@ func (r *SQLiteRegistryImpl) Register(ctx context.Context, meta protocol.SkillMe
 	capsBytes, _ := json.Marshal(meta.Capabilities)
 	benchBytes, _ := json.Marshal(meta.Benchmarks)
 
-	// SQLite upsert：写 trust_tier（新列），同时向后兼容写 signature_valid
 	query := `
 		INSERT INTO skills (
 			name, version, runtime, risk_level, sandbox, capabilities,
-			signature_valid, trust_tier, idempotent, benchmarks, deprecated, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+			trust_tier, idempotent, benchmarks, deprecated, updated_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
 		ON CONFLICT(name) DO UPDATE SET
 			version=excluded.version,
 			runtime=excluded.runtime,
 			risk_level=excluded.risk_level,
 			sandbox=excluded.sandbox,
 			capabilities=excluded.capabilities,
-			signature_valid=excluded.signature_valid,
 			trust_tier=excluded.trust_tier,
 			idempotent=excluded.idempotent,
 			benchmarks=excluded.benchmarks,
 			deprecated=excluded.deprecated,
 			updated_at=CURRENT_TIMESTAMP
 	`
-	sigValid := meta.Trust >= protocol.TrustLocal // 向后兼容
 	_, err := r.db.ExecContext(ctx, query,
 		meta.Name, meta.Version, meta.Runtime, meta.RiskLevel, meta.Sandbox,
-		string(capsBytes), sigValid, int(meta.Trust), meta.Idempotent, string(benchBytes), meta.Deprecated,
+		string(capsBytes), int(meta.Trust), meta.Idempotent, string(benchBytes), meta.Deprecated,
 	)
 	if err != nil {
 		return perrors.Wrap(perrors.CodeInternal, "sqlite_registry: insert failed", err)
@@ -68,7 +65,6 @@ func (r *SQLiteRegistryImpl) Register(ctx context.Context, meta protocol.SkillMe
 }
 
 func (r *SQLiteRegistryImpl) Get(ctx context.Context, name, version string) (*protocol.SkillMeta, error) {
-	// 读取 trust_tier（新列）；若迁移前列不存在则回退到 signature_valid 派生
 	query := `
 		SELECT name, version, runtime, risk_level, sandbox, capabilities,
 		       trust_tier, idempotent, benchmarks, deprecated

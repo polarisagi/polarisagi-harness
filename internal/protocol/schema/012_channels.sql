@@ -1,4 +1,7 @@
--- 聊天平台集成配置表（M13 adapter 框架）
+-- ============================================================================
+-- 012_channels: 聊天平台集成配置（M13 adapter 框架）
+-- ============================================================================
+
 CREATE TABLE IF NOT EXISTS channels (
     id             TEXT PRIMARY KEY,
     name           TEXT NOT NULL,
@@ -9,5 +12,6 @@ CREATE TABLE IF NOT EXISTS channels (
     created_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
     updated_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
 );
-CREATE INDEX IF NOT EXISTS idx_channels_type ON channels(type);
+
+CREATE INDEX IF NOT EXISTS idx_channels_type    ON channels(type);
 CREATE INDEX IF NOT EXISTS idx_channels_enabled ON channels(enabled);

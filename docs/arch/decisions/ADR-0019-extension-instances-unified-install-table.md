@@ -19,7 +19,7 @@
 
 ## 决策
 
-新增 `extension_instances` 表（迁移文件 `034`），作为所有已安装扩展的单一事实来源。
+新增 `extension_instances` 表（迁移文件 `020`），作为所有已安装扩展的单一事实来源。
 
 **关键字段**：
 - `ext_type`：`mcp` | `skill` | `plugin` | `app`
@@ -29,7 +29,7 @@
 - `install_path`：文件系统绝对路径；MCP/App 为空字符串
 - `status`：`downloading` | `installed` | `error` | `disabled`
 
-废弃 `skill_sources`、`plugins`、`apps` 三表（035 迁移脚本保留存量数据）。删除 `026_skills.sql` DDL（以 036 迁移修正）。
+删除 `skill_sources`、`plugins`、`apps` 三表 DDL（早期开发阶段直接清除，无存量数据）。删除 `026_skills.sql` 死代码。Schema 整体重整为 001-020 标准编号。
 
 ---
 

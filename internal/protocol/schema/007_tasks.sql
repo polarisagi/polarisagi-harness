@@ -1,13 +1,14 @@
 -- ============================================================================
--- 007_tasks: Agent 任务状态核心列
+-- 007_tasks: Agent 任务生命周期状态
 -- ============================================================================
--- 架构角色: 记录多 Agent 任务的完整生命周期状态。与 events 表和 Blackboard 联动。
+-- 架构角色: 记录多 Agent 任务的完整生命周期。与 events 表和 Blackboard 联动。
+-- 关联: M4(Agent Kernel), M8(Multi-Agent Orchestrator)
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS tasks (
-    task_id                  TEXT PRIMARY KEY,
-    session_id               TEXT NOT NULL,
-    status                   TEXT NOT NULL,
+    task_id                  TEXT    PRIMARY KEY,
+    session_id               TEXT    NOT NULL,
+    status                   TEXT    NOT NULL,
     priority                 INTEGER NOT NULL DEFAULT 1,
     claimed_by               TEXT,
     claimed_at               TEXT,
@@ -19,6 +20,9 @@ CREATE TABLE IF NOT EXISTS tasks (
     suspend_reason           TEXT,
     pii_vault_blob           TEXT,
     provider_suspended_count INTEGER NOT NULL DEFAULT 0,
-    created_at               TEXT NOT NULL,
-    updated_at               TEXT NOT NULL
+    -- TaintLevel 0=TaintNone…4=TaintHigh，随 Intent/Result 跨 Agent 边界传递（inv_M8_05）
+    intent_taint             INTEGER NOT NULL DEFAULT 0,
+    result_taint             INTEGER NOT NULL DEFAULT 0,
+    created_at               TEXT    NOT NULL,
+    updated_at               TEXT    NOT NULL
 );

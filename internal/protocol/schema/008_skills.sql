@@ -1,20 +1,29 @@
--- M6 Skill Library DDL
--- 记录 Agent 的技能元数据，支持 M4 调度执行与 M6 演化
+-- ============================================================================
+-- 008_skills: Skill 运行时注册表（M6 SkillRegistry SSoT）
+-- ============================================================================
+-- 架构角色: 记录 Agent 可调用技能的执行元数据。SkillExecutor 唯一消费方。
+--           目录/市场/安装记录见 extension_instances（020）。
+-- 信任模型: trust_tier 替代已废弃的 signature_valid BOOLEAN（ADR-0016 §2.1）
+--   TrustTier: 0=Untrusted, 1=Local, 2=Community, 3=Official, 4=System
+-- 写入路径: 仅经 SkillRegistry.Register()，禁裸 SQL
+-- 关联: M6(Skill Library), M7(Tool/Action Layer)
+-- ============================================================================
 
 CREATE TABLE IF NOT EXISTS skills (
-    name            TEXT PRIMARY KEY,
-    version         TEXT NOT NULL,
-    runtime         TEXT NOT NULL DEFAULT 'wasm',
-    risk_level      TEXT NOT NULL DEFAULT 'high',
-    sandbox         INTEGER NOT NULL DEFAULT 1,
-    capabilities    TEXT NOT NULL,
-    signature_valid BOOLEAN NOT NULL DEFAULT 0,
-    idempotent      BOOLEAN NOT NULL DEFAULT 0,
-    benchmarks      TEXT NOT NULL DEFAULT '{}',
-    deprecated      BOOLEAN NOT NULL DEFAULT 0,
-    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    name        TEXT    PRIMARY KEY,             -- "skill:{slug}"，格式由 SkillRegistry 校验
+    version     TEXT    NOT NULL,
+    runtime     TEXT    NOT NULL DEFAULT 'wasm', -- 'wasm' | 'script' | 'builtin'
+    risk_level  TEXT    NOT NULL DEFAULT 'high', -- 'low' | 'medium' | 'high'
+    sandbox     INTEGER NOT NULL DEFAULT 1,      -- 1=启用沙箱
+    capabilities TEXT   NOT NULL,               -- JSON array
+    trust_tier  INTEGER NOT NULL DEFAULT 0,      -- 0-4，见上方说明
+    idempotent  INTEGER NOT NULL DEFAULT 0,      -- 1=幂等，允许缓存结果
+    benchmarks  TEXT    NOT NULL DEFAULT '{}',   -- JSON: PassRate/AvgLatency 等
+    deprecated  INTEGER NOT NULL DEFAULT 0,
+    created_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+    updated_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
 );
 
-CREATE INDEX IF NOT EXISTS idx_skills_deprecated ON skills(deprecated);
-CREATE INDEX IF NOT EXISTS idx_skills_risk_level ON skills(risk_level);
+CREATE INDEX IF NOT EXISTS idx_skills_deprecated  ON skills(deprecated);
+CREATE INDEX IF NOT EXISTS idx_skills_risk_level  ON skills(risk_level);
+CREATE INDEX IF NOT EXISTS idx_skills_trust_tier  ON skills(trust_tier);
