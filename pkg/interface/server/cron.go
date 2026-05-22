@@ -410,26 +410,29 @@ func (s *Server) executeAutomation(ctx context.Context, a *automation, trigger s
 	now := time.Now().UTC().Format(time.RFC3339)
 
 	// 写 run 记录（running 状态）
-	s.db.ExecContext(ctx, `
+	if _, err := s.db.ExecContext(ctx, `
 		INSERT INTO automation_runs(id, automation_id, trigger, status, prompt_snapshot, started_at)
 		VALUES(?,?,?,?,?,?)`,
 		runID, a.ID, trigger, "running", a.Prompt, now,
-	) //nolint:errcheck
+	); err != nil {
+		slog.Warn("automation: insert run failed", "run", runID, "err", err)
+	}
 
 	// 更新 automations 执行状态
 	nextRun := calcNextRun(a.CronSchedule, now)
-	s.db.ExecContext(ctx, `
+	if _, err := s.db.ExecContext(ctx, `
 		UPDATE automations
 		SET last_run_at=?, next_run_at=?, last_run_status='running', updated_at=?
 		WHERE id=?`,
 		now, nextRun, now, a.ID,
-	) //nolint:errcheck
+	); err != nil {
+		slog.Warn("automation: update status failed", "id", a.ID, "err", err)
+	}
 
 	go func() {
 		bgCtx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 		defer cancel()
 
-		finishedAt := time.Now().UTC().Format(time.RFC3339)
 		status := "ok"
 		errMsg := ""
 
@@ -441,27 +444,30 @@ func (s *Server) executeAutomation(ctx context.Context, a *automation, trigger s
 			slog.Info("automation: agent triggered", "id", a.ID, "run", runID,
 				"dir", a.WorkingDir, "effort", a.ReasoningEffort)
 		} else {
-			// agent 未初始化（测试环境）
 			slog.Info("automation: agent not available, skipping exec", "id", a.ID)
 		}
 
-		finishedAt = time.Now().UTC().Format(time.RFC3339)
+		finishedAt := time.Now().UTC().Format(time.RFC3339)
 
 		// 更新 run 记录
-		s.db.ExecContext(bgCtx, `
+		if _, err := s.db.ExecContext(bgCtx, `
 			UPDATE automation_runs
 			SET status=?, finished_at=?, error_msg=?
 			WHERE id=?`,
 			status, finishedAt, errMsg, runID,
-		) //nolint:errcheck
+		); err != nil {
+			slog.Warn("automation: update run failed", "run", runID, "err", err)
+		}
 
 		// 更新 automations 统计
-		s.db.ExecContext(bgCtx, `
+		if _, err := s.db.ExecContext(bgCtx, `
 			UPDATE automations
 			SET last_run_status=?, last_run_error=?, run_count=run_count+1, updated_at=?
 			WHERE id=?`,
 			status, errMsg, finishedAt, a.ID,
-		) //nolint:errcheck
+		); err != nil {
+			slog.Warn("automation: update stats failed", "id", a.ID, "err", err)
+		}
 	}()
 
 	return runID
@@ -522,4 +528,3 @@ func calcNextRun(expr, fromRFC3339 string) string {
 	}
 	return ""
 }
-
