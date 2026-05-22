@@ -169,8 +169,8 @@ func discoverMarketplaceEntries(mpDir string, mp Marketplace) ([]CatalogEntry, e
 			return nil
 		}
 
-		// 处理技能类型市场：寻找所有 SKILL.md
-		if mp.Type == "skill" && info.Name() == "SKILL.md" {
+		// 寻找所有 SKILL.md
+		if info.Name() == "SKILL.md" {
 			entry, err := parseSkillEntry(path, mpDir, mp)
 			if err != nil {
 				return err
@@ -180,8 +180,8 @@ func discoverMarketplaceEntries(mpDir string, mp Marketplace) ([]CatalogEntry, e
 			}
 		}
 
-		// 处理插件类型市场：寻找所有 plugin.json
-		if mp.Type == "plugin" && info.Name() == "plugin.json" {
+		// 寻找所有 plugin.json
+		if info.Name() == "plugin.json" {
 			entry, err := parsePluginEntry(path, mpDir, mp)
 			if err != nil {
 				return err
