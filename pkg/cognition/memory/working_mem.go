@@ -46,28 +46,29 @@ func (ic *ImmutableCore) Load(ctx context.Context, userID, sessionID string) (pr
 	}, nil
 }
 
-func (ic *ImmutableCore) PrependToMessages(msgs []protocol.Message) []protocol.Message {
-	content := ""
-
-	if ic.SystemPromptTemplate != "" {
-		t, err := template.New("sys").Parse(ic.SystemPromptTemplate)
-		if err == nil {
-			var buf bytes.Buffer
-			if err := t.Execute(&buf, ic); err == nil {
-				content = buf.String()
-			} else {
-				content = "Error rendering system prompt: " + err.Error() + "\n"
-			}
-		} else {
-			content = "Error parsing system prompt: " + err.Error() + "\n"
-		}
-	} else {
-		// Fallback
-		content += "你是 " + ic.AgentName + "，一个 AI Agent。\n"
+func (ic *ImmutableCore) renderSystemPrompt() string {
+	if ic.SystemPromptTemplate == "" {
+		res := "你是 " + ic.AgentName + "，一个 AI Agent。\n"
 		if ic.ModelID != "" {
-			content += "当前运行模型：" + ic.ModelID + "。\n"
+			res += "当前运行模型：" + ic.ModelID + "。\n"
 		}
+		return res
 	}
+
+	t, err := template.New("sys").Parse(ic.SystemPromptTemplate)
+	if err != nil {
+		return "Error parsing system prompt: " + err.Error() + "\n"
+	}
+
+	var buf bytes.Buffer
+	if err := t.Execute(&buf, ic); err != nil {
+		return "Error rendering system prompt: " + err.Error() + "\n"
+	}
+	return buf.String()
+}
+
+func (ic *ImmutableCore) PrependToMessages(msgs []protocol.Message) []protocol.Message {
+	content := ic.renderSystemPrompt()
 
 	// 去除多余的尾部换行
 	if len(content) > 0 && content[len(content)-1] == '\n' {

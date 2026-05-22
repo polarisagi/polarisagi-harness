@@ -140,7 +140,7 @@ func NewServer(addr string, agent *kernel.Agent, bb protocol.Blackboard, hitlGat
 	if !ok {
 		if b, err := os.ReadFile("configs/system_prompt.md"); err == nil {
 			sysTmpl = string(b)
-			db.Exec("INSERT INTO preferences(key, value) VALUES('system_prompt_template', ?)", sysTmpl)
+			_, _ = db.Exec("INSERT INTO preferences(key, value) VALUES('system_prompt_template', ?)", sysTmpl)
 			prefs["system_prompt_template"] = sysTmpl
 		} else {
 			sysTmpl = "你是 {{.AgentName}}，{{.AgentRole}}。\n当前运行模型：{{.ModelID}}。"

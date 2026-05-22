@@ -74,17 +74,14 @@ func (s *Server) handleSetPreference(w http.ResponseWriter, r *http.Request) {
 
 	// Hot reload preference in Agent
 	s.agent.SetPreferences(map[string]string{key: req.Value})
-	if key == "system_prompt" && s.agent.Memory() != nil {
+	if s.agent.Memory() != nil {
 		if ic, ok := s.agent.Memory().Working().Immutable().(*memory.ImmutableCore); ok {
-			ic.GlobalGoal = req.Value
-		}
-	} else if key == "system_prompt_template" && s.agent.Memory() != nil {
-		if ic, ok := s.agent.Memory().Working().Immutable().(*memory.ImmutableCore); ok {
-			ic.SystemPromptTemplate = req.Value
-		}
-	} else if key == "global_goal" && s.agent.Memory() != nil {
-		if ic, ok := s.agent.Memory().Working().Immutable().(*memory.ImmutableCore); ok {
-			ic.GlobalGoal = req.Value
+			switch key {
+			case "system_prompt", "global_goal":
+				ic.GlobalGoal = req.Value
+			case "system_prompt_template":
+				ic.SystemPromptTemplate = req.Value
+			}
 		}
 	}
 
