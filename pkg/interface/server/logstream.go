@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -57,7 +58,7 @@ func (s *LogStore) Enabled(ctx context.Context, l slog.Level) bool {
 func (s *LogStore) Handle(ctx context.Context, r slog.Record) error {
 	entry := LogEntry{
 		Time:    r.Time.Format(time.RFC3339),
-		Level:   r.Level.String(),
+		Level:   strings.ToLower(r.Level.String()),
 		Message: r.Message,
 	}
 	if r.NumAttrs() > 0 {

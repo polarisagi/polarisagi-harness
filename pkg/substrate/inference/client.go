@@ -33,10 +33,11 @@ type OpenAIRequest struct {
 }
 
 type OpenAIMessage struct {
-	Role       string           `json:"role"`
-	Content    string           `json:"content,omitempty"`
-	ToolCalls  []OpenAIToolCall `json:"tool_calls,omitempty"`
-	ToolCallID string           `json:"tool_call_id,omitempty"`
+	Role             string           `json:"role"`
+	Content          string           `json:"content,omitempty"`
+	ReasoningContent string           `json:"reasoning_content,omitempty"`
+	ToolCalls        []OpenAIToolCall `json:"tool_calls,omitempty"`
+	ToolCallID       string           `json:"tool_call_id,omitempty"`
 }
 
 type OpenAIToolCall struct {
@@ -141,7 +142,12 @@ func translateRequest(req *protocol.InferRequest) *OpenAIRequest {
 
 	for _, msg := range req.Messages {
 		if len(msg.Parts) > 0 {
-			out.Messages = append(out.Messages, partsToOpenAIMessages(msg.Role, msg.Parts)...)
+			oaiMsgs := partsToOpenAIMessages(msg.Role, msg.Parts)
+			// DeepSeek thinking mode：assistant 消息必须携带 reasoning_content 回传
+			if msg.ReasoningContent != "" && len(oaiMsgs) > 0 && oaiMsgs[0].Role == "assistant" {
+				oaiMsgs[0].ReasoningContent = msg.ReasoningContent
+			}
+			out.Messages = append(out.Messages, oaiMsgs...)
 		} else {
 			out.Messages = append(out.Messages, OpenAIMessage{Role: msg.Role, Content: msg.Content})
 		}

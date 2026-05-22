@@ -181,8 +181,9 @@ func (s *Server) handleAgentStream(w http.ResponseWriter, r *http.Request) { //n
 			return
 		}
 
-		// 收集本轮 text delta 和 tool_call 事件
+		// 收集本轮 text delta、reasoning delta 和 tool_call 事件
 		var roundText strings.Builder
+		var roundReasoning strings.Builder
 		var toolCalls []map[string]json.RawMessage
 	roundLoop:
 		for {
@@ -192,6 +193,8 @@ func (s *Server) handleAgentStream(w http.ResponseWriter, r *http.Request) { //n
 					break roundLoop
 				}
 				switch ev.Type {
+				case protocol.StreamThinking:
+					roundReasoning.WriteString(ev.Content)
 				case protocol.StreamTextDelta:
 					if ev.Content != "" {
 						writeSSE(w, flusher, "token", map[string]string{"content": ev.Content})
@@ -245,7 +248,11 @@ func (s *Server) handleAgentStream(w http.ResponseWriter, r *http.Request) { //n
 				"input": inputRaw,
 			})
 		}
-		history = append(history, protocol.Message{Role: "assistant", Parts: assistantParts})
+		assistantMsg := protocol.Message{Role: "assistant", Parts: assistantParts}
+		if roundReasoning.Len() > 0 {
+			assistantMsg.ReasoningContent = roundReasoning.String()
+		}
+		history = append(history, assistantMsg)
 
 		// 执行每个工具，收集 tool_result
 		toolResultParts := make([]any, 0, len(toolCalls))

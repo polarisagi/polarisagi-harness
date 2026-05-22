@@ -17,8 +17,9 @@ import (
 
 // OpenAIStreamDelta 流式响应中的 delta 字段（支持文本和 tool_call 两类）。
 type OpenAIStreamDelta struct {
-	Content   string                `json:"content"`
-	ToolCalls []openAIToolCallDelta `json:"tool_calls,omitempty"`
+	Content          string                `json:"content"`
+	ReasoningContent string                `json:"reasoning_content,omitempty"`
+	ToolCalls        []openAIToolCallDelta `json:"tool_calls,omitempty"`
 }
 
 type openAIFunctionDelta struct {
@@ -133,6 +134,11 @@ func (c *OpenAICompatibleClient) SendStreamRequest(ctx context.Context, apiKey s
 
 			choice := chunk.Choices[0]
 			delta := choice.Delta
+
+			// 思考链 delta（DeepSeek thinking mode）
+			if delta.ReasoningContent != "" {
+				ch <- protocol.StreamEvent{Type: protocol.StreamThinking, Content: delta.ReasoningContent}
+			}
 
 			// 文本 delta
 			if delta.Content != "" {

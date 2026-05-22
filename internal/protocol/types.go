@@ -33,6 +33,9 @@ type Message struct {
 	// Parts 非空时，adapter 应使用 Parts 作为 content（用于 tool_use/tool_result 多块消息）。
 	// 向后兼容：nil 时退回到 Content 字符串。
 	Parts []any
+	// ReasoningContent 保存 DeepSeek 思考模式下的 reasoning_content，
+	// 多轮 tool_call 时必须原样回传，否则 API 返回 400。
+	ReasoningContent string
 }
 
 type ToolSchema struct {
