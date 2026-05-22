@@ -201,6 +201,7 @@ func NewServer(addr string, agent *kernel.Agent, bb protocol.Blackboard, hitlGat
 	mux.HandleFunc("DELETE /v1/automations/{id}", s.handleDeleteAutomation)
 	mux.HandleFunc("GET /v1/automations/{id}/runs", s.handleListAutomationRuns)
 	mux.HandleFunc("POST /v1/automations/{id}/trigger", s.handleTriggerAutomation)
+	mux.HandleFunc("GET /v1/automation-templates", s.handleListAutomationTemplates)
 
 	// 聊天平台集成 API
 	mux.HandleFunc("GET /v1/channels", s.handleListChannels)

@@ -7,11 +7,15 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/mrlaoliai/polaris-harness/internal/protocol"
+
+	"gopkg.in/yaml.v3"
 )
 
 // ─── 数据模型 ─────────────────────────────────────────────────────────────────
@@ -527,4 +531,57 @@ func calcNextRun(expr, fromRFC3339 string) string {
 		t = t.Add(time.Minute)
 	}
 	return ""
+}
+
+// ─── 自动化模板 ───────────────────────────────────────────────────────────────
+
+// automationTemplate 对应 automations/templates/*.yaml 中的单条记录。
+type automationTemplate struct {
+	Icon            string   `yaml:"icon"             json:"icon"`
+	Name            string   `yaml:"name"             json:"name"`
+	Description     string   `yaml:"description"      json:"description"`
+	Prompt          string   `yaml:"prompt"           json:"prompt"`
+	TriggerType     string   `yaml:"trigger_type"     json:"trigger_type"`
+	CronSchedule    string   `yaml:"cron_schedule"    json:"cron_schedule"`
+	ReasoningEffort string   `yaml:"reasoning_effort" json:"reasoning_effort"`
+	Tags            []string `yaml:"tags"             json:"tags,omitempty"`
+	Source          string   `yaml:"source"           json:"source,omitempty"`
+	Author          string   `yaml:"author"           json:"author,omitempty"`
+}
+
+// loadLocalTemplates 扫描 dir 下所有 *.yaml 文件，合并解析为模板列表。
+func loadLocalTemplates(dir string) []automationTemplate {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+	var all []automationTemplate
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".yaml") {
+			continue
+		}
+		b, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		if err != nil {
+			slog.Warn("automation-templates: read failed", "file", e.Name(), "err", err)
+			continue
+		}
+		var tpls []automationTemplate
+		if err := yaml.Unmarshal(b, &tpls); err != nil {
+			slog.Warn("automation-templates: parse failed", "file", e.Name(), "err", err)
+			continue
+		}
+		all = append(all, tpls...)
+	}
+	return all
+}
+
+// GET /v1/automation-templates
+// 返回本地 automations/templates/*.yaml 中的所有模板（后续可扩展远程源）。
+func (s *Server) handleListAutomationTemplates(w http.ResponseWriter, r *http.Request) {
+	templates := loadLocalTemplates("automations/templates")
+	if templates == nil {
+		templates = []automationTemplate{}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{"templates": templates}) //nolint:errcheck
 }
