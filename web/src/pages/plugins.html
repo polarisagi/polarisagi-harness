@@ -18,7 +18,7 @@
       </div>
 
       <div class="flex flex-wrap gap-4 items-center justify-between">
-        <div class="tabs tabs-boxed border border-base-300 bg-base-100/50 shadow-sm">
+        <div class="tabs tabs-boxed">
           <a class="tab" :class="{ 'tab-active font-bold': $store.plugins.filter === 'plugin' }" @click="$store.plugins.filter = 'plugin'">📦 插件</a>
           <a class="tab" :class="{ 'tab-active font-bold': $store.plugins.filter === 'app' }" @click="$store.plugins.filter = 'app'">📱 应用</a>
           <a class="tab" :class="{ 'tab-active font-bold': $store.plugins.filter === 'mcp' }" @click="$store.plugins.filter = 'mcp'">⚙ MCP</a>
