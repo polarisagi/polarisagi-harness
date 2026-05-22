@@ -147,7 +147,7 @@ Stage 7: full_promotion       (写生产 + audit hash chain)
 Default 代码常量 < config/m*.toml 本地文件 < 环境变量(POLARIS_*) < CLI 启动参数
 ```
 
-1. **加载与验证边界**: 所有配置必须在进程启动期由 `internal/config` 统一装载与反序列化,校验缺失或格式错误引发 Fail-Fast,绝不允许在 Agent 执行期延迟崩溃
+1. **加载与验证边界**: 所有配置必须在进程启动期由 `internal/config` 统一装载与反序列化（包括统一管理 `data_dir`/`host`/`port` 等基础环境，并据此在启动早期预建所有必需的运行子目录），校验缺失或格式错误引发 Fail-Fast，绝不允许在 Agent 执行期延迟崩溃
 2. **热更新约束**:
    - 通用运行参数(日志级别、调度池上限等)→ `fsnotify` 监听 `.toml` + `atomic.Value` lock-free 指针替换
    - 核心防线(Cedar Policy、KillSwitch 门限、M2 Storage 路径等)的 `ZoneImmutable` 常量 → 启动后冻结,禁运行期修改,必须重启进程使之生效(Crash-Only 哲学)
