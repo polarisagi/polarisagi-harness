@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -50,18 +52,27 @@ type sseImagePart struct {
 	Data     string `json:"data"` // 纯 base64，不含 "data:...;base64," 前缀
 }
 
+type sseAttachment struct {
+	URI      string `json:"uri"`
+	MimeType string `json:"mime_type"`
+	Name     string `json:"name"`
+	Data     string `json:"data,omitempty"` // legacy Base64 for backwards compatibility
+}
+
 func (s *Server) handleAgentStream(w http.ResponseWriter, r *http.Request) { //nolint:gocyclo
 	var req struct {
-		Input      string         `json:"input"`
-		SessionID  string         `json:"session_id,omitempty"`
-		RunID      string         `json:"run_id,omitempty"`
+		Input       string          `json:"input"`
+		SessionID   string          `json:"session_id,omitempty"`
+		RunID       string          `json:"run_id,omitempty"`
+		Attachments []sseAttachment `json:"attachments,omitempty"`
+		// back-compat
 		ImageParts []sseImagePart `json:"image_parts,omitempty"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if strings.TrimSpace(req.Input) == "" && len(req.ImageParts) == 0 {
+	if strings.TrimSpace(req.Input) == "" && len(req.Attachments) == 0 && len(req.ImageParts) == 0 {
 		http.Error(w, "input required", http.StatusBadRequest)
 		return
 	}
@@ -133,29 +144,75 @@ func (s *Server) handleAgentStream(w http.ResponseWriter, r *http.Request) { //n
 	}
 
 	// 追加本轮用户消息（含图片 Parts）
-	userMsg := protocol.Message{Role: "user", Content: req.Input}
-	if len(req.ImageParts) > 0 {
-		// 构造多模态 Parts：先放文本，再附图片
-		parts := make([]any, 0, 1+len(req.ImageParts))
-		if req.Input != "" {
-			parts = append(parts, map[string]any{"type": "text", "text": req.Input})
+	var userPromptBuilder strings.Builder
+	userPromptBuilder.WriteString(req.Input)
+
+	var hasImages bool
+	visionParts := make([]any, 0, len(req.Attachments)+len(req.ImageParts))
+
+	// 处理新增的 VFS 附件
+	for _, att := range req.Attachments {
+		if !strings.HasPrefix(att.MimeType, "image/") {
+			// 非图片文件，向提示词中注入挂载信息
+			userPromptBuilder.WriteString(fmt.Sprintf("\n\n[System: 用户挂载了系统附件 %s", att.URI))
+			if att.Name != "" {
+				userPromptBuilder.WriteString(fmt.Sprintf(" (原始文件名: %s)", att.Name))
+			}
+			userPromptBuilder.WriteString("]")
+			continue
 		}
+
+		// 解析本地 VFS 路径
+		if !strings.HasPrefix(att.URI, "workspace://") {
+			continue
+		}
+
+		localPath := filepath.Join(s.dataDir, "workspace", strings.TrimPrefix(att.URI, "workspace://"))
+		raw, err := os.ReadFile(localPath)
+		if err != nil {
+			slog.Warn("server: failed to read image attachment", "uri", att.URI, "err", err)
+			continue
+		}
+
+		hasImages = true
+		visionParts = append(visionParts, protocol.ImagePart{
+			Type:      "image",
+			MediaType: att.MimeType,
+			Data:      raw,
+		})
+	}
+
+	finalInput := strings.TrimSpace(userPromptBuilder.String())
+	userMsg := protocol.Message{Role: "user", Content: finalInput}
+
+	// 兼容老版本的 Base64 图片
+	if len(req.ImageParts) > 0 {
 		for _, ip := range req.ImageParts {
 			raw, err := base64.StdEncoding.DecodeString(ip.Data)
 			if err != nil {
 				slog.Warn("server: invalid image base64, skipping", "err", err)
 				continue
 			}
-			parts = append(parts, protocol.ImagePart{
+			hasImages = true
+			visionParts = append(visionParts, protocol.ImagePart{
 				Type:      "image",
 				MediaType: ip.MimeType,
 				Data:      raw,
 			})
 		}
+	}
+
+	if hasImages {
+		parts := make([]any, 0, 1+len(visionParts))
+		if finalInput != "" {
+			parts = append(parts, map[string]any{"type": "text", "text": finalInput})
+		}
+		parts = append(parts, visionParts...)
 		userMsg.Parts = parts
 	}
+
 	history = append(history, userMsg)
-	if err := s.saveMessage(ctx, sessionID, "user", req.Input); err != nil {
+	if err := s.saveMessage(ctx, sessionID, "user", finalInput); err != nil {
 		slog.Error("server: saveMessage user", "session", sessionID, "err", err)
 	}
 	if tw != nil {

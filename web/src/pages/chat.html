@@ -177,6 +177,21 @@
             </template>
           </div>
 
+          <!-- 附件预览区 -->
+          <div class="image-previews" x-show="$store.chat.attachments.length > 0" x-cloak style="display:flex; gap:8px; margin-bottom:8px; flex-wrap:wrap;">
+            <template x-for="(att, idx) in $store.chat.attachments" :key="idx">
+              <div :title="att.name" style="position:relative; width:60px; height:60px; border-radius:6px; overflow:hidden; border:1px solid var(--color-border); background:var(--bg-secondary); display:flex; flex-direction:column; align-items:center; justify-content:center;">
+                <template x-if="att.dataUrl">
+                  <img :src="att.dataUrl" style="width:100%; height:100%; object-fit:cover;">
+                </template>
+                <template x-if="!att.dataUrl">
+                  <div style="font-size:24px; color:var(--text-secondary);">📄</div>
+                </template>
+                <button @click="$store.chat.removeAttachment(idx)" style="position:absolute; top:2px; right:2px; background:rgba(0,0,0,0.5); color:white; border:none; border-radius:50%; width:18px; height:18px; font-size:12px; cursor:pointer; display:flex; align-items:center; justify-content:center; line-height:1; z-index:10;">×</button>
+              </div>
+            </template>
+          </div>
+
           <textarea
             class="chat-textarea"
             name="chat-input"
@@ -187,7 +202,13 @@
             :disabled="$store.chat.isActive && $store.chat.state !== 'COMPLETE'"
             @keydown="onKeydown($event)"
             @input="$el.style.height='auto'; $el.style.height=$el.scrollHeight+'px'"
+            @paste="handlePaste($event)"
+            @drop="handleDrop($event)"
+            @dragover.prevent=""
           ></textarea>
+          
+          <!-- 隐藏的文件选择器 -->
+          <input type="file" multiple accept="image/*" style="display:none" x-ref="fileInput" @change="handleFileSelect($event)">
         </div>
 
         <div class="input-actions">
@@ -212,6 +233,21 @@
             </span>
           </span>
           <div style="display:flex;gap:8px;align-items:center">
+            <!-- 多模态按钮 -->
+            <button class="btn btn-ghost btn-sm"
+                    style="font-size: 16px; padding: 2px 6px;"
+                    title="上传图片"
+                    @click="$refs.fileInput.click()">
+              📎
+            </button>
+            <button class="btn btn-ghost btn-sm"
+                    style="font-size: 16px; padding: 2px 6px; transition: color 0.3s;"
+                    title="语音输入"
+                    :style="$store.chat.isRecording ? 'color: red;' : ''"
+                    @click="$store.chat.toggleRecording()">
+              🎤
+            </button>
+
             <button class="btn btn-warn btn-sm"
                     x-show="$store.chat.isActive"
                     @click="$store.chat.interrupt('abort')"

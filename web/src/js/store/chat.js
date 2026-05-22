@@ -16,8 +16,10 @@ Alpine.store('chat', {
   errorMsg: '',
   _historyIdx: -1,
   _inputHistory: [],     // 初始化输入历史数组，防止首次加载时未定义报错
-  imageParts: [],        // [{ data, mimeType }]
+  attachments: [],       // [{ uri, mime_type, name, dataUrl }]
   ttsEnabled: false,
+  isRecording: false,
+  _recognition: null,
 
   get isActive() { return this.state !== 'IDLE' && this.state !== 'COMPLETE' && this.state !== 'ERROR' },
 
@@ -25,16 +27,98 @@ Alpine.store('chat', {
     this.ttsEnabled = !this.ttsEnabled;
   },
 
-  addImage(dataUrl) {
-    // dataUrl format: data:image/png;base64,iVBORw...
-    const match = dataUrl.match(/^data:(image\/\w+);base64,(.+)$/);
-    if (match) {
-      this.imageParts.push({ mimeType: match[1], data: match[2] });
+  async uploadFile(file) {
+    // Generate a local preview dataUrl if it's an image
+    let dataUrl = null;
+    if (file.type.startsWith('image/')) {
+      dataUrl = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.readAsDataURL(file);
+      });
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      // Create headers but remove Content-Type so fetch can auto-set the boundary for multipart/form-data
+      const headers = authHeaders();
+      delete headers['Content-Type'];
+
+      const resp = await fetch('/v1/workspace/upload', {
+        method: 'POST',
+        headers: headers,
+        body: formData
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        this.attachments.push({
+          uri: data.uri,
+          mime_type: data.mime_type,
+          name: data.name,
+          dataUrl: dataUrl
+        });
+      } else {
+        throw new Error('Upload failed with status: ' + resp.status);
+      }
+    } catch (e) {
+      console.error("Upload failed", e);
+      if (Alpine.store('toast')) {
+        Alpine.store('toast').show('error', `Failed to upload ${file.name}`);
+      } else {
+        alert(`Failed to upload ${file.name}`);
+      }
     }
   },
 
+  removeAttachment(index) {
+    this.attachments.splice(index, 1);
+  },
+
+  toggleRecording() {
+    if (this.isRecording) {
+      if (this._recognition) this._recognition.stop();
+      return;
+    }
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert(Alpine.store('i18n').t('chat_stt_unsupported') || 'Your browser does not support Speech Recognition.');
+      return;
+    }
+    
+    this._recognition = new SpeechRecognition();
+    this._recognition.lang = 'zh-CN'; // Defaulting to Chinese, can be made dynamic
+    this._recognition.interimResults = true;
+    this._recognition.continuous = false; // We can set to true if we want it to keep listening
+
+    // Optional: reference to the alpine component's input model so we can append text.
+    // Alpine store doesn't directly hold the `input` value (it's in x-data="chatInput").
+    // The easiest way is to let the chatInput component handle the text append, 
+    // we can fire a custom event on window.
+    this._recognition.onresult = (event) => {
+      let finalTranscript = '';
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        if (event.results[i].isFinal) {
+          finalTranscript += event.results[i][0].transcript;
+        }
+      }
+      if (finalTranscript) {
+        window.dispatchEvent(new CustomEvent('stt-result', { detail: finalTranscript }));
+      }
+    };
+
+    this._recognition.onstart = () => { this.isRecording = true; };
+    this._recognition.onend = () => { this.isRecording = false; };
+    this._recognition.onerror = (e) => {
+      console.warn('Speech recognition error:', e.error);
+      this.isRecording = false;
+    };
+
+    this._recognition.start();
+  },
+
   async submit(input) {
-    if (!input.trim() && this.imageParts.length === 0 || this.isActive) return
+    if (!input.trim() && this.attachments.length === 0 || this.isActive) return
 
     // 幂等 runID
     const runID = dedupeRunID(this.sessionID || '', input)
@@ -51,8 +135,8 @@ Alpine.store('chat', {
     this.errorMsg = ''
     this.state = 'SUBMITTING'
 
-    const imagePartsPayload = [...this.imageParts];
-    this.imageParts = [];
+    const attachmentsPayload = [...this.attachments];
+    this.attachments = [];
 
     window._activeSseClient = new SSEClient({
       url: '/v1/agent/stream',
@@ -60,7 +144,7 @@ Alpine.store('chat', {
         input,
         session_id: this.sessionID,
         run_id: runID,
-        image_parts: imagePartsPayload,
+        attachments: attachmentsPayload,
       },
       onEvent: (type, data) => this._onEvent(type, data),
       onError: (err) => this._onError(err),

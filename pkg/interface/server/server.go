@@ -210,6 +210,9 @@ func NewServer(addr string, dataDir string, agent *kernel.Agent, bb protocol.Bla
 	mux.HandleFunc("GET /v1/sessions/{sessionID}", s.handleGetSession)
 	mux.HandleFunc("DELETE /v1/sessions/{sessionID}", s.handleDeleteSession)
 
+	// VFS 通用文件上传
+	mux.HandleFunc("POST /v1/workspace/upload", s.handleVFSUpload)
+
 	// 全文搜索 API（FTS5）
 	mux.HandleFunc("GET /v1/search", s.handleSearch)
 

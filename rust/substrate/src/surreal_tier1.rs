@@ -1,7 +1,7 @@
 use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_int};
-use std::sync::{Arc, OnceLock, RwLock};
 use std::panic;
+use std::sync::{Arc, OnceLock, RwLock};
 
 use surrealdb::engine::local::{Db, Mem, RocksDb};
 use surrealdb::Surreal;
@@ -21,7 +21,9 @@ pub struct SurrealTier1Store {
 
 impl SurrealTier1Store {
     pub fn new(tier: i32, db_path: &str) -> Result<Self, Box<dyn std::error::Error>> {
-        let rt = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()?;
         let db = rt.block_on(async {
             if tier >= 1 && !db_path.is_empty() {
                 Surreal::new::<RocksDb>(db_path).await
@@ -29,16 +31,18 @@ impl SurrealTier1Store {
                 Surreal::new::<Mem>(()).await
             }
         })?;
-        rt.block_on(async {
-            db.use_ns("polaris").use_db("cognition").await
-        })?;
-        
+        rt.block_on(async { db.use_ns("polaris").use_db("cognition").await })?;
+
         // Define vector table and index if using HNSW
         rt.block_on(async {
             let _ = db.query("DEFINE TABLE vectors SCHEMAFULL; DEFINE FIELD embed ON vectors TYPE array<float>; DEFINE INDEX hnsw_idx ON vectors FIELDS embed MTREE DIMENSION 4 DISTANCE COSINE;").await;
         });
 
-        Ok(SurrealTier1Store { db, rt, use_hnsw: false })
+        Ok(SurrealTier1Store {
+            db,
+            rt,
+            use_hnsw: false,
+        })
     }
 }
 
@@ -54,8 +58,6 @@ fn bytes_to_hex(b: &[u8]) -> String {
     b.iter().map(|x| format!("{:02x}", x)).collect()
 }
 
-
-
 fn hex_to_bytes(s: &str) -> Result<Vec<u8>, std::num::ParseIntError> {
     (0..s.len())
         .step_by(2)
@@ -68,12 +70,17 @@ pub unsafe extern "C" fn surreal_open(tier: c_int, db_path: *const c_char) -> c_
     let path = if db_path.is_null() {
         "".to_string()
     } else {
-        unsafe { CStr::from_ptr(db_path) }.to_str().unwrap_or("").to_string()
+        unsafe { CStr::from_ptr(db_path) }
+            .to_str()
+            .unwrap_or("")
+            .to_string()
     };
-    
+
     let result = panic::catch_unwind(|| {
         STORE_TIER1.get_or_init(|| {
-            Arc::new(RwLock::new(SurrealTier1Store::new(tier, &path).expect("failed to init tier1 db")))
+            Arc::new(RwLock::new(
+                SurrealTier1Store::new(tier, &path).expect("failed to init tier1 db"),
+            ))
         });
         SURREAL_OK
     });
@@ -92,12 +99,19 @@ pub unsafe extern "C" fn surreal_kv_get(
     let result = panic::catch_unwind(|| {
         let store_arc = STORE_TIER1.get().unwrap();
         let guard = store_arc.read().unwrap();
-        
+
         // Query SurrealDB
         let res: Option<String> = guard.rt.block_on(async {
-            let mut response = guard.db.query("SELECT v FROM kv WHERE k = $k").bind(("k", key_hex)).await.ok()?;
+            let mut response = guard
+                .db
+                .query("SELECT v FROM kv WHERE k = $k")
+                .bind(("k", key_hex))
+                .await
+                .ok()?;
             let vals: Vec<surrealdb::sql::Value> = response.take(0).ok()?;
-            if vals.is_empty() { return None; }
+            if vals.is_empty() {
+                return None;
+            }
             if let surrealdb::sql::Value::Object(obj) = &vals[0] {
                 if let Some(surrealdb::sql::Value::Strand(s)) = obj.get("v") {
                     return Some(s.clone().as_string());
@@ -105,7 +119,7 @@ pub unsafe extern "C" fn surreal_kv_get(
             }
             None
         });
-        
+
         match res {
             None => SURREAL_NOT_FOUND,
             Some(hex_str) => {
@@ -138,7 +152,12 @@ pub unsafe extern "C" fn surreal_kv_put(
         let store_arc = STORE_TIER1.get().unwrap();
         let guard = store_arc.read().unwrap();
         guard.rt.block_on(async {
-            let _ = guard.db.query("UPSERT kv SET k = $k, v = $v").bind(("k", k)).bind(("v", v)).await;
+            let _ = guard
+                .db
+                .query("UPSERT kv SET k = $k, v = $v")
+                .bind(("k", k))
+                .bind(("v", v))
+                .await;
         });
         SURREAL_OK
     });
@@ -152,7 +171,11 @@ pub unsafe extern "C" fn surreal_kv_delete(key: *const u8, key_len: usize) -> c_
         let store_arc = STORE_TIER1.get().unwrap();
         let guard = store_arc.read().unwrap();
         guard.rt.block_on(async {
-            let _ = guard.db.query("DELETE kv WHERE k = $k").bind(("k", k)).await;
+            let _ = guard
+                .db
+                .query("DELETE kv WHERE k = $k")
+                .bind(("k", k))
+                .await;
         });
         SURREAL_OK
     });
@@ -182,7 +205,12 @@ pub unsafe extern "C" fn surreal_vec_upsert(
         let store_arc = STORE_TIER1.get().unwrap();
         let guard = store_arc.read().unwrap();
         guard.rt.block_on(async {
-            let _ = guard.db.query("UPSERT vectors SET id = $id, embed = $embed").bind(("id", id_str)).bind(("embed", embed_vec)).await;
+            let _ = guard
+                .db
+                .query("UPSERT vectors SET id = $id, embed = $embed")
+                .bind(("id", id_str))
+                .bind(("embed", embed_vec))
+                .await;
         });
         SURREAL_OK
     });
@@ -260,4 +288,3 @@ pub extern "C" fn surreal_vec_set_mode(mode: c_int) -> c_int {
     });
     result.unwrap_or(SURREAL_ERR_PANIC)
 }
-

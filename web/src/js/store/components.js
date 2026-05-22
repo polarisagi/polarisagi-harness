@@ -20,6 +20,36 @@ Alpine.data('chatInput', () => ({
         this.showSlash = false
       }
     })
+    window.addEventListener('stt-result', (e) => {
+      this.input += (this.input ? ' ' : '') + e.detail;
+    });
+  },
+
+  processFiles(files) {
+    for (const file of files) {
+      Alpine.store('chat').uploadFile(file);
+    }
+  },
+
+  handlePaste(e) {
+    if (e.clipboardData && e.clipboardData.files && e.clipboardData.files.length > 0) {
+      e.preventDefault();
+      this.processFiles(e.clipboardData.files);
+    }
+  },
+
+  handleDrop(e) {
+    e.preventDefault();
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      this.processFiles(e.dataTransfer.files);
+    }
+  },
+
+  handleFileSelect(e) {
+    if (e.target.files && e.target.files.length > 0) {
+      this.processFiles(e.target.files);
+    }
+    e.target.value = ''; // reset so the same file can be selected again
   },
 
   onKeydown(e) {
@@ -87,7 +117,8 @@ Alpine.data('chatInput', () => ({
 
   submit() {
     const v = this.input.trim()
-    if (!v || Alpine.store('chat').isActive) return
+    const hasAttachments = Alpine.store('chat').attachments.length > 0;
+    if (!v && !hasAttachments || Alpine.store('chat').isActive) return
     Alpine.store('chat').submit(v)
     this.input = ''
     this.rows = 1
