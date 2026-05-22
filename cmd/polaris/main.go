@@ -230,23 +230,9 @@ func run() error { //nolint:gocyclo
 	inference.SetDefaultHTTPClient(safeHTTPClient)
 
 	reg := inference.NewProviderRegistry()
-	if os.Getenv("OPENAI_API_KEY") != "" {
-		reg.Register("openai-gpt4o", inference.NewOpenAIAdapter(
-			"https://api.openai.com/v1", "gpt-4o",
-			func() string { return os.Getenv("OPENAI_API_KEY") }, safeHTTPClient,
-		))
-	}
-	if os.Getenv("ANTHROPIC_API_KEY") != "" {
-		reg.Register("claude-3-5-sonnet", inference.NewAnthropicAdapter(
-			"claude-3-5-sonnet-20241022",
-			func() string { return os.Getenv("ANTHROPIC_API_KEY") }, safeHTTPClient,
-		))
-	}
-	if os.Getenv("DEEPSEEK_API_KEY") != "" {
-		reg.Register("deepseek-v4-flash", inference.NewDeepSeekAdapter(
-			func() string { return os.Getenv("DEEPSEEK_API_KEY") }, safeHTTPClient,
-		))
-	}
+	// env var 中的 API Key 写入 DB（INSERT OR IGNORE），由 LoadProvidersFromDB 统一加载。
+	// 禁止 env var 直接注册内存 registry，DB 是唯一权威源。
+	server.SeedProvidersFromEnv(ctx, store.DB())
 
 	// ─── 4.5 本地推理（Ollama，FeatureLocalInference 门控）─────────────────────
 	var embedder substrate.Embedder
@@ -524,7 +510,8 @@ func run() error { //nolint:gocyclo
 	defer sv.Stop()
 	slog.Info("polaris: supervisor tree started", "workers", 3)
 
-	// ─── 10.7 从 DB 加载厂商配置（覆盖 env var 注册，实现运行时热更新基础）
+	// ─── 10.7 从 DB 加载全部厂商配置（唯一合法的 Provider 注册路径）
+	// env var 凭据已在步骤 4 由 SeedProvidersFromEnv 写入 DB，此处统一加载。
 	if err := server.LoadProvidersFromDB(ctx, store.DB(), reg, safeHTTPClient); err != nil {
 		slog.Warn("polaris: LoadProvidersFromDB", "err", err)
 	}
