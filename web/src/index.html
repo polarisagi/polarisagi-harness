@@ -23,7 +23,10 @@
     <ul class="menu p-4 gap-1 flex-1 text-sm font-medium text-base-content/80">
       <li>
         <a :class="{'active': $store.nav.page === 'chat'}" @click.prevent="$store.chat.newSession(); $store.nav.navigate('chat')" href="/">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 21a9 9 0 0 1-9-9 9 9 0 0 1 9-9c1.65 0 3.2.45 4.5 1.22" />
+            <path d="M18.5 4.5a2.121 2.121 0 0 1 3 3L13 16l-4 1 1-4 8.5-8.5z" />
+          </svg>
           <span x-text="$store.i18n.t('chat_new')"></span>
         </a>
       </li>
