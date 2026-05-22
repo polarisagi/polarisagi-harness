@@ -397,7 +397,7 @@ ConnectMCP: 1.遍历 Servers 2.CommandTransport exec.Command→MCP 会话 3.sess
 
 ## 8. Web UI 规约
 
-> 前端实现的单一权威源。栈: Alpine.js + Tailwind CSS v4 + Vite 6 + go:embed + marked | [FeatureGate.FeatureWebUI] | [Tier-0-Limit]
+> 前端实现的单一权威源。栈: Alpine.js + Tailwind CSS v4 + DaisyUI + Vite 6 + go:embed + marked | [FeatureGate.FeatureWebUI] | [Tier-0-Limit]
 
 ### 8.1 目录结构
 
@@ -430,7 +430,7 @@ web/
 │   │       └── …（approvals/sessions/skills/plugins/providers/channels/config/
 │   │              agents/insights/cron/eval/search/onboard/toast/i18n/modelRoles/computer）
 │   └── css/style.css         # Tailwind v4 入口（@import "tailwindcss"）+ 主题色 token
-├── package.json              # 生产依赖: alpinejs + marked；开发: @tailwindcss/vite + vite
+├── package.json              # 生产依赖: alpinejs + marked；开发: @tailwindcss/vite + daisyui + vite
 └── vite.config.js            # Vite 构建配置
 dist/                         # Vite 输出（gitignore；make build-ui 生成）
 ```
@@ -527,7 +527,7 @@ const legacyPageMap = {
 | ID | 约束 | 验证位置 |
 |----|------|---------|
 | `inv_webui_01` | `dist/` 不入 Git；`make build` 必先调 `make build-ui`。 | `web/.gitignore` + `Makefile` |
-| `inv_webui_02` | npm `dependencies` 仅 `alpinejs` + `marked`。`devDependencies` 仅 `@tailwindcss/vite` + `vite`。零 CDN 依赖（内网离线可用）。 | `web/package.json` |
+| `inv_webui_02` | npm `dependencies` 仅 `alpinejs` + `marked`。`devDependencies` 仅 `@tailwindcss/vite` + `daisyui` + `vite`。零 CDN 依赖（内网离线可用）。 | `web/package.json` |
 | `inv_webui_03` | `FeatureGate.FeatureWebUI=false` 或密封(`SEALED`)态时，API 拒服，UI 出强警告横幅。 | `pkg/substrate/observability/feature_gate.go` |
 | `inv_webui_04` | 写操作携带 `X-Session-Token`（`sessionStorage.getItem('polaris_token')`）。 | `web/src/js/sse.js` + middleware |
 | `inv_webui_05` | 轮询故障禁止静默（连续 3 次挂出 Warning Banner）。 | `web/src/js/store/statusBar.js` |
