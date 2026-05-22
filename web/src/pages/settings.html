@@ -50,7 +50,7 @@
                   <option :value="m.id" x-text="`[${m.providerName}] ${m.model_id}`"></option>
                 </template>
               </select>
-              <label class="label" x-show="$store.modelRoles.reasoningModelName"><span class="label-text-alt text-base-content/50" x-text="$store.i18n.t('settings_current') + `: ${$store.modelRoles.reasoningProviderName} / ${$store.modelRoles.reasoningModelName}`"></span></label>
+              <div class="label" x-show="$store.modelRoles.reasoningModelName"><span class="label-text-alt text-base-content/50" x-text="$store.i18n.t('settings_current') + `: ${$store.modelRoles.reasoningProviderName} / ${$store.modelRoles.reasoningModelName}`"></span></div>
             </div>
           </div>
           <div class="card-actions justify-end mt-4">
@@ -370,7 +370,7 @@
           <div class="form-control w-full">
             <label for="store-providers-modelform-model-id" class="label"><span class="label-text font-bold" x-text="$store.i18n.t('providers_model_id')"></span></label>
             <input id="store-providers-modelform-model-id" name="store-providers-modelform-model-id" type="text" class="input input-bordered w-full" x-model="$store.providers.modelForm.model_id" placeholder="例：deepseek-chat / gpt-4o" />
-            <label class="label"><span class="label-text-alt text-base-content/50" x-text="$store.i18n.t('settings_model_doc')"></span></label>
+            <div class="label"><span class="label-text-alt text-base-content/50" x-text="$store.i18n.t('settings_model_doc')"></span></div>
           </div>
           <div class="form-control w-full">
             <label for="store-providers-modelform-name" class="label">
