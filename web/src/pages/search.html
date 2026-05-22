@@ -6,7 +6,7 @@
     </div>
 
     <div class="flex gap-2 mb-8">
-      <input type="search" class="input input-bordered flex-1 shadow-sm" :placeholder="$store.i18n.t('search_placeholder')" x-model="$store.search.query" @keydown.enter="$store.search.run()" />
+      <input id="store-search-query" name="store-search-query" type="search" class="input input-bordered flex-1 shadow-sm" :placeholder="$store.i18n.t('search_placeholder')" x-model="$store.search.query" @keydown.enter="$store.search.run()" />
       <button class="btn btn-primary shadow-sm" @click="$store.search.run()" :disabled="$store.search.loading">
         <span x-show="$store.search.loading" class="loading loading-spinner loading-sm"></span>
         <span x-show="!$store.search.loading" x-text="'搜索'"></span>

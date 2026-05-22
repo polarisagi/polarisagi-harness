@@ -176,7 +176,7 @@
       <span x-show="!$store.logs.connected" class="badge badge-ghost badge-sm badge-outline" x-text="$store.i18n.t('status_conn_fail')"></span>
     </div>
     <div class="flex items-center gap-2">
-      <select class="select select-bordered select-xs" x-model="$store.logs.levelFilter" @change="$store.logs.setLevel($store.logs.levelFilter)">
+      <select id="store-logs-levelfilter" name="store-logs-levelfilter" class="select select-bordered select-xs" x-model="$store.logs.levelFilter" @change="$store.logs.setLevel($store.logs.levelFilter)">
         <option value="" x-text="$store.i18n.t('logs_filter_all', '全部')"></option>
         <option value="debug">DEBUG+</option>
         <option value="info">INFO+</option>

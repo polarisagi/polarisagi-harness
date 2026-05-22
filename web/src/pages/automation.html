@@ -50,7 +50,7 @@
             <div class="card-body p-5">
               <div class="flex justify-between items-start mb-2">
                 <div class="text-2xl">🤖</div>
-                <input type="checkbox" class="toggle toggle-primary toggle-sm" :checked="job.enabled" @change="$store.cron.toggle(job)" @click.stop>
+                <input id="form-field-2" name="form-field-2" type="checkbox" class="toggle toggle-primary toggle-sm" :checked="job.enabled" @change="$store.cron.toggle(job)" @click.stop>
               </div>
               <h3 class="card-title text-base" x-text="job.name || job.id.slice(0,12)"></h3>
               <p class="text-xs text-base-content/60 line-clamp-2 min-h-[2rem]" x-text="job.prompt"></p>
@@ -142,7 +142,7 @@
               
               <div class="bg-base-100 rounded-box p-3 my-3 text-sm text-base-content/70 whitespace-pre-wrap border border-base-300" x-text="req.detail"></div>
               
-              <input type="text" class="input input-sm input-bordered w-full text-xs" :placeholder="$store.i18n.t('tasks_note_optional')" x-model="comment" />
+              <input id="comment" name="comment" type="text" class="input input-sm input-bordered w-full text-xs" :placeholder="$store.i18n.t('tasks_note_optional')" x-model="comment" />
               
               <div class="card-actions justify-between items-center mt-4 pt-4 border-t border-base-300">
                 <div class="font-mono text-sm font-bold" :class="remaining > 60000 ? 'text-success' : remaining > 0 ? 'text-warning' : 'text-error'" x-text="remaining > 0 ? `⏱ ${Math.floor(remaining/60000)}:${String(Math.floor((remaining%60000)/1000)).padStart(2,'0')}` : '⌛ 已超时'"></div>

@@ -6,7 +6,7 @@
         <p class="text-sm text-base-content/60" x-text="$store.i18n.t('eval_subtitle')"></p>
       </div>
       <div class="flex gap-3 items-center">
-        <select class="select select-bordered select-sm bg-base-100 shadow-sm" x-model="$store.eval.suite" aria-label="Suite">
+        <select id="store-eval-suite" name="store-eval-suite" class="select select-bordered select-sm bg-base-100 shadow-sm" x-model="$store.eval.suite" aria-label="Suite">
           <option value="training" x-text="$store.i18n.t('eval_suite_training')"></option>
           <option value="validation" x-text="$store.i18n.t('eval_suite_validation')"></option>
         </select>
