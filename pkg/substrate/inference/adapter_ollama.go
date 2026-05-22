@@ -44,7 +44,7 @@ func NewOllamaAdapter(model string, httpClient *http.Client) *OllamaAdapter {
 	}
 }
 
-func (a *OllamaAdapter) ModelID() string { return a.model }
+func (a *OllamaAdapter) ModelID() string                             { return a.model }
 func (a *OllamaAdapter) Capabilities() protocol.ProviderCapabilities { return a.caps }
 
 func (a *OllamaAdapter) Tokenizer() protocol.TokenizerAdapter { return &simpleTokenizer{} }
