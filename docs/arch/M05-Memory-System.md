@@ -239,6 +239,8 @@ DDL 见 `internal/protocol/schema/004_semantic_memory.sql`。Tier 0 使用 SQLit
 3. 相似度 < 0.80 → INSERT 新事实
 4. version++ 不可变版本 + source_event_id provenance + 信念修正（矛盾时优先保留更近期/更高证据强度事实）+ Prospective Indexing（写入时预生成未来查询并索引）
 
+**[接口约束]** `UpsertFact` 和 `UpsertRelation` 必须作为 `SemanticMemory` 接口的扩展方法在 `internal/protocol/interfaces.go` 中声明，由 `pkg/cognition/memory/semantic_mem.go` 实现；写入必经 `MutationBus.Submit(MutationIntent{Table:"semantic_entities"/"semantic_relations", Op:OpUpsert})`，禁止绕过 M2 单写者约束直接调用 `db.Exec`。Embedding 存 BLOB（float32 → float16 量化，使用 `pkg/substrate/embedding_batcher.go` 的量化工具）。
+
 ### 4.3 QueryClassifier + RetrievalRouter
 
 查询首先经过两级分类器——第一阶段基于中文关键词规则匹配（<10µs）: 时间关键词（"上周"/"三周前"）→ temporal_reasoning，操作关键词（"怎么做"/"如何"）→ how_to，事实关键词（"是什么"/"谁的"）→ factual_lookup，推理关键词（"为什么"/"分析"）→ complex_reasoning。规则未命中时进入第二阶段——查询 embedding 与 4 个查询类型原型向量做余弦相似度比较，置信度 <0.3 时回退 default（全搜）。
@@ -514,3 +516,22 @@ EmbeddingVersionTracker:
 - 关联模块: M11 Policy Safety | 关键契约: SafetyRules 注入 ImmutableCore、TaintGate 写入 Zone 校验 | 位置: M11 §2, M5 §2.1
 - 关联模块: 全局字典 | 关键契约: HE-Rule-4 数据驱动迭代、HybridRetriever/RRF 定义 | 位置: 00-Global-Dictionary §2, §9-bis
 - 关联模块: DDL | 关键契约: 001_events（真相源）、003_episodic_memory（派生投影）、004_semantic_memory（语义层） | 位置: internal/protocol/schema/001-004_*.sql
+
+---
+
+## 16. 实现状态与 2026 研究对照
+
+### 代码缺口（待开发）
+
+| 组件 | 文件 | 缺口描述 |
+|------|------|---------|
+| L2 SemanticMem | `pkg/cognition/memory/semantic_mem.go` | **✅ 已完成** — 已重构 `UpsertFact`/`UpsertRelation` 接口对接 `MutationBus` 写路径，并实现基于 `*sql.DB` 的 `GetEntity` 直读查询，淘汰了旧版纯 JSON KV 占位 |
+| EpisodicGraphBridge | `pkg/cognition/memory/episodic_graph_bridge.go` | **✅ 已完成** — `ACTION_DONE` 事件已实现解析 `event.Payload` 提取真实 `tool_name` 构建动态图边，移除硬编码 |
+
+### 引入计划（优先级排序）
+
+| 研究 | 来源 | 核心机制 | 引入点 | 优先级 |
+|------|------|---------|-------|-------|
+| **D-MEM 多巴胺门控巩固** | arXiv:2603.14597, 2026 | 以 SurpriseIndex 信号作门控，仅 surprise > 阈值的情节事件才晋升语义层，消除冗余写入与 O(N²) 延迟 | `consolidation.go` §9 + `surprise.go` | P1 |
+| **Path-Constrained Retrieval** | arXiv:2511.18313, 2025 | BFS 遍历限定关系类型白名单（uses/depends_on/extends），防止多跳推理语义漂移 | `pkg/substrate/hybrid_retrieve.go` GraphTraverse | P2 |
+| **E-mem 多 Agent 情节重建** | arXiv:2601.21714, 2026 | 异构辅助 Agent 维护未压缩情节上下文，token -70%，F1 +54%；当前单节点情节记忆在 swarm 场景是盲点 | `pkg/swarm/orchestration.go`（中期） | P3 |

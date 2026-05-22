@@ -359,7 +359,7 @@ func run() error { //nolint:gocyclo
 	}
 	var graphPipeline *swarm.GraphBuildPipeline
 	if autoConf == nil || autoConf.Gate.State(observability.FeatureGraphRAGFull) != observability.FeatureDisabled {
-		graphPipeline = swarm.NewGraphBuildPipeline(graphLLMClient, graphTier)
+		graphPipeline = swarm.NewGraphBuildPipeline(graphLLMClient, graphTier, mem.Semantic())
 		slog.Info("polaris: knowledge graph pipeline initialized", "tier", graphTier)
 	} else {
 		slog.Info("polaris: GraphRAG pipeline disabled by FeatureGate (Tier1+, 1024MB min)")

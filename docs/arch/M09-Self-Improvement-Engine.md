@@ -383,3 +383,17 @@ QLoRA/PRM/ActivationSteering 的 Tier 门控由 `FeatureGate` 自动化：`Featu
 | 事件总线协议 | EventHeuristicGenerated（内环规避规则注入）、EventEvalCompleted（外环评测结果驱动 Activate） | internal/protocol/event.go |
 | DDL | sys_prompt_versions（Prompt 版本化）、skill_variant_pool（工具描述符变体池）| internal/protocol/schema/010_self_improve.sql |
 | 时序图 | KillSwitch 触发链（自进化在 KillSwitch 各阶段的响应）| DIAGRAMS.md#killswitch |
+
+---
+
+## 8. 实现状态与 2026 研究对照
+
+### 当前实现状态
+
+三环架构（Reflexion/Curriculum/Rollout）+ PromptOptimizer + MEMF + SurpriseIndex 均已实现（`self_improve/engine.go`、`reflexion.go`、`curriculum.go`、`rollout.go`、`memf.go`、`surprise.go`）。**✅ 核心路径已完成**。
+
+### 引入计划
+
+| 研究 | 来源 | 核心机制 | 引入点 | 优先级 |
+|------|------|---------|-------|-------|
+| **D-MEM 多巴胺门控** | arXiv:2603.14597, 2026 | 将 SurpriseIndex 输出接入 M5 Consolidation 的情节→语义晋升决策，仅高 surprise 事件触发巩固写入；与现有 SurpriseIndex 已有协同基础 | `pkg/swarm/surprise.go` → `pkg/cognition/consolidation.go` §9 | P1 |

@@ -367,12 +367,43 @@ type ScoredEvent struct {
 	Score float64
 }
 
+type Entity struct {
+	ID              string
+	Name            string
+	Type            string
+	Embedding       []float32
+	SourceDocID     string
+	SourceChunkID   string
+	OccurrenceCount int
+	TaintLevel      TaintLevel
+	SyncVersion     int64
+	Properties      map[string]any
+	SourceEventID   int64
+	Version         int
+}
+
+type Relation struct {
+	FromEntityID  string
+	ToEntityID    string
+	RelationType  string
+	Description   string
+	Confidence    float64
+	SourceDocID   string
+	TaintLevel    TaintLevel
+	Weight        float64
+	Properties    map[string]any
+	SourceEventID int64
+}
+
 // SemanticMemory (Mem-L2) — 文档/实体/关系图。
 type SemanticMemory interface {
 	StoreDocument(ctx context.Context, doc Document) error
 	StoreChunks(ctx context.Context, docID string, chunks []Chunk) error
 	GetDocument(ctx context.Context, id string) (*Document, error)
 	Archive(ctx context.Context, id string, reason string) error
+	UpsertFact(ctx context.Context, entity Entity) error
+	UpsertRelation(ctx context.Context, rel Relation) error
+	GetEntity(ctx context.Context, entityType, name string) (*Entity, error)
 }
 
 type Document struct {

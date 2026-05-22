@@ -93,7 +93,7 @@ func NewMemImpl(store protocol.Store) *MemImpl {
 	return &MemImpl{
 		working:    NewWorkingMem(),
 		episodic:   NewEpisodicMem(store),
-		semantic:   NewSemanticMem(store),
+		semantic:   NewSemanticMem(store, nil),
 		procedural: procedural,
 		retriever:  NewHybridRetriever(store),
 		reflection: NewReflectionMem(store),
@@ -108,7 +108,7 @@ func NewMemImplWithGraph(store protocol.Store, graph GraphTraverser) *MemImpl {
 	return &MemImpl{
 		working:    NewWorkingMem(),
 		episodic:   NewEpisodicMemWithGraph(store, indexer),
-		semantic:   NewSemanticMem(store),
+		semantic:   NewSemanticMem(store, nil),
 		procedural: procedural,
 		retriever:  NewHybridRetrieverWithGraph(store, graph),
 		reflection: NewReflectionMem(store),

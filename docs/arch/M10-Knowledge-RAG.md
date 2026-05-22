@@ -391,3 +391,19 @@ Connectors → Document → 结构解析 → 文档树+父子双存+多级摘要
 | 全局字典 | HybridRetriever / RRF / BFS-Traverse / Spreading-Activation | 00-Global-Dictionary §9-bis |
 | DDL | 001_events（doc_nodes 投影）、004_semantic_memory（图存储）| `internal/protocol/schema/` |
 | 时序图 | Taint Tracking 全链路 | DIAGRAMS.md#taint-tracking |
+
+---
+
+## 11. 实现状态与 2026 研究对照
+
+### 代码缺口（待开发）
+
+| 组件 | 文件 | 缺口描述 |
+|------|------|---------|
+| GraphBuildPipeline Phase 5 | `pkg/swarm/graph_build.go:59` | **✅ 已完成** — 已实现 `ConceptSynthesizer` 核心逻辑，通过 LLM 或出现频次合成聚类概念，并调用 `SemanticMem` 持久化大概念实体及 `RELATED_TO` 关系边 |
+
+### 引入计划
+
+| 研究 | 来源 | 核心机制 | 引入点 | 优先级 |
+|------|------|---------|-------|-------|
+| **Path-Constrained Graph Search** | arXiv:2511.18313, 2025 | 图检索路径加关系类型约束，防止 BFS 跨越无意义边导致语义漂移（与 M5 §7.3 共享引擎，同步改动） | `pkg/substrate/hybrid_retrieve.go` | P2 |

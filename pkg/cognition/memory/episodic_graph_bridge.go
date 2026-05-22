@@ -2,6 +2,7 @@ package memory
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 
 	"github.com/mrlaoliai/polaris-harness/internal/protocol"
@@ -38,8 +39,23 @@ func (ei *EpisodicGraphIndexer) Index(_ context.Context, ev protocol.Event) {
 		}
 	}
 	if ev.Type == protocol.EventActionDone {
-		if err := ei.graph.GraphRelate(node, "ACTION_DONE", "entity:tool:unknown"); err != nil {
+		toolName := extractToolName(ev.Payload)
+		if err := ei.graph.GraphRelate(node, "ACTION_DONE", "entity:tool:"+toolName); err != nil {
 			slog.Warn("episodic_graph: ACTION_DONE 边写入失败", "event", ev.ID, "err", err)
 		}
 	}
+}
+
+func extractToolName(payload []byte) string {
+	if len(payload) == 0 {
+		return "unknown"
+	}
+	var payloadMap map[string]any
+	if err := json.Unmarshal(payload, &payloadMap); err != nil {
+		return "unknown"
+	}
+	if name, ok := payloadMap["tool_name"].(string); ok && name != "" {
+		return name
+	}
+	return "unknown"
 }

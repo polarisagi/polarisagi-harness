@@ -164,7 +164,7 @@ func TestEpisodicMemory_AppendAndQuery(t *testing.T) {
 
 func TestSemanticMemory_StoreAndGetDocument(t *testing.T) {
 	store := newMockStore()
-	sm := NewSemanticMem(store)
+	sm := NewSemanticMem(store, nil)
 	ctx := context.Background()
 
 	doc := protocol.Document{
@@ -200,7 +200,7 @@ func TestSemanticMemory_StoreAndGetDocument(t *testing.T) {
 
 func TestSemanticMemory_StoreChunks(t *testing.T) {
 	store := newMockStore()
-	sm := NewSemanticMem(store)
+	sm := NewSemanticMem(store, nil)
 	ctx := context.Background()
 
 	chunks := []protocol.Chunk{
@@ -299,7 +299,7 @@ func TestContextWindow_ToolEvictedFirst(t *testing.T) {
 func TestEpisodicMem_Consolidate(t *testing.T) {
 	store := newMockStore()
 	em := NewEpisodicMem(store)
-	sm := NewSemanticMem(store)
+	sm := NewSemanticMem(store, nil)
 	ctx := context.Background()
 
 	// 写入 3 条同 EventType 的高度相似事件
