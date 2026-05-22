@@ -110,7 +110,7 @@
   </div>
 
   <!-- Input Area -->
-  <div class="p-4 pb-8 shrink-0 w-full max-w-4xl mx-auto" x-data="chatInput">
+  <div class="p-4 shrink-0 w-full max-w-4xl mx-auto transition-all duration-500 ease-in-out" :class="$store.chat.messages.length === 0 ? 'pb-[25vh]' : 'pb-8'" x-data="chatInput">
     <div class="relative bg-base-100 rounded-[32px] shadow-md border border-base-200 focus-within:border-primary/30 focus-within:shadow-lg transition-all flex flex-col p-2 px-4">
       
       <!-- Command Menu -->
@@ -151,7 +151,7 @@
                   @paste="handlePaste($event)" @drop="handleDrop($event)" @dragover.prevent=""></textarea>
 
         <div class="flex items-center gap-1">
-          <select id="store-computer-mode" name="store-computer-mode" class="select select-ghost select-sm rounded-full font-medium" x-model="$store.computer.mode" @change="$store.computer.setMode($event.target.value)">
+          <select id="store-computer-mode" name="store-computer-mode" class="select select-ghost select-sm rounded-full font-medium w-28 shrink-0" x-model="$store.computer.mode" @change="$store.computer.setMode($event.target.value)">
             <option value="default" x-text="$store.i18n.t('computer_mode_default_short')"></option>
             <option value="auto_review" x-text="$store.i18n.t('computer_mode_auto_short')"></option>
             <option value="full_access" x-text="$store.i18n.t('computer_mode_full_short')"></option>
@@ -171,6 +171,12 @@
         </div>
       </div>
       <input id="form-field-20" name="form-field-20" type="file" multiple accept="*/*" class="hidden" x-ref="fileInput" @change="handleFileSelect($event)">
+    </div>
+    
+    <!-- Shortcuts Hints -->
+    <div class="text-center mt-3 text-xs font-medium text-base-content/40" x-show="$store.chat.messages.length === 0" x-transition.opacity.duration.500ms x-cloak>
+      <kbd class="kbd kbd-xs bg-transparent border-base-300 shadow-none text-base-content/40">Ctrl+K</kbd> 清空会话 &nbsp;&nbsp;
+      <kbd class="kbd kbd-xs bg-transparent border-base-300 shadow-none text-base-content/40">Ctrl+C</kbd> 中断生成
     </div>
   </div>
 </div>
