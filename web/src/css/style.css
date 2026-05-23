@@ -27,9 +27,9 @@
   --radius-field: 9999px !important;
 }
 
-/* 针对聊天气泡的局部降级处理：防止 2.5rem 的超大圆角导致多行文本被截断 */
+/* 针对聊天气泡的局部降级处理：防止大圆角导致多行文本被截断或外观呈椭圆状 */
 .chat {
-  --radius-box: 1.25rem !important;
+  --radius-box: 0.75rem !important;
 }
 .chat-bubble {
   padding: 0.875rem 1.25rem !important;

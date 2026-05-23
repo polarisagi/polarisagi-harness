@@ -62,16 +62,16 @@
 
             <template x-if="msg.role === 'user'">
               <div class="chat chat-end">
-                <div class="chat-bubble bg-base-200 text-base-content break-words overflow-hidden relative group"
+                <div class="chat-bubble bg-base-200 text-base-content break-words relative group text-left"
                      x-data="{ expanded: false, isLong: false }"
                      x-init="$nextTick(() => { if($refs.content) isLong = $refs.content.scrollHeight > $refs.content.clientHeight + 10 }); window.addEventListener('resize', () => { if($refs.content) isLong = $refs.content.scrollHeight > $refs.content.clientHeight + 10 })">
-                  <div x-ref="content" class="whitespace-pre-wrap transition-all duration-300 relative" :class="expanded ? '' : 'max-h-48'">
+                  <div x-ref="content" class="whitespace-pre-wrap transition-all duration-300 relative" :class="expanded ? '' : 'max-h-[24rem] overflow-hidden'">
                     <span x-text="msg.content"></span>
                   </div>
                   
                   <!-- Gradient Overlay & Hover Badge -->
                   <div x-show="isLong && !expanded" @click="expanded = true"
-                       class="absolute bottom-0 left-0 w-full h-16 bg-gradient-to-t from-base-200 to-transparent flex items-end justify-center pb-1 cursor-pointer transition-opacity">
+                       class="absolute bottom-0 left-0 w-full h-16 bg-gradient-to-t from-base-200 to-transparent flex items-end justify-center pb-1 cursor-pointer transition-opacity rounded-b-xl">
                     <div class="badge badge-sm badge-ghost opacity-0 group-hover:opacity-100 transition-opacity shadow-sm mb-1">点击展开</div>
                   </div>
                   
@@ -87,12 +87,12 @@
               <div class="chat chat-start relative">
                 <div class="badge badge-warning badge-xs absolute -top-1 right-0 z-10" x-show="msg.aborted" x-text="'⚠ ' + $store.i18n.t('chat_interrupted')"></div>
                 
-                <div class="chat-bubble bg-base-100 text-base-content border border-base-300 shadow-sm overflow-hidden relative group" 
+                <div class="chat-bubble bg-base-100 text-base-content border border-base-300 shadow-sm relative group text-left" 
                      :class="{ 'border-warning': msg.aborted }"
                      x-data="{ expanded: false, isLong: false }"
                      x-init="$nextTick(() => { if($refs.content) isLong = $refs.content.scrollHeight > $refs.content.clientHeight + 10 }); window.addEventListener('resize', () => { if($refs.content) isLong = $refs.content.scrollHeight > $refs.content.clientHeight + 10 })">
                   
-                  <div x-ref="content" class="transition-all duration-300 relative" :class="expanded ? '' : 'max-h-80'">
+                  <div x-ref="content" class="transition-all duration-300 relative" :class="expanded ? '' : 'max-h-[36rem] overflow-hidden'">
                     <template x-for="(tc, ti) in msg.toolCalls" :key="ti">
                       <div class="mb-3 rounded-box border border-primary/30 bg-primary/5 overflow-hidden text-xs">
                         <div class="flex items-center gap-2 p-2 bg-primary/10 text-primary font-mono font-bold">
@@ -113,7 +113,7 @@
                   
                   <!-- Gradient Overlay & Hover Badge -->
                   <div x-show="isLong && !expanded" @click="expanded = true"
-                       class="absolute bottom-0 left-0 w-full h-24 bg-gradient-to-t from-base-100 via-base-100/80 to-transparent flex items-end justify-center pb-2 cursor-pointer transition-opacity">
+                       class="absolute bottom-0 left-0 w-full h-24 bg-gradient-to-t from-base-100 via-base-100/80 to-transparent flex items-end justify-center pb-2 cursor-pointer transition-opacity rounded-b-xl">
                     <div class="badge badge-outline bg-base-100 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm mb-1">点击展开全部</div>
                   </div>
                   
