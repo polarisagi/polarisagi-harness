@@ -23,17 +23,6 @@
 
 :root, [data-theme] {
   --radius-box: 2.5rem !important;
-  --radius-selector: 9999px !important;
-  --radius-field: 9999px !important;
-}
-
-/* 针对聊天气泡的局部降级处理：防止大圆角导致多行文本被截断或外观呈椭圆状 */
-.chat {
-  --radius-box: 1rem !important;
-  --radius-field: 1rem !important;
-}
-.chat-bubble {
-  padding: 1rem 1.25rem !important;
 }
 
 /* 强制覆盖所有页面的选项卡，使其具有独立的边框、背景悬停和全局统一的极大圆角 */
