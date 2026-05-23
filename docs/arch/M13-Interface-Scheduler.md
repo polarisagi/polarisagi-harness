@@ -727,3 +727,31 @@ POST   /v1/automations/{id}/trigger 手动立即触发
 - Agent 工具调用 `browser_use` / `computer_use` → `interceptComputerUse()` 放行
 - 通过 MCP puppeteer 或 Chrome DevTools Protocol 执行 `click(x,y)` / `type(text)` / `read_dom()`
 - 所有 DOM 读取内容进入 `TaintLevel=High`（外部 Web 内容，inv_M7_02）
+
+---
+
+## 8.9 前端组件规范（官方推荐写法）
+
+> 约束：所有 UI 组件**优先采用 DaisyUI / Tailwind / Alpine.js 官方文档推荐的原生结构**；禁止自造等效轮子、禁止在 `style.css` 中重复实现已有组件语义。以下为已落地的规范对照。
+
+| 场景 | 官方组件/写法 | 禁止写法 |
+|------|-------------|---------|
+| **弹窗 (Modal)** | `<dialog class="modal">` + `<div class="modal-box">`，关闭用 `<form method="dialog">` 或 `modal-backdrop` 点击事件 | 自定义 `position:fixed` 遮罩层 |
+| **标签页 (Tabs)** | `<div role="tablist" class="tabs tabs-boxed">` + `<a role="tab" class="tab">` 原生结构，激活态仅加 `tab-active`，不额外叠加自定义背景色 | `tab-active bg-base-200 shadow-sm` 等手工覆盖导致圆角失效 |
+| **抽屉 (Drawer)** | DaisyUI `drawer` 布局：`<div class="drawer">` → `<input type="checkbox" class="drawer-toggle">` → `<div class="drawer-content">` → `<div class="drawer-side">` → `<label class="drawer-overlay">` | CSS `transform: translateX` 手工侧滑 |
+| **聊天气泡** | `<div class="chat chat-start/chat-end">` + `<div class="chat-bubble">` | 自定义 flexbox 对齐 + 自定义气泡背景 |
+| **Flexbox 页面滚动** | 所有 `overflow-y-auto` 滚动容器必须同时加 `min-h-0`，否则 Flex 子元素撑破父容器导致原生惯性滚动失效 | 仅设 `overflow-y-auto` 而不加 `min-h-0` |
+| **表单字段** | `<label class="form-control">` + `<div class="label"><span class="label-text">` + `<input class="input input-bordered">` | 自定义 `.form-group / .form-label / .form-input` class |
+| **Badge / Tag** | `<div class="badge badge-{variant} badge-{size}">` | 手工 `border-radius + padding + color` |
+| **空状态 (Empty State)** | `<div class="flex flex-col items-center justify-center">` + SVG icon + DaisyUI 排版 class | 自定义空态组件 |
+| **多语言文本** | 所有用户可见字符串通过 `x-text="$store.i18n.t('key')"` 或 `:placeholder="$store.i18n.t('key')"` 绑定，中英文 key 分别在 `i18n.js` 的 `zh` / `en` 字典注册 | 硬编码中文字符串直接写入 HTML 模板 |
+| **Emoji + 翻译文本拼接** | Emoji 在 HTML 模板中拼接：`x-text="'📦 ' + $store.i18n.t('key')"`；i18n value 只含纯文字，不含 emoji | i18n value 中混入 emoji 导致模板再次拼接后重复出现 |
+| **全局 CSS** | `web/src/css/style.css` 仅含：Tailwind v4 初始化、DaisyUI 主题声明、少量设计 Token（`@theme`）、全局 CSS 变量覆盖（`--radius-box`），不写任何组件样式 | 在 `style.css` 中重新实现 DaisyUI 已有组件 |
+
+**补充约束**（`inv_webui_12` ~ `inv_webui_14`）：
+
+| ID | 约束 |
+|----|------|
+| `inv_webui_12` | 任何新 Tab 标签页容器必须用 `tabs tabs-boxed`，激活项仅加 `tab-active`，不额外叠加自定义背景色或阴影，保证 DaisyUI 主题下圆角曲率正确渲染。 |
+| `inv_webui_13` | Flex 布局下的滚动容器（含各子页面顶层 `<div>`）必须同时携带 `overflow-y-auto min-h-0`，缺一不可。 |
+| `inv_webui_14` | 所有新增用户可见字符串必须同时在 `zh` 和 `en` 字典注册对应 key，不允许仅注册其中一个语言版本后上线。 |
