@@ -16,7 +16,7 @@ func TestBuiltinTools_ReadFile_AllowedPath(t *testing.T) {
 	tmpDir := t.TempDir()
 	sandbox := NewInProcessSandbox()
 	toolReg := polartool.NewInMemoryToolRegistry(nil) // 无 PolicyGate，只测工具逻辑
-	if err := RegisterBuiltinTools(sandbox, toolReg, []string{tmpDir}, nil); err != nil {
+	if err := RegisterBuiltinTools(sandbox, toolReg, []string{tmpDir}, nil, nil); err != nil {
 		t.Fatalf("RegisterBuiltinTools: %v", err)
 	}
 
@@ -44,7 +44,7 @@ func TestBuiltinTools_ReadFile_BlockedPath(t *testing.T) {
 	tmpDir := t.TempDir()
 	sandbox := NewInProcessSandbox()
 	toolReg := polartool.NewInMemoryToolRegistry(nil)
-	if err := RegisterBuiltinTools(sandbox, toolReg, []string{tmpDir}, nil); err != nil {
+	if err := RegisterBuiltinTools(sandbox, toolReg, []string{tmpDir}, nil, nil); err != nil {
 		t.Fatalf("RegisterBuiltinTools: %v", err)
 	}
 
@@ -64,7 +64,7 @@ func TestBuiltinTools_ListDir(t *testing.T) {
 	tmpDir := t.TempDir()
 	sandbox := NewInProcessSandbox()
 	toolReg := polartool.NewInMemoryToolRegistry(nil)
-	if err := RegisterBuiltinTools(sandbox, toolReg, []string{tmpDir}, nil); err != nil {
+	if err := RegisterBuiltinTools(sandbox, toolReg, []string{tmpDir}, nil, nil); err != nil {
 		t.Fatalf("RegisterBuiltinTools: %v", err)
 	}
 
@@ -99,7 +99,7 @@ func TestBuiltinTools_WriteFile_AllowedPath(t *testing.T) {
 	tmpDir := t.TempDir()
 	sandbox := NewInProcessSandbox()
 	toolReg := polartool.NewInMemoryToolRegistry(nil)
-	if err := RegisterBuiltinTools(sandbox, toolReg, []string{tmpDir}, nil); err != nil {
+	if err := RegisterBuiltinTools(sandbox, toolReg, []string{tmpDir}, nil, nil); err != nil {
 		t.Fatalf("RegisterBuiltinTools: %v", err)
 	}
 
@@ -130,7 +130,7 @@ func TestBuiltinTools_WriteFile_AllowedPath(t *testing.T) {
 func TestBuiltinTools_FetchURL_SSRFGuard(t *testing.T) {
 	sandbox := NewInProcessSandbox()
 	toolReg := polartool.NewInMemoryToolRegistry(nil)
-	if err := RegisterBuiltinTools(sandbox, toolReg, nil, nil); err != nil {
+	if err := RegisterBuiltinTools(sandbox, toolReg, nil, nil, nil); err != nil {
 		t.Fatalf("RegisterBuiltinTools: %v", err)
 	}
 
@@ -156,7 +156,7 @@ func TestBuiltinTools_FetchURL_SSRFGuard(t *testing.T) {
 func TestBuiltinTools_FetchURL_PublicURL(t *testing.T) {
 	sandbox := NewInProcessSandbox()
 	toolReg := polartool.NewInMemoryToolRegistry(nil)
-	if err := RegisterBuiltinTools(sandbox, toolReg, nil, nil); err != nil {
+	if err := RegisterBuiltinTools(sandbox, toolReg, nil, nil, nil); err != nil {
 		t.Fatalf("RegisterBuiltinTools: %v", err)
 	}
 

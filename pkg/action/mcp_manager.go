@@ -15,6 +15,19 @@ import (
 	"github.com/mrlaoliai/polaris-harness/internal/protocol"
 )
 
+// StartBuiltinComputerMCP 启动默认的本地 Computer MCP Sidecar
+func (m *MCPManager) StartBuiltinComputerMCP(ctx context.Context, mcpBinaryPath string) error {
+	cfg := MCPClientConfig{
+		Transport:  MCPStdio,
+		Command:    mcpBinaryPath,
+		Args:       []string{},
+		Timeout:    30 * time.Second,
+		ServerName: "polaris-computer",
+		Trusted:    true,
+	}
+	return m.Add(ctx, "polaris-computer", "Polaris Computer MCP", cfg)
+}
+
 // MCPServerInfo MCP Server 运行时状态快照。
 type MCPServerInfo struct {
 	ID        string
@@ -93,6 +106,18 @@ func (m *MCPManager) Remove(serverID string) {
 		m.unregisterTools(serverID, e.tools)
 		delete(m.entries, serverID)
 	}
+}
+
+// CallTool 直接路由调用指定的 MCP 工具。
+func (m *MCPManager) CallTool(ctx context.Context, serverID, toolName string, args map[string]any) (string, error) {
+	m.mu.RLock()
+	e, ok := m.entries[serverID]
+	m.mu.RUnlock()
+	if !ok {
+		return "", perrors.New(perrors.CodeInternal, "mcp_manager: server not found: "+serverID)
+	}
+	text, _, err := e.client.CallToolTainted(ctx, toolName, args)
+	return text, err
 }
 
 // ListServers 返回所有 MCP Server 的运行时状态快照。

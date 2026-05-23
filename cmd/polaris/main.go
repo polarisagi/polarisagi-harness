@@ -323,10 +323,17 @@ func run() error { //nolint:gocyclo
 	// ─── 6.3 内置工具注册 & MCP Manager ─────────────────────────────────────
 	allowedPaths := []string{dataDir}
 	toolReg := polartool.NewInMemoryToolRegistry(nil)
-	if err := action.RegisterBuiltinTools(inProcSandbox, toolReg, allowedPaths, dialer); err != nil {
+	mcpMgr := action.NewMCPManager(inProcSandbox, safeHTTPClient)
+
+	// 自动启动内置 MCP Sidecar
+	sidecarPath := "/Users/mrlaoliai/Polaris/polaris-computer-mcp/target/debug/polaris-computer-mcp"
+	if err := mcpMgr.StartBuiltinComputerMCP(ctx, sidecarPath); err != nil {
+		slog.Warn("polaris: failed to start builtin computer mcp sidecar", "err", err)
+	}
+
+	if err := action.RegisterBuiltinTools(inProcSandbox, toolReg, allowedPaths, dialer, mcpMgr); err != nil {
 		slog.Warn("polaris: builtin tool registration partial failure", "err", err)
 	}
-	mcpMgr := action.NewMCPManager(inProcSandbox, safeHTTPClient)
 	slog.Info("polaris: builtin tools registered, MCP manager initialized")
 
 	gapFillWorker := swarm.NewGapFillWorker(store.DB(), router, toolReg)

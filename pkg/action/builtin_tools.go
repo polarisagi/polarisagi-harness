@@ -29,6 +29,7 @@ func RegisterBuiltinTools(
 	toolReg *polartool.InMemoryToolRegistry,
 	allowedPaths []string, // 文件系统路径白名单（read_file/list_dir/write_file 均受限）
 	dialer protocol.SafeDialer,
+	mcpManager *MCPManager,
 ) error {
 	tools := []struct {
 		meta protocol.Tool
@@ -177,7 +178,7 @@ func RegisterBuiltinTools(
 					"required": []string{"action"},
 				},
 			},
-			fn: NewComputerUseTool().Execute,
+			fn: NewComputerUseTool(mcpManager).Execute,
 		},
 		{
 			meta: protocol.Tool{
