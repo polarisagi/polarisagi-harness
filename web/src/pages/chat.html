@@ -65,9 +65,7 @@
                 <div class="chat-bubble bg-base-300 text-base-content break-words relative group text-left w-fit"
                      x-data="{ expanded: false, isLong: false }"
                      x-init="$nextTick(() => { if($refs.content) isLong = $refs.content.scrollHeight > $refs.content.clientHeight + 10 }); window.addEventListener('resize', () => { if($refs.content) isLong = $refs.content.scrollHeight > $refs.content.clientHeight + 10 })">
-                  <div x-ref="content" class="whitespace-pre-wrap transition-all duration-300 relative text-left w-full" :class="expanded ? '' : 'max-h-32 overflow-hidden'">
-                    <span x-text="msg.content"></span>
-                  </div>
+                  <div x-ref="content" class="whitespace-pre-wrap transition-all duration-300 relative text-left w-full" :class="expanded ? '' : 'max-h-32 overflow-hidden'" x-text="msg.content"></div>
                   
                   <!-- Gradient Overlay & Hover Badge -->
                   <div x-show="isLong && !expanded" @click="expanded = true"
