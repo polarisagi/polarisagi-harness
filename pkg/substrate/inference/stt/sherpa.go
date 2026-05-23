@@ -47,14 +47,14 @@ func LoadLibrary(libPath string) error {
 		return loadErr
 	}
 
-	purego.RegisterLibFunc(&CreateOfflineRecognizer, lib, "CreateOfflineRecognizer")
-	purego.RegisterLibFunc(&DestroyOfflineRecognizer, lib, "DestroyOfflineRecognizer")
-	purego.RegisterLibFunc(&CreateOfflineStream, lib, "CreateOfflineStream")
-	purego.RegisterLibFunc(&DestroyOfflineStream, lib, "DestroyOfflineStream")
-	purego.RegisterLibFunc(&AcceptWaveformOffline, lib, "AcceptWaveformOffline")
-	purego.RegisterLibFunc(&DecodeOfflineStream, lib, "DecodeOfflineStream")
-	purego.RegisterLibFunc(&GetOfflineStreamResult, lib, "GetOfflineStreamResult")
-	purego.RegisterLibFunc(&DestroyOfflineRecognizerResult, lib, "DestroyOfflineRecognizerResult")
+	purego.RegisterLibFunc(&CreateOfflineRecognizer, lib, "SherpaOnnxCreateOfflineRecognizer")
+	purego.RegisterLibFunc(&DestroyOfflineRecognizer, lib, "SherpaOnnxDestroyOfflineRecognizer")
+	purego.RegisterLibFunc(&CreateOfflineStream, lib, "SherpaOnnxCreateOfflineStream")
+	purego.RegisterLibFunc(&DestroyOfflineStream, lib, "SherpaOnnxDestroyOfflineStream")
+	purego.RegisterLibFunc(&AcceptWaveformOffline, lib, "SherpaOnnxAcceptWaveformOffline")
+	purego.RegisterLibFunc(&DecodeOfflineStream, lib, "SherpaOnnxDecodeOfflineStream")
+	purego.RegisterLibFunc(&GetOfflineStreamResult, lib, "SherpaOnnxGetOfflineStreamResult")
+	purego.RegisterLibFunc(&DestroyOfflineRecognizerResult, lib, "SherpaOnnxDestroyOfflineRecognizerResult")
 
 	loaded = true
 	loadErr = nil
