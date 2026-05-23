@@ -26,32 +26,39 @@ var (
 )
 
 var (
-	loadOnce sync.Once
-	loadErr  error
-	loaded   bool
+	libMu   sync.Mutex
+	loadErr error
+	loaded  bool
 )
 
-// LoadLibrary 动态加载 sherpa-onnx C API (零 CGO)
+// LoadLibrary 动态加载 sherpa-onnx C API (零 CGO)。
+// 幂等可重入：已加载则直接返回 nil；加载失败后可再次尝试（下载完成后调用）。
 func LoadLibrary(libPath string) error {
-	loadOnce.Do(func() {
-		lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			loadErr = err
-			return
-		}
+	libMu.Lock()
+	defer libMu.Unlock()
 
-		purego.RegisterLibFunc(&CreateOfflineRecognizer, lib, "CreateOfflineRecognizer")
-		purego.RegisterLibFunc(&DestroyOfflineRecognizer, lib, "DestroyOfflineRecognizer")
-		purego.RegisterLibFunc(&CreateOfflineStream, lib, "CreateOfflineStream")
-		purego.RegisterLibFunc(&DestroyOfflineStream, lib, "DestroyOfflineStream")
-		purego.RegisterLibFunc(&AcceptWaveformOffline, lib, "AcceptWaveformOffline")
-		purego.RegisterLibFunc(&DecodeOfflineStream, lib, "DecodeOfflineStream")
-		purego.RegisterLibFunc(&GetOfflineStreamResult, lib, "GetOfflineStreamResult")
-		purego.RegisterLibFunc(&DestroyOfflineRecognizerResult, lib, "DestroyOfflineRecognizerResult")
+	if loaded {
+		return nil // 已成功加载，直接复用
+	}
 
-		loaded = true
-	})
-	return loadErr
+	lib, err := purego.Dlopen(libPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+	if err != nil {
+		loadErr = err
+		return loadErr
+	}
+
+	purego.RegisterLibFunc(&CreateOfflineRecognizer, lib, "CreateOfflineRecognizer")
+	purego.RegisterLibFunc(&DestroyOfflineRecognizer, lib, "DestroyOfflineRecognizer")
+	purego.RegisterLibFunc(&CreateOfflineStream, lib, "CreateOfflineStream")
+	purego.RegisterLibFunc(&DestroyOfflineStream, lib, "DestroyOfflineStream")
+	purego.RegisterLibFunc(&AcceptWaveformOffline, lib, "AcceptWaveformOffline")
+	purego.RegisterLibFunc(&DecodeOfflineStream, lib, "DecodeOfflineStream")
+	purego.RegisterLibFunc(&GetOfflineStreamResult, lib, "GetOfflineStreamResult")
+	purego.RegisterLibFunc(&DestroyOfflineRecognizerResult, lib, "DestroyOfflineRecognizerResult")
+
+	loaded = true
+	loadErr = nil
+	return nil
 }
 
 // Engine 包装了 STT 引擎实例
@@ -60,10 +67,13 @@ type Engine struct {
 	mu         sync.Mutex
 }
 
-// NewEngine 初始化引擎。由于缺少完整的 C Struct ABI 定义，此处先进行 Stub。
+// NewEngine 初始化引擎。
+// 库未加载时返回 recognizer=nil 的桩实例，Transcribe 内会走 mock 路径。
+// 这样 globalSTTEngine 始终非 nil，/v1/audio/transcriptions 不会返回 503。
 func NewEngine(modelDir string) (*Engine, error) {
 	if !loaded {
-		return nil, errors.New("sherpa-onnx library not loaded. Please install libsherpa-onnx-c-api")
+		// 库缺失时降级为 mock 引擎（Transcribe 走 !loaded 分支）
+		return &Engine{recognizer: nil}, nil
 	}
 
 	// TODO: 构造正确的 config 结构体传入 CreateOfflineRecognizer

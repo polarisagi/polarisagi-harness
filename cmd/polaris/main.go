@@ -539,6 +539,14 @@ func run() error { //nolint:gocyclo
 	})
 	httpServer.SetLogStore(logStore)
 	httpServer.SetEvalRunner(evalRunner)
+
+	// ─── 11.5 STT 引擎初始化（FeatureLocalSTT 门控，异步下载，不阻塞启动）────────
+	var sttGate *observability.FeatureGate
+	if autoConf != nil {
+		sttGate = autoConf.Gate
+	}
+	server.InitSTTEngine(ctx, dataDir, sttGate, safeHTTPClient, cfg.Inference.STT)
+
 	if err := httpServer.Start(); err != nil {
 		slog.Error("polaris: failed to start HTTP server", "err", err)
 		return err

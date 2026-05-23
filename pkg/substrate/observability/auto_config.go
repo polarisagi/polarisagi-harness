@@ -227,7 +227,7 @@ func (ac *AutoConfig) computeMemoryBudget(c *AutoConfigResult) {
 func (ac *AutoConfig) computeFeatureMap(c *AutoConfigResult) {
 	c.Features = make(map[Feature]FeatureState)
 	allFeatures := []Feature{
-		FeatureLocalInference, FeatureLocalEmbedding, FeatureQLoRA, FeaturePRMTraining,
+		FeatureLocalInference, FeatureLocalEmbedding, FeatureLocalSTT, FeatureQLoRA, FeaturePRMTraining,
 		FeatureL3Sandbox, FeatureL2Sandbox, FeatureGraphRAGFull,
 		FeatureSurrealDBCore, FeatureLargeLocalLLM,
 		FeatureLogicCollapse, FeatureComputerUseGUI, FeaturePresidioPII,

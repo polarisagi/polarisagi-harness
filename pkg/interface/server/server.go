@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mrlaoliai/polaris-harness/internal/config"
 	"github.com/mrlaoliai/polaris-harness/internal/protocol"
 	"github.com/mrlaoliai/polaris-harness/pkg/action"
 	"github.com/mrlaoliai/polaris-harness/pkg/cognition/kernel"
@@ -166,8 +167,6 @@ func NewServer(addr string, dataDir string, agent *kernel.Agent, bb protocol.Bla
 		s.dispatchChannelMessage(channelType, channelID, cfg, msg)
 	}, channels.WithSafeDialer(safeDialer))
 
-	initSTTEngine(dataDir)
-
 	mux := http.NewServeMux()
 
 	// API 端点
@@ -305,17 +304,49 @@ func NewServer(addr string, dataDir string, agent *kernel.Agent, bb protocol.Bla
 	return s
 }
 
-func initSTTEngine(dataDir string) {
+// InitSTTEngine 按 FeatureGate 门控初始化 STT 引擎。
+// 必须在 NewServer 之后、Start 之前调用（或与 Start 并发，mock 引擎已就绪）。
+// 流程：
+//  1. 立即注入 mock 引擎（保证 /v1/audio/transcriptions 不返回 503）
+//  2. 若门控禁用，仅打 Info 日志后返回
+//  3. 否则在后台 goroutine：EnsureAssets → LoadLibrary → NewEngine → 替换为真实引擎
+func InitSTTEngine(ctx context.Context, dataDir string, gate *observability.FeatureGate, httpClient *http.Client, sttConfig config.STTConfig) {
 	sttDir := filepath.Join(dataDir, "models", "sensevoice")
-	if err := os.MkdirAll(sttDir, 0755); err != nil {
-		slog.Warn("polaris-server: failed to create stt dir", "err", err)
+
+	// 立即设置 mock 引擎，保证接口可用
+	if mockEngine, err := stt.NewEngine(""); err == nil {
+		SetSTTEngine(mockEngine)
 	}
-	if err := stt.LoadLibrary(filepath.Join(sttDir, "libsherpa-onnx-c-api.dylib")); err != nil {
-		slog.Warn("polaris-server: stt purego library failed to load, stt will use mock", "err", err)
+
+	// 门控检查
+	if gate != nil && gate.State(observability.FeatureLocalSTT) == observability.FeatureDisabled {
+		slog.Info("stt: FeatureLocalSTT disabled by FeatureGate, using mock engine")
+		return
 	}
-	if engine, err := stt.NewEngine(sttDir); err == nil {
+
+	// 异步下载 + 重载：不阻塞启动路径
+	go func() {
+		if err := stt.EnsureAssets(ctx, sttDir, httpClient, sttConfig.SherpaVersion, sttConfig.SenseVoiceModelURL); err != nil {
+			slog.Warn("stt: asset download failed, keeping mock engine", "err", err)
+			return
+		}
+
+		libPath := filepath.Join(sttDir, stt.LibName())
+		if err := stt.LoadLibrary(libPath); err != nil {
+			slog.Warn("stt: library load failed after download, keeping mock engine", "err", err)
+			return
+		}
+
+		modelDir := stt.ModelDir(sttDir)
+		engine, err := stt.NewEngine(modelDir)
+		if err != nil {
+			slog.Warn("stt: engine init failed, keeping mock engine", "err", err)
+			return
+		}
+
 		SetSTTEngine(engine)
-	}
+		slog.Info("stt: real engine active (sherpa-onnx SenseVoice)", "model_dir", modelDir)
+	}()
 }
 
 func (s *Server) setupWebUI(mux *http.ServeMux) {

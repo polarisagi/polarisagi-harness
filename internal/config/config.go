@@ -36,6 +36,12 @@ type InferenceConfig struct {
 	StructuredOutput  string      `yaml:"structured_output"`
 	EmbedderDim       int         `yaml:"embedder_dim"` // vector dimension; changes on local_only toggle
 	Cache             CacheConfig `yaml:"cache"`
+	STT               STTConfig   `yaml:"stt"`
+}
+
+type STTConfig struct {
+	SherpaVersion      string `yaml:"sherpa_version"`
+	SenseVoiceModelURL string `yaml:"sense_voice_model_url"`
 }
 
 type CacheConfig struct {

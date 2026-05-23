@@ -13,6 +13,7 @@ type Feature string
 const (
 	FeatureLocalInference Feature = "local_inference" // M1: local model loading
 	FeatureLocalEmbedding Feature = "local_embedding" // M1: local embedding model
+	FeatureLocalSTT       Feature = "local_stt"       // M13: sherpa-onnx 本地语音识别（SenseVoice）
 	FeatureQLoRA          Feature = "qlora"           // M9: QLoRA gradient training
 	FeaturePRMTraining    Feature = "prm_training"    // M9: PRM trainer worker
 	FeatureL3Sandbox      Feature = "l3_sandbox"      // M7: microVM sandbox (Firecracker/VZ)
@@ -51,6 +52,7 @@ type featureRule struct {
 var featureRules = map[Feature]featureRule{
 	FeatureLocalInference: {MinTier: Tier1, MinMemoryMB: 2048, DegradeMemoryMB: 3072, Priority: 20, OSConstraint: ""},
 	FeatureLocalEmbedding: {MinTier: Tier0, MinMemoryMB: 256, DegradeMemoryMB: 512, Priority: 10, OSConstraint: ""},
+	FeatureLocalSTT:       {MinTier: Tier0, MinMemoryMB: 128, DegradeMemoryMB: 256, Priority: 12, OSConstraint: ""},
 	FeatureQLoRA:          {MinTier: Tier1, MinMemoryMB: 4096, DegradeMemoryMB: 6144, Priority: 50, OSConstraint: ""},
 	FeaturePRMTraining:    {MinTier: Tier2, MinMemoryMB: 8192, DegradeMemoryMB: 12288, Priority: 60, OSConstraint: ""},
 	FeatureL3Sandbox:      {MinTier: Tier0, MinMemoryMB: 512, DegradeMemoryMB: 768, Priority: 30},
@@ -134,6 +136,7 @@ func (fg *FeatureGate) reassessAll() {
 		FeatureL2Sandbox,
 		FeatureSurrealDBCore,
 		FeatureLocalEmbedding,
+		FeatureLocalSTT,
 		FeatureLocalInference,
 		FeatureWebUI,
 		FeaturePresidioPII,
@@ -274,6 +277,7 @@ func (fg *FeatureGate) DegradationOrder() []Feature {
 		FeatureL3Sandbox,       // 30: microVM
 		FeatureLocalInference,  // 20: local model
 		FeatureWebUI,           // 15: Web dashboard
+		FeatureLocalSTT,        // 12: 本地 STT（sherpa-onnx）
 		FeatureLocalEmbedding,  // 10: embedding model
 		FeatureSurrealDBCore,   // 8: 认知轴存储，次于 L2Sandbox 降级
 		FeatureL2Sandbox,       // 5: Wasmtime, last to disable

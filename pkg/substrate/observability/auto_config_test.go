@@ -400,8 +400,8 @@ func TestAutoConfig_FeatureMap_AllFeatures(t *testing.T) {
 	ac := &AutoConfig{Probe: hp, Guard: guard, Gate: fg}
 	ac.computeConfig()
 
-	// 14 features: 移除 FeatureTantivyFTS + FeatureCozoDBGraph，新增 FeatureSurrealDBCore
-	expectedFeatures := 14
+	// 15 features: 新增 FeatureLocalSTT（本地 STT，sherpa-onnx SenseVoice）
+	expectedFeatures := 15
 	if len(ac.Config.Features) != expectedFeatures {
 		t.Errorf("FeatureMap size: got %d, want %d", len(ac.Config.Features), expectedFeatures)
 	}
@@ -421,8 +421,8 @@ func TestFeatureGate_DegradationOrder_Complete(t *testing.T) {
 	fg := NewFeatureGate(hp, guard)
 
 	order := fg.DegradationOrder()
-	if len(order) != 14 {
-		t.Errorf("DegradationOrder length: got %d, want 14", len(order))
+	if len(order) != 15 {
+		t.Errorf("DegradationOrder length: got %d, want 15", len(order))
 	}
 	// PRM should be first to degrade
 	if order[0] != FeaturePRMTraining {
