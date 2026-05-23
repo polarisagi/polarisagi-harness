@@ -1,17 +1,20 @@
 <!-- ─────── Cron 定时任务页 ────────────────────────── -->
-    <div x-show="$store.nav.page === 'cron'" x-cloak class="page-container">
-      <div class="page-header">
+    <div x-show="$store.nav.page === 'cron'" x-cloak class="flex-1 min-h-0 overflow-y-auto p-6">
+      <div class="flex items-center justify-between mb-6">
         <div>
-          <div class="page-title" x-text="$store.i18n.t('cron_title')"></div>
-          <div class="page-subtitle" x-text="$store.i18n.t('cron_subtitle')"></div>
+          <div class="text-2xl font-bold" x-text="$store.i18n.t('cron_title')"></div>
+          <div class="text-sm text-base-content/60 mt-1" x-text="$store.i18n.t('cron_subtitle')"></div>
         </div>
         <button class="btn btn-primary btn-sm" @click="$store.cron.openCreate()"
                 x-text="$store.i18n.t('cron_add')"></button>
       </div>
 
-      <div x-show="$store.cron.loading" class="empty-state" x-text="$store.i18n.t('loading')"></div>
+      <div x-show="$store.cron.loading" class="flex flex-col items-center justify-center py-16 text-base-content/50 text-center gap-4">
+  <span class="loading loading-spinner loading-md text-primary"></span>
+  <span class="mt-2 text-sm" x-text="$store.i18n.t('loading')"></span>
+</div>
 
-      <div class="empty-state" x-show="!$store.cron.loading && $store.cron.list.length === 0">
+      <div class="flex flex-col items-center justify-center py-16 text-base-content/50 text-center gap-4" x-show="!$store.cron.loading && $store.cron.list.length === 0">
         <svg fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
         </svg>
@@ -21,7 +24,7 @@
 
       <div class="flex flex-col gap-3">
         <template x-for="job in $store.cron.list" :key="job.id">
-          <div class="provider-card" :class="{ disabled: !job.enabled }">
+          <div class="card bg-base-200 shadow-sm border border-base-300 hover:border-primary transition-colors p-5" :class="{ disabled: !job.enabled }">
             <div class="flex items-center justify-between mb-2">
               <div class="flex items-center gap-3">
                 <label class="cursor-pointer" @click.stop>
@@ -35,7 +38,7 @@
               <div class="flex gap-2">
                 <button class="btn btn-ghost btn-sm" @click="$store.cron.openEdit(job)"
                         x-text="$store.i18n.t('cron_edit')"></button>
-                <button class="btn btn-danger btn-sm" @click="$store.cron.del(job.id)"
+                <button class="btn btn-error btn-sm" @click="$store.cron.del(job.id)"
                         x-text="$store.i18n.t('cron_delete')"></button>
               </div>
             </div>

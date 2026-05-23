@@ -20,7 +20,7 @@
           <div class="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3 mb-5">
 
             <!-- Agent 状态卡片 -->
-            <div class="metric-card col-span-2">
+            <div class="card bg-base-200 shadow-sm border border-base-300 p-5 col-span-2">
               <div class="metric-label text-[13px] font-semibold mb-2.5" x-text="$store.i18n.t('agents_status')"></div>
               <div class="grid grid-cols-2 gap-3">
                 <div>
@@ -55,25 +55,25 @@
             </div>
 
             <!-- 统计卡片 -->
-            <div class="metric-card">
+            <div class="card bg-base-200 shadow-sm border border-base-300 p-5">
               <div class="metric-label" x-text="$store.i18n.t('agents_tools')"></div>
               <div class="metric-value text-xl" x-text="$store.agents.tools.length"></div>
               <div class="text-xs text-base-content/70 mt-1" x-text="$store.i18n.t('agents_tools_count')"></div>
             </div>
 
-            <div class="metric-card">
+            <div class="card bg-base-200 shadow-sm border border-base-300 p-5">
               <div class="metric-label" x-text="$store.i18n.t('agents_skills')"></div>
               <div class="metric-value text-xl" x-text="$store.agents.skills.length"></div>
               <div class="text-xs text-base-content/70 mt-1" x-text="$store.i18n.t('agents_skills_count')"></div>
             </div>
 
-            <div class="metric-card">
+            <div class="card bg-base-200 shadow-sm border border-base-300 p-5">
               <div class="metric-label" x-text="$store.i18n.t('agents_mcp')"></div>
               <div class="metric-value text-xl" x-text="$store.agents.mcpServers.length"></div>
               <div class="text-xs text-base-content/70 mt-1" x-text="$store.i18n.t('agents_mcp_count')"></div>
             </div>
 
-            <div class="metric-card">
+            <div class="card bg-base-200 shadow-sm border border-base-300 p-5">
               <div class="metric-label" x-text="$store.i18n.t('agents_channels')"></div>
               <div class="metric-value text-xl" x-text="$store.agents.channels.filter(c=>c.enabled).length"></div>
               <div class="text-xs text-base-content/70 mt-1" x-text="$store.i18n.t('agents_channels_count')"></div>
@@ -149,7 +149,7 @@
     </div><!-- /agents -->
 
     <!-- ─────── 实时日志页 ─────────────────────────────── -->
-    <div x-show="$store.nav.page === 'logs'" x-cloak class="page-container"
+    <div x-show="$store.nav.page === 'logs'" x-cloak class="flex-1 min-h-0 overflow-y-auto p-6"
          x-data="{
            _el: null,
            init() {
@@ -166,10 +166,10 @@
              if (this._el) this._el.scrollTop = this._el.scrollHeight
            }
          }">
-      <div class="page-header">
+      <div class="flex items-center justify-between mb-6">
         <div>
-          <div class="page-title" x-text="$store.i18n.t('logs_title')"></div>
-          <div class="page-subtitle" x-text="$store.i18n.t('logs_subtitle')"></div>
+          <div class="text-2xl font-bold" x-text="$store.i18n.t('logs_title')"></div>
+          <div class="text-sm text-base-content/60 mt-1" x-text="$store.i18n.t('logs_subtitle')"></div>
         </div>
         <div style="display:flex;gap:8px;align-items:center">
           <!-- 连接状态 -->
@@ -220,7 +220,7 @@
       <!-- 日志条目列表 -->
       <div style="margin-top:4px;border:1px solid var(--color-border);border-radius:8px;overflow:hidden;flex:1;display:flex;flex-direction:column;min-height:200px">
         <!-- 空状态 -->
-        <div class="empty-state" x-show="$store.logs.entries.length === 0"
+        <div class="flex flex-col items-center justify-center py-16 text-base-content/50 text-center gap-4" x-show="$store.logs.entries.length === 0"
              style="min-height:200px;justify-content:center">
           <svg fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24" style="width:40px;height:40px">
             <path stroke-linecap="round" stroke-linejoin="round"
@@ -269,11 +269,11 @@
     </div><!-- /logs -->
 
     <!-- ─────── 运行时配置页（只读视图） ────────────────── -->
-    <div x-show="$store.nav.page === 'config'" x-cloak class="page-container">
-      <div class="page-header">
+    <div x-show="$store.nav.page === 'config'" x-cloak class="flex-1 min-h-0 overflow-y-auto p-6">
+      <div class="flex items-center justify-between mb-6">
         <div>
-          <div class="page-title" x-text="$store.i18n.t('config_title')"></div>
-          <div class="page-subtitle" x-text="$store.i18n.t('config_subtitle')"></div>
+          <div class="text-2xl font-bold" x-text="$store.i18n.t('config_title')"></div>
+          <div class="text-sm text-base-content/60 mt-1" x-text="$store.i18n.t('config_subtitle')"></div>
         </div>
         <div style="display:flex;gap:8px;align-items:center">
           <span style="font-size:11px;color:var(--color-text-dim)" x-show="$store.config.path"
@@ -284,7 +284,7 @@
         </div>
       </div>
 
-      <div x-show="$store.config.loading" class="empty-state">
+      <div x-show="$store.config.loading" class="flex flex-col items-center justify-center py-16 text-base-content/50 text-center gap-4">
         <div class="spinner" style="width:32px;height:32px;margin:0 auto 12px"></div>
         <p x-text="$store.i18n.t('loading')"></p>
       </div>

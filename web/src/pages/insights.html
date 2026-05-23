@@ -15,7 +15,10 @@
         </div>
       </div>
 
-      <div x-show="$store.insights.loading" class="flex flex-col items-center justify-center p-12 text-base-content/50" x-text="$store.i18n.t('loading')"></div>
+      <div x-show="$store.insights.loading" class="flex flex-col items-center justify-center p-12 text-base-content/50">
+  <span class="loading loading-spinner loading-md text-primary"></span>
+  <span class="mt-2 text-sm" x-text="$store.i18n.t('loading')"></span>
+</div>
 
       <template x-if="$store.insights.data && !$store.insights.loading">
         <div>

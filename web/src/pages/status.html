@@ -1,5 +1,5 @@
 <!-- 状态页 -->
-    <div x-show="$store.nav.page === 'status'" x-cloak class="page-container"
+    <div x-show="$store.nav.page === 'status'" x-cloak class="flex-1 min-h-0 overflow-y-auto p-6"
          x-data="{
            metrics: {},
            async load() {
@@ -10,14 +10,14 @@
            },
            init() { this.load(); setInterval(() => this.load(), 10000) }
          }">
-      <div class="page-header">
-        <div class="page-title" x-text="$store.i18n.t('status_title')"></div>
-        <div class="page-subtitle" x-text="$store.i18n.t('status_subtitle')"></div>
+      <div class="flex items-center justify-between mb-6">
+        <div class="text-2xl font-bold" x-text="$store.i18n.t('status_title')"></div>
+        <div class="text-sm text-base-content/60 mt-1" x-text="$store.i18n.t('status_subtitle')"></div>
       </div>
 
       <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mb-6">
 
-        <div class="metric-card">
+        <div class="card bg-base-200 shadow-sm border border-base-300 p-5">
           <div class="metric-label" x-text="$store.i18n.t('status_conn')"></div>
           <div class="metric-value" class="text-base mt-2 flex items-center gap-2">
             <span class="status-dot" :class="$store.statusBar.connected ? 'ok' : 'error'"></span>
@@ -25,13 +25,13 @@
           </div>
         </div>
 
-        <div class="metric-card">
+        <div class="card bg-base-200 shadow-sm border border-base-300 p-5">
           <div class="metric-label" x-text="$store.i18n.t('status_model')"></div>
           <div class="metric-value" class="text-sm mt-2 break-all"
                x-text="$store.statusBar.modelID || metrics.model_id || '—'"></div>
         </div>
 
-        <div class="metric-card">
+        <div class="card bg-base-200 shadow-sm border border-base-300 p-5">
           <div class="metric-label" x-text="$store.i18n.t('status_token')"></div>
           <div class="metric-value" x-text="$store.statusBar.tokenUsed.toLocaleString()"></div>
           <div class="metric-bar">
@@ -43,7 +43,7 @@
                x-text="`/ ${$store.statusBar.tokenLimit.toLocaleString()}  (${Math.round($store.statusBar.tokenPct*100)}%)`"></div>
         </div>
 
-        <div class="metric-card">
+        <div class="card bg-base-200 shadow-sm border border-base-300 p-5">
           <div class="metric-label" x-text="$store.i18n.t('status_memory')"></div>
           <div class="metric-value" x-text="`${$store.statusBar.memoryMB} MB`"></div>
           <div class="metric-bar">
@@ -55,12 +55,12 @@
                x-text="`/ ${$store.statusBar.memoryLimitMB} MB  (${Math.round($store.statusBar.memPct*100)}%)`"></div>
         </div>
 
-        <div class="metric-card">
+        <div class="card bg-base-200 shadow-sm border border-base-300 p-5">
           <div class="metric-label" x-text="$store.i18n.t('status_cost')"></div>
           <div class="metric-value" x-text="`¥ ${$store.statusBar.costCNY.toFixed(4)}`"></div>
         </div>
 
-        <div class="metric-card">
+        <div class="card bg-base-200 shadow-sm border border-base-300 p-5">
           <div class="metric-label" x-text="$store.i18n.t('status_service')"></div>
           <div class="metric-value" class="text-sm mt-2">
             <span x-show="$store.statusBar.sealed" class="text-error font-bold"

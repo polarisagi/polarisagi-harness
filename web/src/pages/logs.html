@@ -1,5 +1,5 @@
 <!-- ─────── 实时日志页 ─────────────────────────────── -->
-    <div x-show="$store.nav.page === 'logs'" x-cloak class="page-container"
+    <div x-show="$store.nav.page === 'logs'" x-cloak class="flex-1 min-h-0 overflow-y-auto p-6"
          x-data="{
            _el: null,
            init() {
@@ -16,10 +16,10 @@
              if (this._el) this._el.scrollTop = this._el.scrollHeight
            }
          }">
-      <div class="page-header">
+      <div class="flex items-center justify-between mb-6">
         <div>
-          <div class="page-title" x-text="$store.i18n.t('logs_title')"></div>
-          <div class="page-subtitle" x-text="$store.i18n.t('logs_subtitle')"></div>
+          <div class="text-2xl font-bold" x-text="$store.i18n.t('logs_title')"></div>
+          <div class="text-sm text-base-content/60 mt-1" x-text="$store.i18n.t('logs_subtitle')"></div>
         </div>
         <div class="flex gap-2 items-center">
           <!-- 连接状态 -->
@@ -70,7 +70,7 @@
       <!-- 日志条目列表 -->
       <div class="mt-1 border border-base-300 rounded-box overflow-hidden flex-1 flex flex-col min-h-[200px]">
         <!-- 空状态 -->
-        <div class="empty-state" x-show="$store.logs.entries.length === 0"
+        <div class="flex flex-col items-center justify-center py-16 text-base-content/50 text-center gap-4" x-show="$store.logs.entries.length === 0"
              class="min-h-[200px] justify-center">
           <svg fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24" class="w-10 h-10">
             <path stroke-linecap="round" stroke-linejoin="round"

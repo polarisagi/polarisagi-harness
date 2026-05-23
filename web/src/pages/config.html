@@ -1,5 +1,5 @@
 <!-- ─────── 运行时配置页（只读视图） ────────────────── -->
-    <div x-show="$store.nav.page === 'config'" x-cloak class="page-container">
+    <div x-show="$store.nav.page === 'config'" x-cloak class="flex-1 min-h-0 overflow-y-auto p-6">
       <div class="flex justify-between items-start mb-6">
         <div>
           <div class="text-2xl font-bold mb-1" x-text="$store.i18n.t('config_title')"></div>
@@ -38,11 +38,11 @@
     </div><!-- /config -->
 
     <!-- ─────── Insights 用量洞察页 ──────────────────── -->
-    <div x-show="$store.nav.page === 'insights'" x-cloak class="page-container">
-      <div class="page-header">
+    <div x-show="$store.nav.page === 'insights'" x-cloak class="flex-1 min-h-0 overflow-y-auto p-6">
+      <div class="flex items-center justify-between mb-6">
         <div>
-          <div class="page-title" x-text="$store.i18n.t('insights_title')"></div>
-          <div class="page-subtitle" x-text="$store.i18n.t('insights_subtitle')"></div>
+          <div class="text-2xl font-bold" x-text="$store.i18n.t('insights_title')"></div>
+          <div class="text-sm text-base-content/60 mt-1" x-text="$store.i18n.t('insights_subtitle')"></div>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
           <select name="insights-days" aria-label="统计周期" class="select select-bordered select-sm w-auto"
@@ -54,57 +54,60 @@
         </div>
       </div>
 
-      <div x-show="$store.insights.loading" class="empty-state" x-text="$store.i18n.t('loading')"></div>
+      <div x-show="$store.insights.loading" class="flex flex-col items-center justify-center py-16 text-base-content/50 text-center gap-4">
+  <span class="loading loading-spinner loading-md text-primary"></span>
+  <span class="mt-2 text-sm" x-text="$store.i18n.t('loading')"></span>
+</div>
 
       <template x-if="$store.insights.data && !$store.insights.loading">
         <div>
           <!-- 数字汇总卡片 -->
-          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:20px">
-            <div class="metric-card">
-              <div class="metric-label" x-text="$store.i18n.t('insights_total_sessions')"></div>
-              <div class="metric-value" x-text="$store.insights.data.total_sessions.toLocaleString()"></div>
+          <div class="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3 mb-5">
+            <div class="card bg-base-200 shadow-sm border border-base-300 p-5">
+              <div class="text-xs text-base-content/60 font-medium mb-1" x-text="$store.i18n.t('insights_total_sessions')"></div>
+              <div class="text-2xl font-bold" x-text="$store.insights.data.total_sessions.toLocaleString()"></div>
             </div>
-            <div class="metric-card">
-              <div class="metric-label" x-text="$store.i18n.t('insights_total_messages')"></div>
-              <div class="metric-value" x-text="$store.insights.data.total_messages.toLocaleString()"></div>
+            <div class="card bg-base-200 shadow-sm border border-base-300 p-5">
+              <div class="text-xs text-base-content/60 font-medium mb-1" x-text="$store.i18n.t('insights_total_messages')"></div>
+              <div class="text-2xl font-bold" x-text="$store.insights.data.total_messages.toLocaleString()"></div>
             </div>
-            <div class="metric-card">
-              <div class="metric-label" x-text="`${$store.insights.data.period_days}天 会话`"></div>
-              <div class="metric-value" x-text="$store.insights.data.period_sessions.toLocaleString()"></div>
+            <div class="card bg-base-200 shadow-sm border border-base-300 p-5">
+              <div class="text-xs text-base-content/60 font-medium mb-1" x-text="`${$store.insights.data.period_days}天 会话`"></div>
+              <div class="text-2xl font-bold" x-text="$store.insights.data.period_sessions.toLocaleString()"></div>
             </div>
-            <div class="metric-card">
-              <div class="metric-label" x-text="`${$store.insights.data.period_days}天 消息`"></div>
-              <div class="metric-value" x-text="$store.insights.data.period_messages.toLocaleString()"></div>
+            <div class="card bg-base-200 shadow-sm border border-base-300 p-5">
+              <div class="text-xs text-base-content/60 font-medium mb-1" x-text="`${$store.insights.data.period_days}天 消息`"></div>
+              <div class="text-2xl font-bold" x-text="$store.insights.data.period_messages.toLocaleString()"></div>
             </div>
           </div>
 
           <!-- 角色分布 -->
-          <div style="background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:10px;padding:16px;margin-bottom:16px">
-            <div style="font-weight:600;font-size:13px;margin-bottom:12px" x-text="$store.i18n.t('insights_role_breakdown')"></div>
-            <div style="display:flex;gap:16px;flex-wrap:wrap">
+          <div class="bg-base-200 border border-base-300 rounded-box p-4 mb-4">
+            <div class="font-semibold text-sm mb-3" x-text="$store.i18n.t('insights_role_breakdown')"></div>
+            <div class="flex gap-4 flex-wrap">
               <template x-for="[role, cnt] in Object.entries($store.insights.data.role_breakdown || {})" :key="role">
-                <div style="display:flex;align-items:center;gap:6px">
-                  <span style="font-size:12px;padding:2px 8px;border-radius:12px;background:var(--color-surface)"
+                <div class="flex items-center gap-1.5">
+                  <span class="text-xs px-2 py-0.5 rounded-full bg-base-100 border border-base-300"
                         x-text="role"></span>
-                  <span style="font-weight:600" x-text="cnt.toLocaleString()"></span>
+                  <span class="font-semibold" x-text="cnt.toLocaleString()"></span>
                 </div>
               </template>
             </div>
           </div>
 
           <!-- 每日趋势简易条形图 -->
-          <div style="background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:10px;padding:16px;margin-bottom:16px">
-            <div style="font-weight:600;font-size:13px;margin-bottom:12px" x-text="$store.i18n.t('insights_daily_trend')"></div>
+          <div class="bg-base-200 border border-base-300 rounded-box p-4 mb-4">
+            <div class="font-semibold text-sm mb-3" x-text="$store.i18n.t('insights_daily_trend')"></div>
             <div x-show="$store.insights.data.daily_trend.length === 0"
-                 style="color:var(--color-text-dim);font-size:12px">暂无数据</div>
-            <div style="display:flex;align-items:flex-end;gap:4px;height:80px;overflow-x:auto">
+                 class="text-base-content/60 text-xs">暂无数据</div>
+            <div class="flex items-end gap-1 h-20 overflow-x-auto">
               <template x-for="d in $store.insights.data.daily_trend" :key="d.day">
-                <div style="display:flex;flex-direction:column;align-items:center;gap:2px;min-width:28px">
-                  <div style="font-size:9px;color:var(--color-text-dim)" x-text="d.count"></div>
-                  <div style="background:var(--color-primary);border-radius:3px 3px 0 0;width:18px;transition:height .2s"
+                <div class="flex flex-col items-center gap-0.5 min-w-[28px]">
+                  <div class="text-[9px] text-base-content/60" x-text="d.count"></div>
+                  <div class="bg-primary rounded-t-sm w-[18px] transition-all duration-200"
                        :style="`height:${Math.round(d.count/$store.insights.maxDailyCount()*64)+4}px`"
                        :title="`${d.day}: ${d.count} 条`"></div>
-                  <div style="font-size:9px;color:var(--color-text-dim);writing-mode:vertical-rl;text-orientation:mixed"
+                  <div class="text-[9px] text-base-content/60 writing-vertical"
                        x-text="d.day.slice(5)"></div>
                 </div>
               </template>
@@ -112,19 +115,19 @@
           </div>
 
           <!-- 最活跃会话 -->
-          <div style="background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:10px;padding:16px">
-            <div style="font-weight:600;font-size:13px;margin-bottom:12px" x-text="$store.i18n.t('insights_top_sessions')"></div>
+          <div class="bg-base-200 border border-base-300 rounded-box p-4">
+            <div class="font-semibold text-sm mb-3" x-text="$store.i18n.t('insights_top_sessions')"></div>
             <div x-show="$store.insights.data.top_sessions.length === 0"
-                 style="color:var(--color-text-dim);font-size:12px">暂无数据</div>
-            <div style="display:flex;flex-direction:column;gap:6px">
+                 class="text-base-content/60 text-xs">暂无数据</div>
+            <div class="flex flex-col gap-1.5">
               <template x-for="(sess, i) in $store.insights.data.top_sessions" :key="sess.id">
-                <div style="display:flex;align-items:center;gap:10px;cursor:pointer"
+                <div class="flex items-center gap-2.5 cursor-pointer hover:bg-base-300/50 p-1 rounded transition-colors"
                      @click="Alpine.store('chat').loadSession(sess.id); Alpine.store('nav').navigate('chat')">
-                  <span style="font-size:11px;color:var(--color-text-dim);width:20px;text-align:right"
+                  <span class="text-[11px] text-base-content/60 w-5 text-right font-mono"
                         x-text="i+1"></span>
-                  <div style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px"
+                  <div class="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-xs"
                        x-text="sess.title || sess.id.slice(0,20)+'…'"></div>
-                  <span style="font-size:11px;padding:2px 8px;background:var(--color-surface);border-radius:10px;flex-shrink:0"
+                  <span class="text-[11px] px-2 py-0.5 bg-base-100 border border-base-300 rounded-full shrink-0"
                         x-text="`${sess.message_count} 条`"></span>
                 </div>
               </template>
@@ -133,18 +136,18 @@
         </div>
       </template>
       <!-- Trajectory 导出 -->
-      <div style="margin-top:16px;padding:14px 16px;background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:10px;display:flex;align-items:center;justify-content:space-between">
+      <div class="mt-4 p-4 bg-base-200 border border-base-300 rounded-box flex items-center justify-between">
         <div>
-          <div style="font-weight:600;font-size:13px">训练数据导出</div>
-          <div style="font-size:12px;color:var(--color-text-dim);margin-top:2px">将高质量对话导出为 SFT 微调数据集</div>
+          <div class="font-semibold text-sm">训练数据导出</div>
+          <div class="text-xs text-base-content/60 mt-0.5">将高质量对话导出为 SFT 微调数据集</div>
         </div>
-        <div style="display:flex;gap:8px" x-data="{fmt:'sharegpt',days:30}">
+        <div class="flex gap-2" x-data="{fmt:'sharegpt',days:30}">
           <select name="export-format" aria-label="导出格式" class="select select-bordered select-sm w-auto text-xs" x-model="fmt">
             <option value="sharegpt">ShareGPT</option>
             <option value="openai">OpenAI</option>
             <option value="raw">Raw JSON</option>
           </select>
-          <a class="btn btn-ghost btn-sm"
+          <a class="btn btn-primary btn-sm"
              :href="`/v1/export/trajectories?format=${fmt}&days=${$store.insights.days}&min_turns=2`"
              download="trajectories.jsonl">导出 JSONL</a>
         </div>

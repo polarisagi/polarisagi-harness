@@ -1,9 +1,9 @@
-<div x-show="$store.nav.page === 'computer'" x-cloak x-data="{ store: $store.computer }" class="page-container flex flex-col" style="overflow:hidden;padding:0">
+<div x-show="$store.nav.page === 'computer'" x-cloak x-data="{ store: $store.computer }" class="flex-1 min-h-0 overflow-y-auto p-6 flex flex-col" style="overflow:hidden;padding:0">
     <div style="flex:1;min-height:0;overflow-y:auto;padding:24px">
         <div class="max-w-4xl mx-auto w-full flex flex-col flex-1 space-y-6">
             <div class="page-header border-b-0 pb-0">
                 <div>
-                    <div class="page-title" x-text="$store.i18n.t('computer_control_title') || '电脑操控'"></div>
+                    <div class="text-2xl font-bold" x-text="$store.i18n.t('computer_control_title') || '电脑操控'"></div>
                     <div class="page-subtitle mt-1" x-text="$store.i18n.t('computer_control_desc') || '控制 Agent 如何使用您电脑上的应用程序和浏览器'"></div>
                 </div>
             </div>

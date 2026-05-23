@@ -1,13 +1,13 @@
 <!-- 技能页（已安装技能列表）-->
-    <div x-show="$store.nav.page === 'skills'" x-cloak class="page-container flex flex-col overflow-hidden p-0">
+    <div x-show="$store.nav.page === 'skills'" x-cloak class="flex-1 min-h-0 overflow-y-auto p-6 flex flex-col overflow-hidden p-0">
 
       <div class="flex-1 min-h-0 overflow-y-auto p-6">
         <div class="max-w-4xl mx-auto w-full flex flex-col flex-1">
 
-        <div class="page-header">
+        <div class="flex items-center justify-between mb-6">
           <div>
-            <div class="page-title" x-text="$store.i18n.t('skills_title')"></div>
-            <div class="page-subtitle">
+            <div class="text-2xl font-bold" x-text="$store.i18n.t('skills_title')"></div>
+            <div class="text-sm text-base-content/60 mt-1">
               <span x-text="$store.i18n.t('skills_installed_prefix') + $store.skills.list.length + $store.i18n.t('skills_installed_suffix')"></span>
             </div>
           </div>
@@ -19,12 +19,12 @@
           </div>
         </div>
 
-        <div x-show="$store.skills.loading" class="empty-state">
+        <div x-show="$store.skills.loading" class="flex flex-col items-center justify-center py-16 text-base-content/50 text-center gap-4">
           <div class="loading loading-spinner loading-lg mx-auto mb-3 block"></div>
           <p x-text="$store.i18n.t('loading')"></p>
         </div>
 
-        <div class="empty-state" x-show="!$store.skills.loading && $store.skills.list.length === 0">
+        <div class="flex flex-col items-center justify-center py-16 text-base-content/50 text-center gap-4" x-show="!$store.skills.loading && $store.skills.list.length === 0">
           <svg fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z"/>
           </svg>
