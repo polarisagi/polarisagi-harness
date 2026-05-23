@@ -2,6 +2,8 @@ package stt
 
 import (
 	"errors"
+	"path/filepath"
+	"runtime"
 	"sync"
 	"unsafe"
 
@@ -69,19 +71,64 @@ type Engine struct {
 
 // NewEngine 初始化引擎。
 // 库未加载时返回 recognizer=nil 的桩实例，Transcribe 内会走 mock 路径。
-// 这样 globalSTTEngine 始终非 nil，/v1/audio/transcriptions 不会返回 503。
 func NewEngine(modelDir string) (*Engine, error) {
 	if !loaded {
-		// 库缺失时降级为 mock 引擎（Transcribe 走 !loaded 分支）
 		return &Engine{recognizer: nil}, nil
 	}
 
-	// TODO: 构造正确的 config 结构体传入 CreateOfflineRecognizer
-	// config := buildConfig(modelDir)
-	// rec := CreateOfflineRecognizer(config)
+	// 动态构造 SherpaOnnxOfflineRecognizerConfig (v1.13.2 布局)
+	const (
+		ConfigSize                    = 608
+		OffsetFeatSampleRate          = 0
+		OffsetFeatFeatureDim          = 4
+		OffsetModelTokens             = 104
+		OffsetModelNumThreads         = 112
+		OffsetModelDebug              = 116
+		OffsetModelProvider           = 120
+		OffsetModelSenseVoiceModel    = 160
+		OffsetModelSenseVoiceLanguage = 168
+		OffsetModelSenseVoiceUseItn   = 176
+		OffsetDecodingMethod          = 528
+	)
+
+	configData := make([]byte, ConfigSize)
+	cfgPtr := uintptr(unsafe.Pointer(&configData[0]))
+
+	var refs [][]byte
+	cString := func(s string) uintptr {
+		b := append([]byte(s), 0)
+		refs = append(refs, b)
+		return uintptr(unsafe.Pointer(&b[0]))
+	}
+	defer runtime.KeepAlive(refs)
+	defer runtime.KeepAlive(configData)
+
+	// FeatConfig
+	*(*int32)(unsafe.Pointer(cfgPtr + OffsetFeatSampleRate)) = 16000
+	*(*int32)(unsafe.Pointer(cfgPtr + OffsetFeatFeatureDim)) = 50
+
+	// ModelConfig (SenseVoice)
+	modelPath := filepath.Join(modelDir, "model.int8.onnx")
+	tokensPath := filepath.Join(modelDir, "tokens.txt")
+	*(*uintptr)(unsafe.Pointer(cfgPtr + OffsetModelSenseVoiceModel)) = cString(modelPath)
+	*(*uintptr)(unsafe.Pointer(cfgPtr + OffsetModelSenseVoiceLanguage)) = cString("auto")
+	*(*int32)(unsafe.Pointer(cfgPtr + OffsetModelSenseVoiceUseItn)) = 1
+	*(*uintptr)(unsafe.Pointer(cfgPtr + OffsetModelTokens)) = cString(tokensPath)
+	*(*int32)(unsafe.Pointer(cfgPtr + OffsetModelNumThreads)) = 1
+	*(*int32)(unsafe.Pointer(cfgPtr + OffsetModelDebug)) = 0
+	*(*uintptr)(unsafe.Pointer(cfgPtr + OffsetModelProvider)) = cString("cpu")
+
+	// DecodingMethod
+	*(*uintptr)(unsafe.Pointer(cfgPtr + OffsetDecodingMethod)) = cString("greedy_search")
+
+	// 调用 C API
+	rec := CreateOfflineRecognizer(cfgPtr)
+	if rec == nil {
+		return nil, errors.New("failed to create offline recognizer")
+	}
 
 	return &Engine{
-		recognizer: nil,
+		recognizer: rec,
 	}, nil
 }
 
