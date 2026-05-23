@@ -9,7 +9,8 @@
 
 ## 1. 背景
 
-OpenAI Codex 桌面版在七个维度定义了 AI Agent 操作系统的能力边界：Plugin（技能+MCP+App 打包分发）、MCP 增强（OAuth/per-tool 审批）、Skills（agentskills.io 标准 SKILL.md 格式）、Subagents（TOML 自定义 Agent + CSV batch fan-out）、Hooks（事件驱动脚本注入）、Rules（prefix_rule DSL）、Permissions（文件系统+网络权限 profile）。
+OpenAI Codex 官方文档定义了 AI Agent 操作系统能力的行业标准共识：**Plugin = Skills (可复用工作流) + App Integrations (外部应用接入, 即 MCP)**。
+在这一共识下，Codex 在七个维度定义了能力边界：Plugin（聚合分发载体）、MCP 增强（OAuth/per-tool 审批）、Skills（agentskills.io 标准 SKILL.md 格式）、Subagents（TOML 自定义 Agent + CSV batch fan-out）、Hooks（事件驱动脚本注入）、Rules（prefix_rule DSL）、Permissions（文件系统+网络权限 profile）。
 
 Polaris 已有 M6（技能库）、M7（工具/MCP/沙箱）、M8（多 Agent 编排）、M11（Cedar 策略/安全）覆盖了对应的底层能力，但缺少以下用户面层：
 
