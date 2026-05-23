@@ -108,9 +108,9 @@ func downloadExtractLib(ctx context.Context, client *http.Client, url, destDir, 
 	defer resp.Body.Close()
 
 	return extractTarBz2(resp.Body, func(name string) (string, bool) {
-		// tarball 内路径形如: sherpa-onnx-v1.10.29-osx-arm64-shared/lib/libsherpa-onnx-c-api.dylib
-		if strings.HasSuffix(name, "/"+libFilename) || name == libFilename {
-			return filepath.Join(destDir, libFilename), true
+		// tarball 内有 libsherpa-onnx-c-api 以及依赖的 libonnxruntime 等
+		if strings.HasSuffix(name, ".dylib") || strings.HasSuffix(name, ".so") || strings.HasSuffix(name, ".dll") {
+			return filepath.Join(destDir, filepath.Base(name)), true
 		}
 		return "", false
 	})
