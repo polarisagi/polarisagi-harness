@@ -90,7 +90,7 @@
                      x-data="{ expanded: false, isLong: false }"
                      x-init="$nextTick(() => { if($refs.content) isLong = $refs.content.scrollHeight > $refs.content.clientHeight + 10 }); window.addEventListener('resize', () => { if($refs.content) isLong = $refs.content.scrollHeight > $refs.content.clientHeight + 10 })">
                   
-                  <div x-ref="content" class="transition-all duration-300 relative" :class="expanded ? '' : 'max-h-64 overflow-hidden'">
+                  <div x-ref="content" class="transition-all duration-300 relative" :class="expanded ? '' : 'max-h-32 overflow-hidden'">
                     <template x-for="(tc, ti) in msg.toolCalls" :key="ti">
                       <div class="mb-3 rounded-box border border-primary/30 bg-primary/5 overflow-hidden text-xs">
                         <div class="flex items-center gap-2 p-2 bg-primary/10 text-primary font-mono font-bold">
