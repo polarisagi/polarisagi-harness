@@ -27,17 +27,25 @@
   --radius-field: 9999px !important;
 }
 
-/* 强制覆盖所有页面的选项卡，使其具有独立的浅色边框和全局统一的极大圆角 */
+/* 强制覆盖所有页面的选项卡，使其具有独立的边框、背景悬停和全局统一的极大圆角 */
 .tabs .tab {
-  border: 1px solid var(--fallback-b3,oklch(var(--b3))) !important;
+  border: 1px solid oklch(var(--bc) / 0.15) !important; /* 加深边框颜色 */
   border-radius: var(--radius-box) !important;
   margin: 0 4px;
-  background: var(--fallback-b1,oklch(var(--b1)));
+  background: var(--fallback-b1,oklch(var(--b1))) !important;
+  color: oklch(var(--bc) / 0.7) !important; /* 默认文字颜色稍微柔和 */
   transition: all 0.2s ease;
 }
+.tabs .tab:hover {
+  background: oklch(var(--bc) / 0.06) !important; /* 鼠标悬停加深背景 */
+  border-color: oklch(var(--bc) / 0.25) !important; /* 悬停时边框稍微变深 */
+  color: var(--fallback-bc,oklch(var(--bc))) !important;
+}
 .tabs .tab.tab-active, .tabs .tab.active {
-  background: var(--fallback-b2,oklch(var(--b2))) !important;
-  border-color: var(--fallback-bc,oklch(var(--bc) / 0.2)) !important;
+  background: oklch(var(--bc) / 0.12) !important; /* 选中时背景更深一点 */
+  border-color: oklch(var(--bc) / 0.35) !important; /* 选中时边框最明显 */
+  font-weight: 600 !important;
+  color: var(--fallback-bc,oklch(var(--bc))) !important;
   box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
 }
 .tabs-boxed {
