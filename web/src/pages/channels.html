@@ -53,16 +53,16 @@
       </div>
 
       <!-- 集成编辑 Modal -->
-      <div class="modal-overlay" x-show="$store.channels.showModal" x-cloak @click.self="$store.channels.showModal=false">
-        <div class="modal-panel" @keydown.escape.window="$store.channels.showModal=false">
-          <div class="modal-header">
-            <span x-text="$store.channels.editMode === 'create' ? $store.i18n.t('channels_add') : $store.i18n.t('channels_edit')"></span>
-            <button class="btn btn-ghost btn-sm" @click="$store.channels.showModal=false">✕</button>
-          </div>
-          <div class="modal-body">
-            <div class="form-group">
-              <label for="channel-type" class="form-label">平台类型</label>
-              <select id="channel-type" name="channel-type" class="form-select" x-model="$store.channels.form.type"
+      <dialog class="modal" :class="{ 'modal-open': $store.channels.showModal }">
+        <div class="modal-box">
+          <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" @click="$store.channels.showModal=false">✕</button>
+          </form>
+          <h3 class="font-bold text-lg mb-4 pb-3 border-b border-base-200" x-text="$store.channels.editMode === 'create' ? $store.i18n.t('channels_add') : $store.i18n.t('channels_edit')"></h3>
+          <div class="py-2 flex flex-col gap-3">
+            <label class="form-control w-full">
+              <div class="label"><span class="label-text font-medium">平台类型</span></div>
+              <select id="channel-type" name="channel-type" class="select select-bordered w-full" x-model="$store.channels.form.type"
                 @change="$store.channels.form.config={}">
                 <option value="telegram">✈ Telegram</option>
                 <option value="feishu">🪁 飞书（Feishu / Lark）</option>
@@ -70,117 +70,123 @@
                 <option value="discord">🎮 Discord</option>
                 <option value="webhook">⚡ 通用 Webhook</option>
               </select>
-            </div>
-            <div class="form-group">
-              <label for="channel-name" class="form-label">集成名称</label>
-              <input id="channel-name" name="channel-name" class="form-input" type="text" x-model="$store.channels.form.name" placeholder="如：客服机器人" />
-            </div>
+            </label>
+            <label class="form-control w-full">
+              <div class="label"><span class="label-text font-medium">集成名称</span></div>
+              <input id="channel-name" name="channel-name" class="input input-bordered w-full" type="text" x-model="$store.channels.form.name" placeholder="如：客服机器人" />
+            </label>
 
             <!-- Telegram -->
             <template x-if="$store.channels.form.type === 'telegram'">
-              <div>
-                <div class="form-group">
-                  <label for="tg-bot-token" class="form-label">Bot Token</label>
-                  <input id="tg-bot-token" name="tg-bot-token" class="form-input" type="password" placeholder="123456:ABC-DEF1234..."
+              <div class="flex flex-col gap-3">
+                <label class="form-control w-full">
+                  <div class="label"><span class="label-text font-medium">Bot Token</span></div>
+                  <input id="tg-bot-token" name="tg-bot-token" class="input input-bordered w-full" type="password" placeholder="123456:ABC-DEF1234..."
                     :value="$store.channels.form.config.bot_token || ''"
                     @input="$store.channels.form.config.bot_token = $event.target.value" />
-                </div>
-                <div class="form-group">
-                  <label for="tg-allowed-users" class="form-label">允许的用户 ID（逗号分隔，留空不限制）</label>
-                  <input id="tg-allowed-users" name="tg-allowed-users" class="form-input" type="text" placeholder="123456789,987654321"
+                </label>
+                <label class="form-control w-full">
+                  <div class="label"><span class="label-text font-medium">允许的用户 ID（逗号分隔，留空不限制）</span></div>
+                  <input id="tg-allowed-users" name="tg-allowed-users" class="input input-bordered w-full" type="text" placeholder="123456789,987654321"
                     :value="$store.channels.form.config.allowed_user_ids || ''"
                     @input="$store.channels.form.config.allowed_user_ids = $event.target.value" />
-                </div>
-                <div class="form-hint">填入 Bot Token 并启用后，服务器自动通过 <strong>Long Polling</strong> 接收消息，无需公网域名或 Webhook 配置。</div>
+                </label>
+                <div class="label pb-0"><span class="label-text-alt text-base-content/60">填入 Bot Token 并启用后，服务器自动通过 <strong>Long Polling</strong> 接收消息，无需公网域名或 Webhook 配置。</span></div>
               </div>
             </template>
 
             <!-- Feishu -->
             <template x-if="$store.channels.form.type === 'feishu'">
-              <div>
-                <div class="form-group">
-                  <label for="feishu-app-id" class="form-label">App ID</label>
-                  <input id="feishu-app-id" name="feishu-app-id" class="form-input" type="text" placeholder="cli_..."
+              <div class="flex flex-col gap-3">
+                <label class="form-control w-full">
+                  <div class="label"><span class="label-text font-medium">App ID</span></div>
+                  <input id="feishu-app-id" name="feishu-app-id" class="input input-bordered w-full" type="text" placeholder="cli_..."
                     :value="$store.channels.form.config.app_id || ''"
                     @input="$store.channels.form.config.app_id = $event.target.value" />
-                </div>
-                <div class="form-group">
-                  <label for="feishu-app-secret" class="form-label">App Secret</label>
-                  <input id="feishu-app-secret" name="feishu-app-secret" class="form-input" type="password" placeholder="App Secret"
+                </label>
+                <label class="form-control w-full">
+                  <div class="label"><span class="label-text font-medium">App Secret</span></div>
+                  <input id="feishu-app-secret" name="feishu-app-secret" class="input input-bordered w-full" type="password" placeholder="App Secret"
                     :value="$store.channels.form.config.app_secret || ''"
                     @input="$store.channels.form.config.app_secret = $event.target.value" />
-                </div>
-                <div class="form-group">
-                  <label for="feishu-verification-token" class="form-label">Verification Token</label>
-                  <input id="feishu-verification-token" name="feishu-verification-token" class="form-input" type="text" placeholder="Verification Token"
+                </label>
+                <label class="form-control w-full">
+                  <div class="label"><span class="label-text font-medium">Verification Token</span></div>
+                  <input id="feishu-verification-token" name="feishu-verification-token" class="input input-bordered w-full" type="text" placeholder="Verification Token"
                     :value="$store.channels.form.config.verification_token || ''"
                     @input="$store.channels.form.config.verification_token = $event.target.value" />
-                </div>
-                <div class="form-group">
-                  <label for="feishu-encrypt-key" class="form-label">Encrypt Key（可选）</label>
-                  <input id="feishu-encrypt-key" name="feishu-encrypt-key" class="form-input" type="password" placeholder="留空则不加密"
+                </label>
+                <label class="form-control w-full">
+                  <div class="label"><span class="label-text font-medium">Encrypt Key（可选）</span></div>
+                  <input id="feishu-encrypt-key" name="feishu-encrypt-key" class="input input-bordered w-full" type="password" placeholder="留空则不加密"
                     :value="$store.channels.form.config.encrypt_key || ''"
                     @input="$store.channels.form.config.encrypt_key = $event.target.value" />
-                </div>
-                <div class="form-hint">在飞书开发者后台 → 事件订阅 → 请求地址，填入上方 Webhook URL。</div>
+                </label>
+                <div class="label pb-0"><span class="label-text-alt text-base-content/60">在飞书开发者后台 → 事件订阅 → 请求地址，填入上方 Webhook URL。</span></div>
               </div>
             </template>
 
             <!-- Slack -->
             <template x-if="$store.channels.form.type === 'slack'">
-              <div>
-                <div class="form-group">
-                  <label for="slack-bot-token" class="form-label">Bot Token</label>
-                  <input id="slack-bot-token" name="slack-bot-token" class="form-input" type="password" placeholder="xoxb-..."
+              <div class="flex flex-col gap-3">
+                <label class="form-control w-full">
+                  <div class="label"><span class="label-text font-medium">Bot Token</span></div>
+                  <input id="slack-bot-token" name="slack-bot-token" class="input input-bordered w-full" type="password" placeholder="xoxb-..."
                     :value="$store.channels.form.config.bot_token || ''"
                     @input="$store.channels.form.config.bot_token = $event.target.value" />
-                </div>
-                <div class="form-group">
-                  <label for="slack-signing-secret" class="form-label">Signing Secret</label>
-                  <input id="slack-signing-secret" name="slack-signing-secret" class="form-input" type="password" placeholder="Signing Secret"
+                </label>
+                <label class="form-control w-full">
+                  <div class="label"><span class="label-text font-medium">Signing Secret</span></div>
+                  <input id="slack-signing-secret" name="slack-signing-secret" class="input input-bordered w-full" type="password" placeholder="Signing Secret"
                     :value="$store.channels.form.config.signing_secret || ''"
                     @input="$store.channels.form.config.signing_secret = $event.target.value" />
-                </div>
-                <div class="form-hint">在 Slack App → Event Subscriptions → Request URL，填入 Webhook URL。</div>
+                </label>
+                <div class="label pb-0"><span class="label-text-alt text-base-content/60">在 Slack App → Event Subscriptions → Request URL，填入 Webhook URL。</span></div>
               </div>
             </template>
 
             <!-- Discord -->
             <template x-if="$store.channels.form.type === 'discord'">
-              <div>
-                <div class="form-group">
-                  <label for="discord-bot-token" class="form-label">Bot Token</label>
-                  <input id="discord-bot-token" name="discord-bot-token" class="form-input" type="password" placeholder="Discord Bot Token"
+              <div class="flex flex-col gap-3">
+                <label class="form-control w-full">
+                  <div class="label"><span class="label-text font-medium">Bot Token</span></div>
+                  <input id="discord-bot-token" name="discord-bot-token" class="input input-bordered w-full" type="password" placeholder="Discord Bot Token"
                     :value="$store.channels.form.config.bot_token || ''"
                     @input="$store.channels.form.config.bot_token = $event.target.value" />
-                </div>
-                <div class="form-group">
-                  <label for="discord-public-key" class="form-label">Public Key</label>
-                  <input id="discord-public-key" name="discord-public-key" class="form-input" type="text" placeholder="Application Public Key"
+                </label>
+                <label class="form-control w-full">
+                  <div class="label"><span class="label-text font-medium">Public Key</span></div>
+                  <input id="discord-public-key" name="discord-public-key" class="input input-bordered w-full" type="text" placeholder="Application Public Key"
                     :value="$store.channels.form.config.public_key || ''"
                     @input="$store.channels.form.config.public_key = $event.target.value" />
-                </div>
-                <div class="form-hint">在 Discord Developer Portal → Interactions Endpoint URL，填入 Webhook URL。</div>
+                </label>
+                <div class="label pb-0"><span class="label-text-alt text-base-content/60">在 Discord Developer Portal → Interactions Endpoint URL，填入 Webhook URL。</span></div>
               </div>
             </template>
 
             <!-- Generic Webhook -->
             <template x-if="$store.channels.form.type === 'webhook'">
-              <div class="form-hint">
-                通用 Webhook：POST body 中 <code>{"content":"消息文本"}</code> 将转发给 Agent。
+              <div class="label pb-0">
+                <span class="label-text-alt text-base-content/60">通用 Webhook：POST body 中 <code>{"content":"消息文本"}</code> 将转发给 Agent。</span>
               </div>
             </template>
 
-            <label class="form-check" class="mt-4">
-              <input type="checkbox" name="channel-enabled" x-model="$store.channels.form.enabled"> 启用
-            </label>
+            <div class="form-control mt-4 w-max">
+              <label class="cursor-pointer label gap-2">
+                <input type="checkbox" name="channel-enabled" class="toggle toggle-primary" x-model="$store.channels.form.enabled">
+                <span class="label-text">启用</span>
+              </label>
+            </div>
           </div>
-          <div class="modal-footer">
-            <button class="btn btn-ghost btn-sm" @click="$store.channels.showModal=false"
+          <div class="modal-action">
+            <button class="btn btn-ghost" @click="$store.channels.showModal=false"
                     x-text="$store.i18n.t('cancel')"></button>
-            <button class="btn btn-primary btn-sm" @click="$store.channels.save()"
+            <button class="btn btn-primary" @click="$store.channels.save()"
                     x-text="$store.i18n.t('save')"></button>
           </div>
         </div>
-      </div>
+        <form method="dialog" class="modal-backdrop">
+          <button @click="$store.channels.showModal=false">close</button>
+        </form>
+      </dialog>
     </div><!-- /channels -->

@@ -50,43 +50,46 @@
       </div>
 
       <!-- Cron Modal -->
-      <div x-show="$store.cron.showModal" x-cloak
-           class="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center"
-           @click.self="$store.cron.showModal=false">
-        <div class="bg-base-200 rounded-box p-6 w-[480px] max-w-[95vw] flex flex-col gap-4">
-          <div class="font-bold text-base"
-               x-text="$store.cron.editMode==='create' ? $store.i18n.t('cron_add') : $store.i18n.t('cron_edit')"></div>
+      <dialog class="modal" :class="{ 'modal-open': $store.cron.showModal }">
+        <div class="modal-box">
+          <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" @click="$store.cron.showModal=false">✕</button>
+          </form>
+          <h3 class="font-bold text-lg mb-4 pb-3 border-b border-base-200"
+               x-text="$store.cron.editMode==='create' ? $store.i18n.t('cron_add') : $store.i18n.t('cron_edit')"></h3>
 
-          <div>
-            <label for="cron-name" class="form-label" x-text="$store.i18n.t('cron_name')"></label>
-            <input type="text" id="cron-name" name="cron-name" class="form-input" x-model="$store.cron.form.name" placeholder="每日回顾" />
-          </div>
-          <div>
-            <label for="cron-schedule" class="form-label" x-text="$store.i18n.t('cron_schedule')"></label>
-            <input type="text" id="cron-schedule" name="cron-schedule" class="form-input" x-model="$store.cron.form.schedule" placeholder="@daily" />
-            <div class="text-[11px] text-base-content/60 mt-1"
-                 x-text="$store.i18n.t('cron_schedule_hint')"></div>
-          </div>
-          <div>
-            <label for="cron-prompt" class="form-label" x-text="$store.i18n.t('cron_prompt')"></label>
-            <textarea id="cron-prompt" name="cron-prompt" class="form-input" rows="4"
-                      x-model="$store.cron.form.prompt"
-                      placeholder="请总结今天的工作进展，并提出明日计划…"
-                      class="resize-y"></textarea>
-          </div>
-          <div class="flex items-center gap-2">
-            <label class="cursor-pointer">
-              <input type="checkbox" name="cron-enabled" class="toggle toggle-primary" x-model="$store.cron.form.enabled">
-              <!-- <span class="toggle-slider"></span> -->
+          <div class="py-2 flex flex-col gap-3">
+            <label class="form-control w-full">
+              <div class="label"><span class="label-text font-medium" x-text="$store.i18n.t('cron_name')"></span></div>
+              <input type="text" id="cron-name" name="cron-name" class="input input-bordered w-full" x-model="$store.cron.form.name" placeholder="每日回顾" />
             </label>
-            <span class="text-sm" x-text="$store.i18n.t('cron_enabled')"></span>
+            <label class="form-control w-full">
+              <div class="label"><span class="label-text font-medium" x-text="$store.i18n.t('cron_schedule')"></span></div>
+              <input type="text" id="cron-schedule" name="cron-schedule" class="input input-bordered w-full" x-model="$store.cron.form.schedule" placeholder="@daily" />
+              <div class="label pb-0"><span class="label-text-alt text-base-content/60" x-text="$store.i18n.t('cron_schedule_hint')"></span></div>
+            </label>
+            <label class="form-control w-full">
+              <div class="label"><span class="label-text font-medium" x-text="$store.i18n.t('cron_prompt')"></span></div>
+              <textarea id="cron-prompt" name="cron-prompt" class="textarea textarea-bordered w-full resize-y" rows="4"
+                        x-model="$store.cron.form.prompt"
+                        placeholder="请总结今天的工作进展，并提出明日计划…"></textarea>
+            </label>
+            <div class="form-control mt-2 w-max">
+              <label class="cursor-pointer label gap-2">
+                <input type="checkbox" name="cron-enabled" class="toggle toggle-primary" x-model="$store.cron.form.enabled">
+                <span class="label-text" x-text="$store.i18n.t('cron_enabled')"></span>
+              </label>
+            </div>
           </div>
-          <div class="flex justify-end gap-2">
-            <button class="btn btn-ghost btn-sm" @click="$store.cron.showModal=false"
+          <div class="modal-action">
+            <button class="btn btn-ghost" @click="$store.cron.showModal=false"
                     x-text="$store.i18n.t('cancel')"></button>
-            <button class="btn btn-primary btn-sm" @click="$store.cron.save()"
+            <button class="btn btn-primary" @click="$store.cron.save()"
                     x-text="$store.i18n.t('cron_save')"></button>
           </div>
         </div>
-      </div>
+        <form method="dialog" class="modal-backdrop">
+          <button @click="$store.cron.showModal=false">close</button>
+        </form>
+      </dialog>
     </div><!-- /cron -->

@@ -45,7 +45,7 @@
           <div class="page-subtitle" x-text="$store.i18n.t('insights_subtitle')"></div>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
-          <select name="insights-days" aria-label="统计周期" class="form-select" style="width:auto"
+          <select name="insights-days" aria-label="统计周期" class="select select-bordered select-sm w-auto"
                   x-model.number="$store.insights.days" @change="$store.insights.load()">
             <option value="7">7 天</option>
             <option value="30">30 天</option>
@@ -139,7 +139,7 @@
           <div style="font-size:12px;color:var(--color-text-dim);margin-top:2px">将高质量对话导出为 SFT 微调数据集</div>
         </div>
         <div style="display:flex;gap:8px" x-data="{fmt:'sharegpt',days:30}">
-          <select name="export-format" aria-label="导出格式" class="form-select" style="width:auto;font-size:12px" x-model="fmt">
+          <select name="export-format" aria-label="导出格式" class="select select-bordered select-sm w-auto text-xs" x-model="fmt">
             <option value="sharegpt">ShareGPT</option>
             <option value="openai">OpenAI</option>
             <option value="raw">Raw JSON</option>
