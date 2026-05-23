@@ -12,6 +12,7 @@
     "marked": "^18.0.3"
   },
   "devDependencies": {
+    "@tailwindcss/typography": "^0.5.19",
     "@tailwindcss/vite": "^4.1.6",
     "daisyui": "^5.5.1-beta.2",
     "vite": "^6.3.5"

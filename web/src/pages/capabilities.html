@@ -4,12 +4,14 @@
          x-data="{ tab: 'agents', _skillsLoaded: false }">
 
       <!-- Tab 导航条 -->
-      <div class="tab-bar" style="padding:0 24px">
-        <button class="tab-btn" :class="{ active: tab === 'agents' }" @click="tab = 'agents'"
-                x-text="$store.i18n.t('nav_agents')"></button>
-        <button class="tab-btn" :class="{ active: tab === 'skills' }"
-                @click="tab = 'skills'; if (!_skillsLoaded) { $store.skills.load(); _skillsLoaded = true }"
-                x-text="$store.i18n.t('nav_skills')"></button>
+      <div class="px-6 pt-6">
+        <div role="tablist" class="tabs tabs-boxed gap-1 bg-transparent p-0">
+          <a role="tab" class="tab" :class="{ 'tab-active font-bold bg-base-200 shadow-sm': tab === 'agents' }" @click="tab = 'agents'"
+                  x-text="$store.i18n.t('nav_agents')"></a>
+          <a role="tab" class="tab" :class="{ 'tab-active font-bold bg-base-200 shadow-sm': tab === 'skills' }"
+                  @click="tab = 'skills'; if (!_skillsLoaded) { $store.skills.load(); _skillsLoaded = true }"
+                  x-text="$store.i18n.t('nav_skills')"></a>
+        </div>
       </div>
 
       <!-- ── Agent 状态 Tab ─────────────────────────────── -->

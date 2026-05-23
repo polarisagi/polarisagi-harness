@@ -4,16 +4,18 @@
          x-data="{ tab: 'approvals', _cronLoaded: false }">
 
       <!-- Tab 导航条 -->
-      <div class="tab-bar" style="padding:0 24px">
-        <button class="tab-btn" :class="{ active: tab === 'approvals' }" @click="tab = 'approvals'">
-          <span x-text="$store.i18n.t('nav_approvals')"></span>
-          <span x-show="$store.approvals.list.length > 0"
-                x-text="$store.approvals.list.length"
-                style="background:var(--color-error);color:white;border-radius:9px;padding:0 5px;font-size:10px;font-weight:700;margin-left:6px"></span>
-        </button>
-        <button class="tab-btn" :class="{ active: tab === 'cron' }"
-                @click="tab = 'cron'; if (!_cronLoaded) { $store.cron.load(); _cronLoaded = true }"
-                x-text="$store.i18n.t('nav_cron')"></button>
+      <div class="px-6 pt-6">
+        <div role="tablist" class="tabs tabs-boxed gap-1 bg-transparent p-0">
+          <a role="tab" class="tab" :class="{ 'tab-active font-bold bg-base-200 shadow-sm': tab === 'approvals' }" @click="tab = 'approvals'">
+            <span x-text="$store.i18n.t('nav_approvals')"></span>
+            <span x-show="$store.approvals.list.length > 0"
+                  x-text="$store.approvals.list.length"
+                  class="badge badge-sm badge-error ml-2 font-bold"></span>
+          </a>
+          <a role="tab" class="tab" :class="{ 'tab-active font-bold bg-base-200 shadow-sm': tab === 'cron' }"
+                  @click="tab = 'cron'; if (!_cronLoaded) { $store.cron.load(); _cronLoaded = true }"
+                  x-text="$store.i18n.t('nav_cron')"></a>
+        </div>
       </div>
 
       <!-- ── 审批 Tab ──────────────────────────────────── -->

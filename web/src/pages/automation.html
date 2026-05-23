@@ -4,10 +4,10 @@
       <h2 class="text-2xl font-bold text-base-content mb-4" x-text="$store.i18n.t('nav_automation')"></h2>
       
       <!-- Tabs -->
-      <div class="tabs tabs-bordered">
-        <a class="tab" :class="{ 'tab-active font-bold': tab === 'routine' }" @click="tab = 'routine'; if (!_cronLoaded) { $store.cron.load(); _cronLoaded = true }">日常</a>
-        <a class="tab" :class="{ 'tab-active font-bold': tab === 'triggers' }" @click="tab = 'triggers'">触发器</a>
-        <a class="tab" :class="{ 'tab-active font-bold': tab === 'approvals' }" @click="tab = 'approvals'; if (!_approvalsLoaded) { _approvalsLoaded = true }">
+      <div role="tablist" class="tabs tabs-boxed gap-1 bg-transparent p-0">
+        <a role="tab" class="tab" :class="{ 'tab-active font-bold bg-base-200 shadow-sm': tab === 'routine' }" @click="tab = 'routine'; if (!_cronLoaded) { $store.cron.load(); _cronLoaded = true }">日常</a>
+        <a role="tab" class="tab" :class="{ 'tab-active font-bold bg-base-200 shadow-sm': tab === 'triggers' }" @click="tab = 'triggers'">触发器</a>
+        <a role="tab" class="tab" :class="{ 'tab-active font-bold bg-base-200 shadow-sm': tab === 'approvals' }" @click="tab = 'approvals'; if (!_approvalsLoaded) { _approvalsLoaded = true }">
           待办审批
           <div class="badge badge-sm badge-error ml-2" x-show="$store.approvals.list.length > 0" x-text="$store.approvals.list.length"></div>
         </a>

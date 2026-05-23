@@ -4,11 +4,11 @@
       <h2 class="text-2xl font-bold text-base-content mb-4" x-text="$store.i18n.t('nav_settings')"></h2>
       
       <!-- Tabs -->
-      <div class="tabs tabs-bordered">
-        <a class="tab" :class="{ 'tab-active font-bold': tab === 'providers' }" @click="tab = 'providers'" x-text="$store.i18n.t('nav_providers')"></a>
-        <a class="tab" :class="{ 'tab-active font-bold': tab === 'channels' }" @click="tab = 'channels'; if (!_chLoaded) { $store.channels.load(); _chLoaded = true }" x-text="$store.i18n.t('nav_channels')"></a>
-        <a class="tab" :class="{ 'tab-active font-bold': tab === 'config' }" @click="tab = 'config'; if (!_cfgLoaded) { $store.config.load(); _cfgLoaded = true }" x-text="$store.i18n.t('nav_config')"></a>
-        <a class="tab" :class="{ 'tab-active font-bold': tab === 'computer' }" @click="tab = 'computer'" x-text="$store.i18n.t('nav_computer')"></a>
+      <div role="tablist" class="tabs tabs-boxed gap-1 bg-transparent p-0">
+        <a role="tab" class="tab" :class="{ 'tab-active font-bold bg-base-200 shadow-sm': tab === 'providers' }" @click="tab = 'providers'" x-text="$store.i18n.t('nav_providers')"></a>
+        <a role="tab" class="tab" :class="{ 'tab-active font-bold bg-base-200 shadow-sm': tab === 'channels' }" @click="tab = 'channels'; if (!_chLoaded) { $store.channels.load(); _chLoaded = true }" x-text="$store.i18n.t('nav_channels')"></a>
+        <a role="tab" class="tab" :class="{ 'tab-active font-bold bg-base-200 shadow-sm': tab === 'config' }" @click="tab = 'config'; if (!_cfgLoaded) { $store.config.load(); _cfgLoaded = true }" x-text="$store.i18n.t('nav_config')"></a>
+        <a role="tab" class="tab" :class="{ 'tab-active font-bold bg-base-200 shadow-sm': tab === 'computer' }" @click="tab = 'computer'" x-text="$store.i18n.t('nav_computer')"></a>
       </div>
     </div>
 
