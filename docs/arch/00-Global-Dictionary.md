@@ -295,8 +295,8 @@ PII 检测与红化 (11-Policy-Safety, §5.1)。Tier 0 使用 Go 原生正则检
 ### [Codex-Plugin] (Plugin / Skill / MCP 统一范式)
 参考 OpenAI Codex 官方文档定义的行业标准共识。在 Polaris 中，“插件(Plugin)”并非指编译进核心二进制的代码，而是**聚合了 Skill (可复用的认知与 Prompt 工作流) 与 App Integration / MCP (外部工具与应用集成)** 的标准能力分发载体（Bundle）。Plugin 机制负责统一定义生命周期、依赖和权限声明，而底层具体执行则完全委托给 M7 (MCP Manager) 和 M6 (Skill Registry) 进行物理隔离。
 
-### [Codex-App] (命令中心与 UI 层)
-参考 OpenAI Codex App。App 是用户的“命令中心 (Command Center)”，提供桌面端、CLI 或 IDE 扩展交互。在 Polaris 架构中，Codex App 的概念映射到 **M13 (Interface-Scheduler)** 层，包含前端 UI、线程管理 (Thread/Session)、工作区管理 (Worktree) 以及多线程并发调度的展示界面。
+### [App] (交互式集成与前端 UI 扩展)
+参考 ChatGPT Apps SDK 行业共识。在 Polaris 架构中，应用（App）是构建在 **MCP (Model Context Protocol)** 基础之上的高级集成形态。它不仅作为后端 MCP Server 为大模型提供工具（Tools），更包含能够直接注入到用户会话流（Chat Stream）中的 **交互式前端组件（UI Widgets）**。这映射到我们的 **M13 (Interface-Scheduler) 与 M7 (Action)** 的融合层：后端提供业务逻辑，前端则基于大模型返回的指令动态渲染富交互界面（如动态表单、地图、实时图表），实现超越纯文本的 Agent 交互体验。
 
 ### [Codex-Automation] (后台自动化与定时任务)
 参考 OpenAI Codex Automations。用于调度周期性循环任务、后台静默执行的检查流，并将结果推送到用户的“Triage (收件箱)”进行审批或通知。在 Polaris 架构中，此概念由 **M8 (Multi-Agent Orchestrator)** 结合定时调度器实现，后台执行必须遵循默认的安全沙箱级别。
