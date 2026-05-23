@@ -113,7 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setTimeout(() => Alpine.store('onboard').checkFirstRun(), 400)
 
   // 刷新时恢复上次会话历史
-  if (path === 'chat' || path === '') {
+  if (page === 'chat') {
     const savedID = localStorage.getItem('polaris_session_id')
     if (savedID) {
       Alpine.store('chat').loadSession(savedID)
