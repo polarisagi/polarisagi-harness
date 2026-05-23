@@ -105,7 +105,7 @@ func NewEngine(modelDir string) (*Engine, error) {
 
 	// FeatConfig
 	*(*int32)(unsafe.Pointer(cfgPtr + OffsetFeatSampleRate)) = 16000
-	*(*int32)(unsafe.Pointer(cfgPtr + OffsetFeatFeatureDim)) = 50
+	*(*int32)(unsafe.Pointer(cfgPtr + OffsetFeatFeatureDim)) = 80
 
 	// ModelConfig (SenseVoice)
 	modelPath := filepath.Join(modelDir, "model.onnx")
