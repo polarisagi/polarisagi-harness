@@ -27,7 +27,7 @@
     <div class="border border-base-300 rounded-[1.25rem] overflow-hidden bg-base-200/50 w-fit max-w-2xl shadow-sm">
     <div class="flex items-center gap-2 p-2 px-4 cursor-pointer text-base-content/60 text-sm font-medium hover:bg-base-300/50 transition-colors" @click="$store.chat.thinkingOpen = !$store.chat.thinkingOpen">
       <span x-show="$store.chat.state === 'THINKING'" class="loading loading-spinner loading-xs"></span>
-      <span x-text="$store.i18n.t('chat_thinking')"></span>
+      <span x-text="$store.chat.state === 'THINKING' ? $store.i18n.t('chat_thinking') : $store.i18n.t('chat_thought')"></span>
       <svg class="w-4 h-4 ml-auto transition-transform" :class="$store.chat.thinkingOpen ? '' : '-rotate-90'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
     </div>
     <div class="p-3 px-4 text-base-content/70 italic whitespace-pre-wrap max-h-48 overflow-y-auto border-t border-base-300 text-sm" x-show="$store.chat.thinkingOpen" x-text="$store.chat.thinkingText"></div>

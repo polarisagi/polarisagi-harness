@@ -68,6 +68,7 @@ export const zh = {
   chat_send:         '发送',
   chat_new:          '新对话',
   chat_thinking:     '🧠 思考中',
+  chat_thought:      '✅ 已深度思考',
   chat_error_clear:  '清除',
 
   // 会话页
@@ -575,6 +576,7 @@ export const en = {
   chat_send:         'Send',
   chat_new:          'New Chat',
   chat_thinking:     '🧠 Thinking',
+  chat_thought:      '✅ Thought Process',
   chat_error_clear:  'Dismiss',
 
   // Sessions
