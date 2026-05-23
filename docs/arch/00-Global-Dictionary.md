@@ -295,6 +295,15 @@ PII 检测与红化 (11-Policy-Safety, §5.1)。Tier 0 使用 Go 原生正则检
 ### [Codex-Plugin] (Plugin / Skill / MCP 统一范式)
 参考 OpenAI Codex 官方文档定义的行业标准共识。在 Polaris 中，“插件(Plugin)”并非指编译进核心二进制的代码，而是**聚合了 Skill (可复用的认知与 Prompt 工作流) 与 App Integration / MCP (外部工具与应用集成)** 的标准能力分发载体（Bundle）。Plugin 机制负责统一定义生命周期、依赖和权限声明，而底层具体执行则完全委托给 M7 (MCP Manager) 和 M6 (Skill Registry) 进行物理隔离。
 
+### [Codex-App] (命令中心与 UI 层)
+参考 OpenAI Codex App。App 是用户的“命令中心 (Command Center)”，提供桌面端、CLI 或 IDE 扩展交互。在 Polaris 架构中，Codex App 的概念映射到 **M13 (Interface-Scheduler)** 层，包含前端 UI、线程管理 (Thread/Session)、工作区管理 (Worktree) 以及多线程并发调度的展示界面。
+
+### [Codex-Automation] (后台自动化与定时任务)
+参考 OpenAI Codex Automations。用于调度周期性循环任务、后台静默执行的检查流，并将结果推送到用户的“Triage (收件箱)”进行审批或通知。在 Polaris 架构中，此概念由 **M8 (Multi-Agent Orchestrator)** 结合定时调度器实现，后台执行必须遵循默认的安全沙箱级别。
+
+### [Codex-Skill] (认知与提示词能力)
+参考 OpenAI Codex Skills。Skill 是可复用的 Prompt 工作流及元认知指令，包含 `SKILL.md` (完整文档) 以及元数据（如触发条件、描述）。为了节省 Token 预算，系统采用 **"初始仅加载元数据 (Meta)，按需懒加载全文 (Lazy Load)"** 的策略。在 Polaris 中，这对应 **M6 (Skill Registry)**，支持动态发现、热重载以及 Wasm 化的高阶技能。
+
 ---
 
 ## §9 模块速记标识
