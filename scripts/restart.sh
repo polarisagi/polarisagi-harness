@@ -24,7 +24,6 @@ PORT=29999
 DATA_DIR="${POLARIS_DATA_DIR:-$HOME/.polaris-harness}"
 mkdir -p "$DATA_DIR"
 LOG_FILE="$DATA_DIR/polaris.log"
-CONFIG="configs/config.yaml"
 LOG_MAX_BYTES=10485760  # 10 MB，超过则截断
 
 # ── 平台检测 ─────────────────────────────────────────────
@@ -131,8 +130,8 @@ eval $GO_CMD
 
 # ── 5. 启动 ───────────────────────────────────────────────
 echo "→ 启动 Polaris..."
-# Polaris 遵循配置层规范，通过环境变量而非命令行参数传递路径
-POLARIS_CONFIG="$PROJECT_ROOT/$CONFIG" nohup ./bin/polaris >> "$LOG_FILE" 2>&1 &
+# Polaris 遵循配置层规范，默认使用 ~/.polaris-harness/config.yaml
+nohup ./bin/polaris >> "$LOG_FILE" 2>&1 &
 
 # 等待最多 5s 确认端口监听
 for i in {1..10}; do
