@@ -27,6 +27,14 @@
   --radius-field: 9999px !important;
 }
 
+/* 针对聊天气泡的局部降级处理：防止 2.5rem 的超大圆角导致多行文本被截断 */
+.chat {
+  --radius-box: 1.25rem !important;
+}
+.chat-bubble {
+  padding: 0.875rem 1.25rem !important;
+}
+
 /* 强制覆盖所有页面的选项卡，使其具有独立的边框、背景悬停和全局统一的极大圆角 */
 .tabs .tab {
   border: 1px solid color-mix(in oklab, var(--color-base-content) 15%, transparent) !important;
