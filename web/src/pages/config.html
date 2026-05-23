@@ -1,35 +1,37 @@
 <!-- ─────── 运行时配置页（只读视图） ────────────────── -->
     <div x-show="$store.nav.page === 'config'" x-cloak class="page-container">
-      <div class="page-header">
+      <div class="flex justify-between items-start mb-6">
         <div>
-          <div class="page-title" x-text="$store.i18n.t('config_title')"></div>
-          <div class="page-subtitle" x-text="$store.i18n.t('config_subtitle')"></div>
+          <div class="text-2xl font-bold mb-1" x-text="$store.i18n.t('config_title')"></div>
+          <div class="text-sm text-base-content/60" x-text="$store.i18n.t('config_subtitle')"></div>
         </div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <span style="font-size:11px;color:var(--color-text-dim)" x-show="$store.config.path"
+        <div class="flex gap-2 items-center">
+          <span class="text-[11px] text-base-content/60 font-mono" x-show="$store.config.path"
                 x-text="`${$store.i18n.t('config_path')}: ${$store.config.path}`"></span>
           <button class="btn btn-ghost btn-sm" @click="$store.config.load()"
-                  :disabled="$store.config.loading"
-                  x-text="$store.config.loading ? $store.i18n.t('loading') : $store.i18n.t('config_reload')"></button>
+                  :disabled="$store.config.loading">
+            <span x-show="$store.config.loading" class="loading loading-spinner loading-xs"></span>
+            <span x-show="!$store.config.loading" x-text="$store.i18n.t('config_reload')"></span>
+          </button>
         </div>
       </div>
 
-      <div x-show="$store.config.loading" class="empty-state">
-        <div class="spinner" style="width:32px;height:32px;margin:0 auto 12px"></div>
+      <div x-show="$store.config.loading" class="flex flex-col items-center justify-center py-12 text-base-content/60">
+        <span class="loading loading-spinner loading-lg mb-3"></span>
         <p x-text="$store.i18n.t('loading')"></p>
       </div>
 
       <template x-if="!$store.config.loading && $store.config.raw">
-        <div style="display:flex;flex-direction:column;gap:12px;flex:1;min-height:0">
+        <div class="flex flex-col gap-3 flex-1 min-h-0">
           <!-- 工具栏 -->
-          <div style="display:flex;align-items:center;justify-content:space-between">
-            <span style="font-weight:600;font-size:13px" x-text="$store.i18n.t('config_raw')"></span>
+          <div class="flex items-center justify-between">
+            <span class="font-semibold text-sm" x-text="$store.i18n.t('config_raw')"></span>
             <button class="btn btn-ghost btn-sm" @click="$store.config.copy()"
                     x-text="$store.config.copied ? $store.i18n.t('config_copied') : $store.i18n.t('config_copy')"></button>
           </div>
 
           <!-- 代码展示 -->
-          <pre style="flex:1;overflow:auto;background:var(--color-surface);border:1px solid var(--color-border);border-radius:8px;padding:16px;font-family:monospace;font-size:12px;line-height:1.6;margin:0;tab-size:2"
+          <pre class="flex-1 overflow-auto bg-base-200 border border-base-300 rounded-box p-4 font-mono text-xs leading-relaxed m-0" style="tab-size:2"
                x-text="$store.config.raw"></pre>
         </div>
       </template>

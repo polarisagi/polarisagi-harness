@@ -1,6 +1,5 @@
 <!-- 任务页（Tab：审批 | 定时）-->
-    <div x-show="$store.nav.page === 'tasks'" x-cloak class="page-container flex flex-col"
-         style="overflow:hidden;padding:0"
+    <div x-show="$store.nav.page === 'tasks'" x-cloak class="page-container flex flex-col overflow-hidden p-0"
          x-data="{ tab: 'approvals', _cronLoaded: false }">
 
       <!-- Tab 导航条 -->
@@ -19,7 +18,7 @@
       </div>
 
       <!-- ── 审批 Tab ──────────────────────────────────── -->
-      <div x-show="tab === 'approvals'" style="flex:1;min-height:0;overflow-y:auto;padding:24px">
+      <div x-show="tab === 'approvals'" class="flex-1 min-h-0 overflow-y-auto p-6">
         <div class="max-w-4xl mx-auto w-full flex flex-col flex-1">
         <div class="page-header">
           <div class="page-title" x-text="$store.i18n.t('approvals_title')"></div>
@@ -38,7 +37,7 @@
           <p x-text="$store.i18n.t('approvals_empty_hint')"></p>
         </div>
 
-        <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="flex flex-col gap-3">
           <template x-for="req in $store.approvals.list" :key="req.id">
             <div class="approval-card" :class="`risk-${req.risk_level || 'medium'}`"
                  x-data="{ remaining: 0, _ti: null, comment: '',
@@ -50,18 +49,18 @@
                  }">
               <div class="approval-header">
                 <div>
-                  <div style="font-weight:600;margin-bottom:4px" x-text="req.action"></div>
-                  <div style="font-size:11px;color:var(--color-text-dim)" x-text="`Agent: ${req.agent_id || req.agentID}  ·  ${req.id?.slice(0,12)}`"></div>
+                  <div class="font-semibold mb-1" x-text="req.action"></div>
+                  <div class="text-[11px] text-base-content/60" x-text="`Agent: ${req.agent_id || req.agentID}  ·  ${req.id?.slice(0,12)}`"></div>
                 </div>
                 <span class="risk-badge" :class="req.risk_level || 'medium'"
                       x-text="(req.risk_level || 'medium').toUpperCase()"></span>
               </div>
 
               <div class="approval-body">
-                <p style="font-size:13px;color:var(--color-text-dim);white-space:pre-wrap" x-text="req.detail"></p>
-                <div style="margin-top:10px">
+                <p class="text-sm text-base-content/60 whitespace-pre-wrap" x-text="req.detail"></p>
+                <div class="mt-2.5">
                   <input type="text" name="approval-comment" :aria-label="$store.i18n.t('tasks_approval_note')" :placeholder="$store.i18n.t('tasks_note_optional')" x-model="comment"
-                    style="width:100%;padding:6px 10px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;color:var(--color-text);font-size:12px;outline:none" />
+                    class="w-full px-2.5 py-1.5 bg-base-200 border border-base-300 rounded-box text-base-content text-xs focus:outline-none focus:border-primary" />
                 </div>
               </div>
 
@@ -72,7 +71,7 @@
                     ? `⏱ ${Math.floor(remaining/60000)}:${String(Math.floor((remaining%60000)/1000)).padStart(2,'0')}`
                     : '⌛ 已超时'">
                 </span>
-                <div style="display:flex;gap:8px">
+                <div class="flex gap-2">
                   <button class="btn btn-danger btn-sm" @click="$store.approvals.resolve(req.id, 'deny', comment)"
                           x-text="$store.i18n.t('approvals_deny')"></button>
                   <button class="btn btn-primary btn-sm" :disabled="remaining <= 0"
@@ -88,7 +87,7 @@
       </div><!-- /approvals tab -->
 
       <!-- ── 定时任务 Tab ────────────────────────────────── -->
-      <div x-show="tab === 'cron'" style="flex:1;min-height:0;overflow-y:auto;padding:24px">
+      <div x-show="tab === 'cron'" class="flex-1 min-h-0 overflow-y-auto p-6">
         <div class="max-w-4xl mx-auto w-full flex flex-col flex-1">
         <div class="page-header">
           <div>
@@ -109,29 +108,29 @@
           <p x-text="$store.i18n.t('cron_empty_hint')"></p>
         </div>
 
-        <div style="display:flex;flex-direction:column;gap:10px">
+        <div class="flex flex-col gap-2.5">
           <template x-for="job in $store.cron.list" :key="job.id">
             <div class="provider-card" :class="{ disabled: !job.enabled }">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-                <div style="display:flex;align-items:center;gap:10px">
-                  <label class="toggle" @click.stop>
-                    <input type="checkbox" :name="'cron-job-' + job.id" :checked="job.enabled" @change="$store.cron.toggle(job)">
-                    <span class="toggle-slider"></span>
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="flex items-center gap-2.5">
+                  <label class="cursor-pointer" @click.stop>
+                    <input type="checkbox" :name="'cron-job-' + job.id" class="toggle toggle-primary toggle-sm" :checked="job.enabled" @change="$store.cron.toggle(job)">
+                    <!-- <span class="toggle-slider"></span> -->
                   </label>
-                  <span style="font-weight:600;font-size:13px" x-text="job.name || job.id.slice(0,12)"></span>
-                  <span style="font-size:11px;background:var(--color-surface);padding:2px 8px;border-radius:12px;font-family:monospace"
+                  <span class="font-semibold text-sm" x-text="job.name || job.id.slice(0,12)"></span>
+                  <span class="text-[11px] bg-base-200 px-2 py-0.5 rounded-full font-mono"
                         x-text="job.schedule"></span>
                 </div>
-                <div style="display:flex;gap:6px">
+                <div class="flex gap-1.5">
                   <button class="btn btn-ghost btn-sm" @click="$store.cron.openEdit(job)"
                           x-text="$store.i18n.t('cron_edit')"></button>
                   <button class="btn btn-danger btn-sm" @click="$store.cron.del(job.id)"
                           x-text="$store.i18n.t('cron_delete')"></button>
                 </div>
               </div>
-              <div style="font-size:12px;color:var(--color-text-dim);margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+              <div class="text-xs text-base-content/60 mb-1.5 truncate"
                    x-text="job.prompt"></div>
-              <div style="display:flex;gap:16px;font-size:11px;color:var(--color-text-dim)">
+              <div class="flex gap-4 text-[11px] text-base-content/60">
                 <span x-text="`上次：${job.last_run_at ? new Date(job.last_run_at).toLocaleString('zh-CN') : $store.i18n.t('cron_never')}`"></span>
                 <span x-text="`下次：${new Date(job.next_run_at).toLocaleString('zh-CN')}`"></span>
               </div>
@@ -141,10 +140,10 @@
 
         <!-- Cron Modal -->
         <div x-show="$store.cron.showModal" x-cloak
-             style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:center;justify-content:center"
+             class="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center"
              @click.self="$store.cron.showModal=false">
-          <div style="background:var(--color-surface-raised);border-radius:12px;padding:24px;width:480px;max-width:95vw;display:flex;flex-direction:column;gap:14px">
-            <div style="font-weight:700;font-size:15px"
+          <div class="bg-base-200 rounded-box p-6 w-[480px] max-w-[95vw] flex flex-col gap-3.5">
+            <div class="font-bold text-base"
                  x-text="$store.cron.editMode==='create' ? $store.i18n.t('cron_add') : $store.i18n.t('cron_edit')"></div>
 
             <div>
@@ -154,7 +153,7 @@
             <div>
               <label for="cron-schedule-t" class="form-label" x-text="$store.i18n.t('cron_schedule')"></label>
               <input type="text" id="cron-schedule-t" name="cron-schedule" class="form-input" x-model="$store.cron.form.schedule" placeholder="@daily" />
-              <div style="font-size:11px;color:var(--color-text-dim);margin-top:4px"
+              <div class="text-[11px] text-base-content/60 mt-1"
                    x-text="$store.i18n.t('cron_schedule_hint')"></div>
             </div>
             <div>
@@ -162,16 +161,16 @@
               <textarea id="cron-prompt-t" name="cron-prompt" class="form-input" rows="4"
                         x-model="$store.cron.form.prompt"
                         :placeholder="$store.i18n.t('tasks_daily_plan')"
-                        style="resize:vertical"></textarea>
+                        class="resize-y"></textarea>
             </div>
-            <div style="display:flex;align-items:center;gap:8px">
-              <label class="toggle">
-                <input type="checkbox" name="cron-enabled" x-model="$store.cron.form.enabled">
-                <span class="toggle-slider"></span>
+            <div class="flex items-center gap-2">
+              <label class="cursor-pointer">
+                <input type="checkbox" name="cron-enabled" class="toggle toggle-primary" x-model="$store.cron.form.enabled">
+                <!-- <span class="toggle-slider"></span> -->
               </label>
-              <span style="font-size:13px" x-text="$store.i18n.t('cron_enabled')"></span>
+              <span class="text-sm" x-text="$store.i18n.t('cron_enabled')"></span>
             </div>
-            <div style="display:flex;justify-content:flex-end;gap:8px">
+            <div class="flex justify-end gap-2">
               <button class="btn btn-ghost btn-sm" @click="$store.cron.showModal=false"
                       x-text="$store.i18n.t('cancel')"></button>
               <button class="btn btn-primary btn-sm" @click="$store.cron.save()"

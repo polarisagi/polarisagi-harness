@@ -1,54 +1,54 @@
 <!-- ─────── Agent 状态页 ────────────────────────────── -->
-    <div x-show="$store.nav.page === 'agents'" x-cloak class="page-container">
-      <div class="page-header">
+    <div x-show="$store.nav.page === 'agents'" x-cloak class="flex-1 min-h-0 overflow-y-auto p-6">
+      <div class="flex items-center justify-between mb-6">
         <div>
-          <div class="page-title" x-text="$store.i18n.t('agents_title')"></div>
-          <div class="page-subtitle" x-text="$store.i18n.t('agents_subtitle')"></div>
+          <div class="text-2xl font-bold text-base-content" x-text="$store.i18n.t('agents_title')"></div>
+          <div class="text-sm text-base-content/70 mt-1" x-text="$store.i18n.t('agents_subtitle')"></div>
         </div>
         <button class="btn btn-ghost btn-sm" @click="$store.agents.load()"
                 x-text="$store.agents.loading ? $store.i18n.t('loading') : $store.i18n.t('agents_refresh')"></button>
       </div>
 
-      <div x-show="$store.agents.loading" class="empty-state">
-        <div class="spinner" style="width:32px;height:32px;margin:0 auto 12px"></div>
+      <div x-show="$store.agents.loading" class="flex flex-col items-center justify-center p-12 text-base-content/50">
+        <div class="loading loading-spinner w-8 h-8 mx-auto mb-3"></div>
         <p x-text="$store.i18n.t('loading')"></p>
       </div>
 
       <template x-if="!$store.agents.loading">
         <div>
           <!-- 状态卡片 + 统计卡片网格 -->
-          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:20px">
+          <div class="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3 mb-5">
 
             <!-- Agent 状态卡片 -->
-            <div class="metric-card" style="grid-column:span 2">
-              <div class="metric-label" style="font-size:13px;font-weight:600;margin-bottom:10px" x-text="$store.i18n.t('agents_status')"></div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div class="metric-card col-span-2">
+              <div class="metric-label text-[13px] font-semibold mb-2.5" x-text="$store.i18n.t('agents_status')"></div>
+              <div class="grid grid-cols-2 gap-3">
                 <div>
-                  <div style="font-size:11px;color:var(--color-text-dim)" x-text="$store.i18n.t('agents_id')"></div>
-                  <div style="font-size:14px;font-family:monospace;margin-top:2px" x-text="$store.agents.agentID || '—'"></div>
+                  <div class="text-xs text-base-content/70" x-text="$store.i18n.t('agents_id')"></div>
+                  <div class="text-sm font-mono mt-0.5" x-text="$store.agents.agentID || '—'"></div>
                 </div>
                 <div>
-                  <div style="font-size:11px;color:var(--color-text-dim)" x-text="$store.i18n.t('agents_state')"></div>
-                  <div style="font-size:14px;font-weight:600;margin-top:2px;display:flex;align-items:center;gap:6px">
-                    <span class="status-dot" :class="$store.agents.agentState === 'idle' || $store.agents.agentState === 'complete' ? 'ok' : 'warn'"></span>
+                  <div class="text-xs text-base-content/70" x-text="$store.i18n.t('agents_state')"></div>
+                  <div class="text-sm font-semibold mt-0.5 flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full" :class="$store.agents.agentState === 'idle' || $store.agents.agentState === 'complete' ? 'bg-success' : 'bg-warning'"></span>
                     <span x-text="$store.agents.stateLabel($store.agents.agentState)"></span>
                   </div>
                 </div>
               </div>
-              <div style="margin-top:14px">
-                <div style="font-size:11px;color:var(--color-text-dim);margin-bottom:6px" x-text="$store.i18n.t('agents_config')"></div>
-                <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:12px">
-                  <span style="background:var(--color-surface);padding:2px 8px;border-radius:6px">
-                    <span style="color:var(--color-text-dim)" x-text="$store.i18n.t('agents_max_replan') + ':'"></span>
-                    <span style="font-weight:600;margin-left:4px" x-text="$store.agents.agentConfig.max_replan ?? '—'"></span>
+              <div class="mt-3.5">
+                <div class="text-xs text-base-content/70 mb-1.5" x-text="$store.i18n.t('agents_config')"></div>
+                <div class="flex gap-3 flex-wrap text-xs">
+                  <span class="bg-base-200 px-2 py-0.5 rounded-md">
+                    <span class="text-base-content/70" x-text="$store.i18n.t('agents_max_replan') + ':'"></span>
+                    <span class="font-semibold ml-1" x-text="$store.agents.agentConfig.max_replan ?? '—'"></span>
                   </span>
-                  <span style="background:var(--color-surface);padding:2px 8px;border-radius:6px">
-                    <span style="color:var(--color-text-dim)" x-text="$store.i18n.t('agents_max_steps') + ':'"></span>
-                    <span style="font-weight:600;margin-left:4px" x-text="$store.agents.agentConfig.max_steps ?? '—'"></span>
+                  <span class="bg-base-200 px-2 py-0.5 rounded-md">
+                    <span class="text-base-content/70" x-text="$store.i18n.t('agents_max_steps') + ':'"></span>
+                    <span class="font-semibold ml-1" x-text="$store.agents.agentConfig.max_steps ?? '—'"></span>
                   </span>
-                  <span style="background:var(--color-surface);padding:2px 8px;border-radius:6px">
-                    <span style="color:var(--color-text-dim)" x-text="$store.i18n.t('agents_default_budget') + ':'"></span>
-                    <span style="font-weight:600;margin-left:4px" x-text="$store.agents.agentConfig.default_budget ?? '—'"></span>
+                  <span class="bg-base-200 px-2 py-0.5 rounded-md">
+                    <span class="text-base-content/70" x-text="$store.i18n.t('agents_default_budget') + ':'"></span>
+                    <span class="font-semibold ml-1" x-text="$store.agents.agentConfig.default_budget ?? '—'"></span>
                   </span>
                 </div>
               </div>
@@ -57,46 +57,46 @@
             <!-- 统计卡片 -->
             <div class="metric-card">
               <div class="metric-label" x-text="$store.i18n.t('agents_tools')"></div>
-              <div class="metric-value" style="font-size:20px" x-text="$store.agents.tools.length"></div>
-              <div style="font-size:11px;color:var(--color-text-dim);margin-top:4px" x-text="$store.i18n.t('agents_tools_count')"></div>
+              <div class="metric-value text-xl" x-text="$store.agents.tools.length"></div>
+              <div class="text-xs text-base-content/70 mt-1" x-text="$store.i18n.t('agents_tools_count')"></div>
             </div>
 
             <div class="metric-card">
               <div class="metric-label" x-text="$store.i18n.t('agents_skills')"></div>
-              <div class="metric-value" style="font-size:20px" x-text="$store.agents.skills.length"></div>
-              <div style="font-size:11px;color:var(--color-text-dim);margin-top:4px" x-text="$store.i18n.t('agents_skills_count')"></div>
+              <div class="metric-value text-xl" x-text="$store.agents.skills.length"></div>
+              <div class="text-xs text-base-content/70 mt-1" x-text="$store.i18n.t('agents_skills_count')"></div>
             </div>
 
             <div class="metric-card">
               <div class="metric-label" x-text="$store.i18n.t('agents_mcp')"></div>
-              <div class="metric-value" style="font-size:20px" x-text="$store.agents.mcpServers.length"></div>
-              <div style="font-size:11px;color:var(--color-text-dim);margin-top:4px" x-text="$store.i18n.t('agents_mcp_count')"></div>
+              <div class="metric-value text-xl" x-text="$store.agents.mcpServers.length"></div>
+              <div class="text-xs text-base-content/70 mt-1" x-text="$store.i18n.t('agents_mcp_count')"></div>
             </div>
 
             <div class="metric-card">
               <div class="metric-label" x-text="$store.i18n.t('agents_channels')"></div>
-              <div class="metric-value" style="font-size:20px" x-text="$store.agents.channels.filter(c=>c.enabled).length"></div>
-              <div style="font-size:11px;color:var(--color-text-dim);margin-top:4px" x-text="$store.i18n.t('agents_channels_count')"></div>
+              <div class="metric-value text-xl" x-text="$store.agents.channels.filter(c=>c.enabled).length"></div>
+              <div class="text-xs text-base-content/70 mt-1" x-text="$store.i18n.t('agents_channels_count')"></div>
             </div>
           </div>
 
           <!-- MCP 服务器列表 -->
-          <div style="background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:10px;padding:16px;margin-bottom:16px">
-            <div style="font-weight:600;font-size:13px;margin-bottom:12px">
+          <div class="bg-base-200 border border-base-300 rounded-box p-4 mb-4">
+            <div class="font-semibold text-[13px] mb-3">
               <span x-text="$store.i18n.t('agents_mcp')"></span>
-              <span style="font-size:11px;color:var(--color-text-dim);font-weight:400;margin-left:8px" x-text="`(${$store.agents.mcpServers.length})`"></span>
+              <span class="text-xs text-base-content/70 font-normal ml-2" x-text="`(${$store.agents.mcpServers.length})`"></span>
             </div>
-            <div x-show="$store.agents.mcpServers.length === 0" style="color:var(--color-text-dim);font-size:12px;padding:8px 0">
+            <div x-show="$store.agents.mcpServers.length === 0" class="text-base-content/70 text-xs py-2">
               暂无 MCP 服务器，请前往「插件目录」安装。
             </div>
-            <div style="display:grid;gap:6px">
+            <div class="grid gap-1.5">
               <template x-for="srv in $store.agents.mcpServers" :key="srv.id">
-                <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:8px;font-size:12px">
-                  <span class="status-dot" :class="srv.connected ? 'ok' : 'error'"></span>
-                  <span style="font-weight:600;flex:1" x-text="srv.name"></span>
-                  <span style="color:var(--color-text-dim);font-family:monospace;font-size:11px" x-text="srv.transport"></span>
-                  <span x-show="srv.tool_count > 0" style="background:var(--color-surface-raised);padding:1px 6px;border-radius:10px;font-size:10px" x-text="`${srv.tool_count} 工具`"></span>
-                  <span :style="`color:${srv.connected ? 'var(--color-ok)' : 'var(--color-error)'};font-size:11px`"
+                <div class="flex items-center gap-2.5 px-3 py-2 bg-base-100 border border-base-300 rounded-lg text-xs">
+                  <span class="w-2 h-2 rounded-full" :class="srv.connected ? 'bg-success' : 'bg-error'"></span>
+                  <span class="font-semibold flex-1" x-text="srv.name"></span>
+                  <span class="text-base-content/70 font-mono text-[11px]" x-text="srv.transport"></span>
+                  <span x-show="srv.tool_count > 0" class="bg-base-200 px-1.5 py-px rounded-full text-[10px]" x-text="`${srv.tool_count} 工具`"></span>
+                  <span class="text-[11px]" :class="srv.connected ? 'text-success' : 'text-error'"
                         x-text="srv.connected ? $store.i18n.t('agents_connected') : $store.i18n.t('agents_disconnected')"></span>
                 </div>
               </template>
@@ -104,42 +104,42 @@
           </div>
 
           <!-- 工具列表 -->
-          <div style="background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:10px;padding:16px;margin-bottom:16px">
-            <div style="font-weight:600;font-size:13px;margin-bottom:12px">
+          <div class="bg-base-200 border border-base-300 rounded-box p-4 mb-4">
+            <div class="font-semibold text-[13px] mb-3">
               <span x-text="$store.i18n.t('agents_tools')"></span>
-              <span style="font-size:11px;color:var(--color-text-dim);font-weight:400;margin-left:8px" x-text="`(${$store.agents.tools.length})`"></span>
+              <span class="text-xs text-base-content/70 font-normal ml-2" x-text="`(${$store.agents.tools.length})`"></span>
             </div>
-            <div x-show="$store.agents.tools.length === 0" style="color:var(--color-text-dim);font-size:12px;padding:8px 0">
+            <div x-show="$store.agents.tools.length === 0" class="text-base-content/70 text-xs py-2">
               暂无已注册工具。
             </div>
-            <div style="display:grid;gap:4px">
+            <div class="grid gap-1">
               <template x-for="t in $store.agents.tools" :key="t.name">
-                <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--color-surface);border-radius:6px;font-size:12px">
-                  <span style="font-weight:600;flex:1" x-text="t.name"></span>
-                  <span style="color:var(--color-text-dim);font-size:11px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" x-text="t.description || ''"></span>
-                  <span style="padding:1px 6px;border-radius:4px;font-size:10px;background:var(--color-surface-raised);color:var(--color-text-dim);text-transform:uppercase" x-text="t.source || 'builtin'"></span>
+                <div class="flex items-center gap-2 px-2.5 py-1.5 bg-base-100 rounded-md text-xs">
+                  <span class="font-semibold flex-1" x-text="t.name"></span>
+                  <span class="text-base-content/70 text-[11px] max-w-[300px] truncate" x-text="t.description || ''"></span>
+                  <span class="px-1.5 py-px rounded text-[10px] bg-base-200 text-base-content/70 uppercase" x-text="t.source || 'builtin'"></span>
                 </div>
               </template>
             </div>
           </div>
 
           <!-- 技能列表 -->
-          <div style="background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:10px;padding:16px">
-            <div style="font-weight:600;font-size:13px;margin-bottom:12px">
+          <div class="bg-base-200 border border-base-300 rounded-box p-4">
+            <div class="font-semibold text-[13px] mb-3">
               <span x-text="$store.i18n.t('agents_skills')"></span>
-              <span style="font-size:11px;color:var(--color-text-dim);font-weight:400;margin-left:8px" x-text="`(${$store.agents.skills.length})`"></span>
+              <span class="text-xs text-base-content/70 font-normal ml-2" x-text="`(${$store.agents.skills.length})`"></span>
             </div>
-            <div x-show="$store.agents.skills.length === 0" style="color:var(--color-text-dim);font-size:12px;padding:8px 0">
+            <div x-show="$store.agents.skills.length === 0" class="text-base-content/70 text-xs py-2">
               暂无已安装技能。
             </div>
-            <div style="display:grid;gap:4px">
+            <div class="grid gap-1">
               <template x-for="sk in $store.agents.skills" :key="sk.name">
-                <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--color-surface);border-radius:6px;font-size:12px">
-                  <span style="font-weight:600;flex:1" x-text="sk.name"></span>
-                  <span style="color:var(--color-text-dim);font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" x-text="sk.description || ''"></span>
-                  <span style="padding:1px 6px;border-radius:4px;font-size:10px;background:var(--color-surface-raised);color:var(--color-text-dim)" x-text="sk.version || 'v1'"></span>
-                  <span x-show="sk.enabled" style="color:var(--color-ok);font-size:11px">启用</span>
-                  <span x-show="!sk.enabled" style="color:var(--color-error);font-size:11px">禁用</span>
+                <div class="flex items-center gap-2 px-2.5 py-1.5 bg-base-100 rounded-md text-xs">
+                  <span class="font-semibold flex-1" x-text="sk.name"></span>
+                  <span class="text-base-content/70 text-[11px] max-w-[200px] truncate" x-text="sk.description || ''"></span>
+                  <span class="px-1.5 py-px rounded text-[10px] bg-base-200 text-base-content/70" x-text="sk.version || 'v1'"></span>
+                  <span x-show="sk.enabled" class="text-success text-[11px]">启用</span>
+                  <span x-show="!sk.enabled" class="text-error text-[11px]">禁用</span>
                 </div>
               </template>
             </div>

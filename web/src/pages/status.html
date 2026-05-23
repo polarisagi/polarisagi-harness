@@ -15,11 +15,11 @@
         <div class="page-subtitle" x-text="$store.i18n.t('status_subtitle')"></div>
       </div>
 
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:24px">
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mb-6">
 
         <div class="metric-card">
           <div class="metric-label" x-text="$store.i18n.t('status_conn')"></div>
-          <div class="metric-value" style="font-size:16px;margin-top:8px;display:flex;align-items:center;gap:8px">
+          <div class="metric-value" class="text-base mt-2 flex items-center gap-2">
             <span class="status-dot" :class="$store.statusBar.connected ? 'ok' : 'error'"></span>
             <span x-text="$store.statusBar.connected ? $store.i18n.t('status_conn_ok') : $store.i18n.t('status_conn_fail')"></span>
           </div>
@@ -27,7 +27,7 @@
 
         <div class="metric-card">
           <div class="metric-label" x-text="$store.i18n.t('status_model')"></div>
-          <div class="metric-value" style="font-size:13px;margin-top:8px;word-break:break-all"
+          <div class="metric-value" class="text-sm mt-2 break-all"
                x-text="$store.statusBar.modelID || metrics.model_id || '—'"></div>
         </div>
 
@@ -39,7 +39,7 @@
                  :class="$store.statusBar.tokenPct > 0.95 ? 'error' : $store.statusBar.tokenPct > 0.80 ? 'warn' : ''"
                  :style="`width:${Math.round($store.statusBar.tokenPct*100)}%`"></div>
           </div>
-          <div class="metric-label" style="margin-top:4px"
+          <div class="metric-label" class="mt-1"
                x-text="`/ ${$store.statusBar.tokenLimit.toLocaleString()}  (${Math.round($store.statusBar.tokenPct*100)}%)`"></div>
         </div>
 
@@ -51,7 +51,7 @@
                  :class="$store.statusBar.memPct > 0.9 ? 'error' : $store.statusBar.memPct > 0.75 ? 'warn' : ''"
                  :style="`width:${Math.round($store.statusBar.memPct*100)}%`"></div>
           </div>
-          <div class="metric-label" style="margin-top:4px"
+          <div class="metric-label" class="mt-1"
                x-text="`/ ${$store.statusBar.memoryLimitMB} MB  (${Math.round($store.statusBar.memPct*100)}%)`"></div>
         </div>
 
@@ -62,10 +62,10 @@
 
         <div class="metric-card">
           <div class="metric-label" x-text="$store.i18n.t('status_service')"></div>
-          <div class="metric-value" style="font-size:13px;margin-top:8px">
-            <span x-show="$store.statusBar.sealed" style="color:var(--color-critical);font-weight:700"
+          <div class="metric-value" class="text-sm mt-2">
+            <span x-show="$store.statusBar.sealed" class="text-error font-bold"
                   x-text="$store.i18n.t('status_sealed')"></span>
-            <span x-show="!$store.statusBar.sealed" style="color:var(--color-ok)"
+            <span x-show="!$store.statusBar.sealed" class="text-success"
                   x-text="$store.i18n.t('status_running')"></span>
           </div>
         </div>
@@ -87,33 +87,33 @@
              },
              init() { this.run() }
            }"
-           style="margin-bottom:20px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-          <div style="font-weight:600;font-size:13px">系统诊断</div>
+           class="mb-5">
+        <div class="flex items-center justify-between mb-3">
+          <div class="font-semibold text-sm">系统诊断</div>
           <button class="btn btn-ghost btn-sm" @click="run()" :disabled="loading"
                   x-text="loading ? '检查中…' : '重新检查'"></button>
         </div>
-        <div style="display:grid;gap:6px">
+        <div class="grid gap-2">
           <template x-for="c in checks" :key="c.name">
-            <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:8px">
-              <span :style="`color:${c.ok ? 'var(--color-ok)' : 'var(--color-critical)'}`"
+            <div class="flex items-center gap-3 p-2.5 bg-base-200 border border-base-300 rounded-box">
+              <span :class="c.ok ? \'text-success\' : \'text-error\'"
                     x-text="c.ok ? '✓' : '✕'"></span>
-              <span style="font-weight:600;font-size:12px;width:100px" x-text="c.name"></span>
-              <span style="font-size:12px;color:var(--color-text-dim)" x-text="c.detail"></span>
+              <span class="font-semibold text-xs w-24" x-text="c.name"></span>
+              <span class="text-xs text-base-content/60" x-text="c.detail"></span>
             </div>
           </template>
         </div>
       </div>
 
       <!-- /metrics 原始指标（折叠） -->
-      <details style="border:1px solid var(--color-border);border-radius:8px;overflow:hidden">
-        <summary style="padding:12px 16px;cursor:pointer;background:var(--color-surface-raised);font-size:13px;font-weight:600"
+      <details class="border border-base-300 rounded-box overflow-hidden">
+        <summary class="p-3 px-4 cursor-pointer bg-base-200 text-sm font-semibold"
                  x-text="$store.i18n.t('status_metrics')">
         </summary>
         <div x-data="{ raw: '' }"
              x-init="fetch('/metrics').then(r=>r.text()).then(t=>raw=t)"
-             style="padding:16px;overflow-x:auto">
-          <pre style="font-size:11px;color:var(--color-text-dim)" x-text="raw || $store.i18n.t('loading')"></pre>
+             class="p-4 overflow-x-auto">
+          <pre class="text-[11px] text-base-content/60" x-text="raw || $store.i18n.t('loading')"></pre>
         </div>
       </details>
     </div><!-- /status -->

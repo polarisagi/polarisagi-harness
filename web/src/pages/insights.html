@@ -1,12 +1,12 @@
 <!-- ─────── Insights 用量洞察页 ──────────────────── -->
-    <div x-show="$store.nav.page === 'insights'" x-cloak class="page-container">
-      <div class="page-header">
+    <div x-show="$store.nav.page === 'insights'" x-cloak class="flex-1 min-h-0 overflow-y-auto p-6">
+      <div class="flex items-center justify-between mb-6">
         <div>
-          <div class="page-title" x-text="$store.i18n.t('insights_title')"></div>
-          <div class="page-subtitle" x-text="$store.i18n.t('insights_subtitle')"></div>
+          <div class="text-2xl font-bold text-base-content" x-text="$store.i18n.t('insights_title')"></div>
+          <div class="text-sm text-base-content/70 mt-1" x-text="$store.i18n.t('insights_subtitle')"></div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <select name="insights-days" aria-label="统计周期" class="form-select" style="width:auto"
+        <div class="flex items-center gap-2">
+          <select name="insights-days" aria-label="统计周期" class="select select-bordered select-sm w-auto"
                   x-model.number="$store.insights.days" @change="$store.insights.load()">
             <option value="7">7 天</option>
             <option value="30">30 天</option>
@@ -15,57 +15,55 @@
         </div>
       </div>
 
-      <div x-show="$store.insights.loading" class="empty-state" x-text="$store.i18n.t('loading')"></div>
+      <div x-show="$store.insights.loading" class="flex flex-col items-center justify-center p-12 text-base-content/50" x-text="$store.i18n.t('loading')"></div>
 
       <template x-if="$store.insights.data && !$store.insights.loading">
         <div>
           <!-- 数字汇总卡片 -->
-          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:20px">
-            <div class="metric-card">
-              <div class="metric-label" x-text="$store.i18n.t('insights_total_sessions')"></div>
-              <div class="metric-value" x-text="$store.insights.data.total_sessions.toLocaleString()"></div>
+          <div class="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3 mb-5">
+            <div class="bg-base-200 border border-base-300 rounded-box p-4 flex flex-col">
+              <div class="text-[13px] font-semibold text-base-content" x-text="$store.i18n.t('insights_total_sessions')"></div>
+              <div class="text-xl mt-2" x-text="$store.insights.data.total_sessions.toLocaleString()"></div>
             </div>
-            <div class="metric-card">
-              <div class="metric-label" x-text="$store.i18n.t('insights_total_messages')"></div>
-              <div class="metric-value" x-text="$store.insights.data.total_messages.toLocaleString()"></div>
+            <div class="bg-base-200 border border-base-300 rounded-box p-4 flex flex-col">
+              <div class="text-[13px] font-semibold text-base-content" x-text="$store.i18n.t('insights_total_messages')"></div>
+              <div class="text-xl mt-2" x-text="$store.insights.data.total_messages.toLocaleString()"></div>
             </div>
-            <div class="metric-card">
-              <div class="metric-label" x-text="`${$store.insights.data.period_days}天 会话`"></div>
-              <div class="metric-value" x-text="$store.insights.data.period_sessions.toLocaleString()"></div>
+            <div class="bg-base-200 border border-base-300 rounded-box p-4 flex flex-col">
+              <div class="text-[13px] font-semibold text-base-content" x-text="`${$store.insights.data.period_days}天 会话`"></div>
+              <div class="text-xl mt-2" x-text="$store.insights.data.period_sessions.toLocaleString()"></div>
             </div>
-            <div class="metric-card">
-              <div class="metric-label" x-text="`${$store.insights.data.period_days}天 消息`"></div>
-              <div class="metric-value" x-text="$store.insights.data.period_messages.toLocaleString()"></div>
+            <div class="bg-base-200 border border-base-300 rounded-box p-4 flex flex-col">
+              <div class="text-[13px] font-semibold text-base-content" x-text="`${$store.insights.data.period_days}天 消息`"></div>
+              <div class="text-xl mt-2" x-text="$store.insights.data.period_messages.toLocaleString()"></div>
             </div>
           </div>
 
           <!-- 角色分布 -->
-          <div style="background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:10px;padding:16px;margin-bottom:16px">
-            <div style="font-weight:600;font-size:13px;margin-bottom:12px" x-text="$store.i18n.t('insights_role_breakdown')"></div>
-            <div style="display:flex;gap:16px;flex-wrap:wrap">
+          <div class="bg-base-200 border border-base-300 rounded-box p-4 mb-4">
+            <div class="font-semibold text-[13px] mb-3" x-text="$store.i18n.t('insights_role_breakdown')"></div>
+            <div class="flex gap-4 flex-wrap">
               <template x-for="[role, cnt] in Object.entries($store.insights.data.role_breakdown || {})" :key="role">
-                <div style="display:flex;align-items:center;gap:6px">
-                  <span style="font-size:12px;padding:2px 8px;border-radius:12px;background:var(--color-surface)"
-                        x-text="role"></span>
-                  <span style="font-weight:600" x-text="cnt.toLocaleString()"></span>
+                <div class="flex items-center gap-1.5">
+                  <span class="text-xs px-2 py-0.5 rounded-full bg-base-100" x-text="role"></span>
+                  <span class="font-semibold" x-text="cnt.toLocaleString()"></span>
                 </div>
               </template>
             </div>
           </div>
 
           <!-- 每日趋势简易条形图 -->
-          <div style="background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:10px;padding:16px;margin-bottom:16px">
-            <div style="font-weight:600;font-size:13px;margin-bottom:12px" x-text="$store.i18n.t('insights_daily_trend')"></div>
-            <div x-show="$store.insights.data.daily_trend.length === 0"
-                 style="color:var(--color-text-dim);font-size:12px">暂无数据</div>
-            <div style="display:flex;align-items:flex-end;gap:4px;height:80px;overflow-x:auto">
+          <div class="bg-base-200 border border-base-300 rounded-box p-4 mb-4">
+            <div class="font-semibold text-[13px] mb-3" x-text="$store.i18n.t('insights_daily_trend')"></div>
+            <div x-show="$store.insights.data.daily_trend.length === 0" class="text-base-content/70 text-xs py-2">暂无数据</div>
+            <div class="flex items-end gap-1 h-20 overflow-x-auto">
               <template x-for="d in $store.insights.data.daily_trend" :key="d.day">
-                <div style="display:flex;flex-direction:column;align-items:center;gap:2px;min-width:28px">
-                  <div style="font-size:9px;color:var(--color-text-dim)" x-text="d.count"></div>
-                  <div style="background:var(--color-primary);border-radius:3px 3px 0 0;width:18px;transition:height .2s"
+                <div class="flex flex-col items-center gap-0.5 min-w-[28px]">
+                  <div class="text-[9px] text-base-content/70" x-text="d.count"></div>
+                  <div class="bg-primary rounded-t-[3px] w-[18px] transition-[height] duration-200"
                        :style="`height:${Math.round(d.count/$store.insights.maxDailyCount()*64)+4}px`"
                        :title="`${d.day}: ${d.count} 条`"></div>
-                  <div style="font-size:9px;color:var(--color-text-dim);writing-mode:vertical-rl;text-orientation:mixed"
+                  <div class="text-[9px] text-base-content/70 [writing-mode:vertical-rl] [text-orientation:mixed]"
                        x-text="d.day.slice(5)"></div>
                 </div>
               </template>
@@ -73,20 +71,17 @@
           </div>
 
           <!-- 最活跃会话 -->
-          <div style="background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:10px;padding:16px">
-            <div style="font-weight:600;font-size:13px;margin-bottom:12px" x-text="$store.i18n.t('insights_top_sessions')"></div>
-            <div x-show="$store.insights.data.top_sessions.length === 0"
-                 style="color:var(--color-text-dim);font-size:12px">暂无数据</div>
-            <div style="display:flex;flex-direction:column;gap:6px">
+          <div class="bg-base-200 border border-base-300 rounded-box p-4">
+            <div class="font-semibold text-[13px] mb-3" x-text="$store.i18n.t('insights_top_sessions')"></div>
+            <div x-show="$store.insights.data.top_sessions.length === 0" class="text-base-content/70 text-xs py-2">暂无数据</div>
+            <div class="flex flex-col gap-1.5">
               <template x-for="(sess, i) in $store.insights.data.top_sessions" :key="sess.id">
-                <div style="display:flex;align-items:center;gap:10px;cursor:pointer"
+                <div class="flex items-center gap-2.5 cursor-pointer hover:bg-base-300 p-1 rounded transition-colors"
                      @click="Alpine.store('chat').loadSession(sess.id); Alpine.store('nav').navigate('chat')">
-                  <span style="font-size:11px;color:var(--color-text-dim);width:20px;text-align:right"
-                        x-text="i+1"></span>
-                  <div style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px"
+                  <span class="text-[11px] text-base-content/70 w-5 text-right" x-text="i+1"></span>
+                  <div class="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-xs"
                        x-text="sess.title || sess.id.slice(0,20)+'…'"></div>
-                  <span style="font-size:11px;padding:2px 8px;background:var(--color-surface);border-radius:10px;flex-shrink:0"
-                        x-text="`${sess.message_count} 条`"></span>
+                  <span class="text-[11px] px-2 py-0.5 bg-base-100 rounded-full shrink-0" x-text="`${sess.message_count} 条`"></span>
                 </div>
               </template>
             </div>
@@ -94,13 +89,13 @@
         </div>
       </template>
       <!-- Trajectory 导出 -->
-      <div style="margin-top:16px;padding:14px 16px;background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:10px;display:flex;align-items:center;justify-content:space-between">
+      <div class="mt-4 p-4 bg-base-200 border border-base-300 rounded-box flex items-center justify-between">
         <div>
-          <div style="font-weight:600;font-size:13px">训练数据导出</div>
-          <div style="font-size:12px;color:var(--color-text-dim);margin-top:2px">将高质量对话导出为 SFT 微调数据集</div>
+          <div class="font-semibold text-[13px]">训练数据导出</div>
+          <div class="text-xs text-base-content/70 mt-0.5">将高质量对话导出为 SFT 微调数据集</div>
         </div>
-        <div style="display:flex;gap:8px" x-data="{fmt:'sharegpt',days:30}">
-          <select name="export-format" aria-label="导出格式" class="form-select" style="width:auto;font-size:12px" x-model="fmt">
+        <div class="flex gap-2" x-data="{fmt:'sharegpt',days:30}">
+          <select name="export-format" aria-label="导出格式" class="select select-bordered select-sm w-auto text-xs" x-model="fmt">
             <option value="sharegpt">ShareGPT</option>
             <option value="openai">OpenAI</option>
             <option value="raw">Raw JSON</option>
@@ -113,14 +108,14 @@
     </div><!-- /insights -->
 
     <!-- ─────── 评测套件页（Eval Harness） ──────────────── -->
-    <div x-show="$store.nav.page === 'eval'" x-cloak class="page-container">
-      <div class="page-header">
+    <div x-show="$store.nav.page === 'eval'" x-cloak class="flex-1 min-h-0 overflow-y-auto p-6">
+      <div class="flex items-center justify-between mb-6">
         <div>
-          <div class="page-title" x-text="$store.i18n.t('eval_title')"></div>
-          <div class="page-subtitle" x-text="$store.i18n.t('eval_subtitle')"></div>
+          <div class="text-2xl font-bold text-base-content" x-text="$store.i18n.t('eval_title')"></div>
+          <div class="text-sm text-base-content/70 mt-1" x-text="$store.i18n.t('eval_subtitle')"></div>
         </div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <select name="eval-suite" aria-label="Suite" class="form-select" style="width:auto"
+        <div class="flex items-center gap-2">
+          <select name="eval-suite" aria-label="Suite" class="select select-bordered select-sm w-auto"
                   x-model="$store.eval.suite">
             <option value="training" x-text="$store.i18n.t('eval_suite_training')"></option>
             <option value="validation" x-text="$store.i18n.t('eval_suite_validation')"></option>
@@ -132,62 +127,62 @@
       </div>
 
       <!-- 加载中 -->
-      <div x-show="$store.eval.running && !$store.eval.report" class="empty-state">
-        <div class="spinner" style="width:32px;height:32px;margin:0 auto 12px"></div>
+      <div x-show="$store.eval.running && !$store.eval.report" class="flex flex-col items-center justify-center p-12 text-base-content/50">
+        <div class="loading loading-spinner w-8 h-8 mx-auto mb-3"></div>
         <p x-text="$store.i18n.t('eval_running')"></p>
       </div>
 
       <!-- 当前报告 -->
       <template x-if="$store.eval.report">
-        <div style="background:var(--color-surface);border:1px solid var(--color-border);border-radius:8px;padding:20px;margin-bottom:16px">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-            <span style="font-weight:600;font-size:14px" x-text="'Suite: ' + $store.eval.report.suite"></span>
+        <div class="bg-base-200 border border-base-300 rounded-box p-5 mb-4">
+          <div class="flex items-center justify-between mb-4">
+            <span class="font-semibold text-sm text-base-content" x-text="'Suite: ' + $store.eval.report.suite"></span>
             <span :style="$store.eval.statusClass($store.eval.report.status)"
                   x-text="$store.eval.statusLabel($store.eval.report.status)"></span>
           </div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px">
-            <div class="stat-card" style="background:var(--color-surface-raised);padding:12px;border-radius:8px;text-align:center">
-              <div style="font-size:24px;font-weight:700" x-text="$store.eval.report.total_cases"></div>
-              <div style="font-size:11px;color:var(--color-text-dim);margin-top:4px" x-text="$store.i18n.t('eval_total')"></div>
+          <div class="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-3">
+            <div class="bg-base-100 p-3 rounded-lg text-center">
+              <div class="text-2xl font-bold text-base-content" x-text="$store.eval.report.total_cases"></div>
+              <div class="text-[11px] text-base-content/70 mt-1" x-text="$store.i18n.t('eval_total')"></div>
             </div>
-            <div class="stat-card" style="background:var(--color-surface-raised);padding:12px;border-radius:8px;text-align:center">
-              <div style="font-size:24px;font-weight:700;color:var(--color-success)" x-text="$store.eval.report.pass_count"></div>
-              <div style="font-size:11px;color:var(--color-text-dim);margin-top:4px" x-text="$store.i18n.t('eval_pass')"></div>
+            <div class="bg-base-100 p-3 rounded-lg text-center">
+              <div class="text-2xl font-bold text-success" x-text="$store.eval.report.pass_count"></div>
+              <div class="text-[11px] text-base-content/70 mt-1" x-text="$store.i18n.t('eval_pass')"></div>
             </div>
-            <div class="stat-card" style="background:var(--color-surface-raised);padding:12px;border-radius:8px;text-align:center">
-              <div style="font-size:24px;font-weight:700;color:var(--color-error)" x-text="$store.eval.report.fail_count"></div>
-              <div style="font-size:11px;color:var(--color-text-dim);margin-top:4px" x-text="$store.i18n.t('eval_fail')"></div>
+            <div class="bg-base-100 p-3 rounded-lg text-center">
+              <div class="text-2xl font-bold text-error" x-text="$store.eval.report.fail_count"></div>
+              <div class="text-[11px] text-base-content/70 mt-1" x-text="$store.i18n.t('eval_fail')"></div>
             </div>
-            <div class="stat-card" style="background:var(--color-surface-raised);padding:12px;border-radius:8px;text-align:center">
-              <div style="font-size:24px;font-weight:700;color:var(--color-warning)" x-text="$store.eval.report.safety_fail"></div>
-              <div style="font-size:11px;color:var(--color-text-dim);margin-top:4px" x-text="$store.i18n.t('eval_safety_fail')"></div>
+            <div class="bg-base-100 p-3 rounded-lg text-center">
+              <div class="text-2xl font-bold text-warning" x-text="$store.eval.report.safety_fail"></div>
+              <div class="text-[11px] text-base-content/70 mt-1" x-text="$store.i18n.t('eval_safety_fail')"></div>
             </div>
-            <div class="stat-card" style="background:var(--color-surface-raised);padding:12px;border-radius:8px;text-align:center">
-              <div style="font-size:24px;font-weight:700" :style="'color:' + ($store.eval.passRate($store.eval.report) >= 80 ? 'var(--color-success)' : 'var(--color-error)')"
+            <div class="bg-base-100 p-3 rounded-lg text-center">
+              <div class="text-2xl font-bold" :class="$store.eval.passRate($store.eval.report) >= 80 ? 'text-success' : 'text-error'"
                    x-text="$store.eval.passRate($store.eval.report) + '%'"></div>
-              <div style="font-size:11px;color:var(--color-text-dim);margin-top:4px" x-text="$store.i18n.t('eval_pass_rate')"></div>
+              <div class="text-[11px] text-base-content/70 mt-1" x-text="$store.i18n.t('eval_pass_rate')"></div>
             </div>
           </div>
         </div>
       </template>
 
       <!-- 无结果 -->
-      <div x-show="!$store.eval.running && !$store.eval.report && $store.eval.history.length === 0" class="empty-state">
-        <div style="font-size:32px;margin-bottom:12px">🧪</div>
+      <div x-show="!$store.eval.running && !$store.eval.report && $store.eval.history.length === 0" class="flex flex-col items-center justify-center p-12 text-base-content/50">
+        <div class="text-[32px] mb-3">🧪</div>
         <div x-text="$store.i18n.t('eval_no_results')"></div>
       </div>
 
       <!-- 历史记录 -->
       <template x-if="$store.eval.history.length > 0">
-        <div style="margin-top:16px">
-          <div style="font-weight:600;font-size:13px;margin-bottom:8px" x-text="$store.i18n.t('eval_history')"></div>
-          <div style="display:flex;flex-direction:column;gap:6px">
+        <div class="mt-4">
+          <div class="font-semibold text-[13px] mb-2 text-base-content" x-text="$store.i18n.t('eval_history')"></div>
+          <div class="flex flex-col gap-1.5">
             <template x-for="h in $store.eval.history" :key="h._runAt">
-              <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;background:var(--color-surface);border-radius:6px;font-size:12px">
-                <span style="font-weight:600;width:80px;flex-shrink:0" x-text="h.suite"></span>
+              <div class="flex items-center gap-3 p-2 bg-base-200 rounded-md text-xs">
+                <span class="font-semibold w-20 shrink-0 text-base-content" x-text="h.suite"></span>
                 <span :style="$store.eval.statusClass(h.status)" x-text="$store.eval.statusLabel(h.status)"></span>
-                <span style="color:var(--color-text-dim)" x-text="h.pass_count + '/' + h.total_cases + ' passed'"></span>
-                <span style="color:var(--color-text-dim);margin-left:auto" x-text="new Date(h._runAt).toLocaleString()"></span>
+                <span class="text-base-content/70" x-text="h.pass_count + '/' + h.total_cases + ' passed'"></span>
+                <span class="text-base-content/70 ml-auto" x-text="new Date(h._runAt).toLocaleString()"></span>
               </div>
             </template>
           </div>

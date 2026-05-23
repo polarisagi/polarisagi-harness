@@ -12,17 +12,17 @@
       <div x-show="$store.channels.loading" class="empty-state" x-text="$store.i18n.t('loading')"></div>
 
       <div x-show="!$store.channels.loading && $store.channels.list.length === 0" class="empty-state">
-        <div style="font-size:32px;margin-bottom:12px">🔗</div>
+        <div class="text-3xl mb-3">🔗</div>
         <div x-text="$store.i18n.t('channels_empty_title')"></div>
-        <div style="font-size:13px;color:var(--color-text-dim);margin-top:4px" x-text="$store.i18n.t('channels_empty_hint')"></div>
+        <div class="text-sm text-base-content/60 mt-1" x-text="$store.i18n.t('channels_empty_hint')"></div>
       </div>
 
-      <div style="display:grid;gap:12px">
+      <div class="grid gap-3">
         <template x-for="c in $store.channels.list" :key="c.id">
           <div class="provider-card" :class="{ disabled: !c.enabled }">
             <div class="provider-card-header">
-              <div style="display:flex;align-items:center;gap:8px">
-                <span style="font-size:20px" x-text="$store.channels.typeIcon(c.type)"></span>
+              <div class="flex items-center gap-2">
+                <span class="text-xl" x-text="$store.channels.typeIcon(c.type)"></span>
                 <span class="provider-type-badge" x-text="$store.channels.typeLabel(c.type)"></span>
               </div>
               <label class="toggle" :aria-label="c.name + ' 启用状态'">
@@ -32,11 +32,11 @@
             </div>
             <div class="provider-name" x-text="c.name"></div>
             <!-- Webhook URL 显示 -->
-            <div x-show="c.webhook_url" style="margin-top:8px">
-              <div style="font-size:11px;color:var(--color-text-dim);margin-bottom:4px">Webhook URL</div>
-              <div style="display:flex;align-items:center;gap:8px;background:var(--color-surface-raised);padding:6px 10px;border-radius:6px;font-family:monospace;font-size:11px;overflow:hidden">
-                <span x-text="c.webhook_url" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
-                <button class="btn btn-ghost btn-sm" style="padding:2px 8px;font-size:11px;flex-shrink:0"
+            <div x-show="c.webhook_url" class="mt-2">
+              <div class="text-[11px] text-base-content/60 mb-1">Webhook URL</div>
+              <div class="flex items-center gap-2 bg-base-200 p-1.5 px-2.5 rounded-box font-mono text-[11px] overflow-hidden">
+                <span x-text="c.webhook_url" class="flex-1 overflow-hidden text-ellipsis whitespace-nowrap"></span>
+                <button class="btn btn-ghost btn-sm" class="px-2 py-0.5 text-[11px] shrink-0 min-h-0 h-auto"
                   @click="$store.channels.copyWebhook(c.webhook_url)"
                   x-text="$store.i18n.t('channels_copy_webhook')"></button>
               </div>
@@ -44,7 +44,7 @@
             <div class="provider-card-actions">
               <button class="btn btn-ghost btn-sm" @click="$store.channels.openEdit(c)"
                       x-text="$store.i18n.t('channels_edit')"></button>
-              <button class="btn btn-ghost btn-sm" style="color:var(--color-error)"
+              <button class="btn btn-ghost btn-sm" class="text-error"
                 @click="confirm($store.i18n.t('confirm_delete')) && $store.channels.remove(c.id)"
                 x-text="$store.i18n.t('channels_delete')"></button>
             </div>
@@ -171,7 +171,7 @@
               </div>
             </template>
 
-            <label class="form-check" style="margin-top:16px">
+            <label class="form-check" class="mt-4">
               <input type="checkbox" name="channel-enabled" x-model="$store.channels.form.enabled"> 启用
             </label>
           </div>
