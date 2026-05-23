@@ -95,21 +95,19 @@ document.addEventListener('DOMContentLoaded', () => {
   // 兼容旧 URL → 新页面
   const legacyPageMap = {
     status: 'monitor', insights: 'monitor', logs: 'monitor',
-    providers: 'settings', channels: 'settings', config: 'settings',
-    approvals: 'tasks', cron: 'automation',
-    agents: 'monitor', capabilities: 'skills',
-    computer: 'settings',
+    providers: 'settings', channels: 'settings', config: 'settings', computer: 'settings',
+    approvals: 'automation', cron: 'automation',
+    agents: 'monitor', capabilities: 'plugins',
   }
-  const path = legacyPageMap[rawPath] || rawPath
-  Alpine.store('nav').page = path
-  history.replaceState({}, '', path === 'chat' ? '/' : `/${path}`)
-  if (path === 'tasks')      Alpine.store('approvals').startPolling()
-  if (path === 'settings')   { Alpine.store('providers').load(); Alpine.store('modelRoles').load() }
-  if (path === 'sessions')   Alpine.store('sessions').load()
-  if (path === 'skills')     Alpine.store('skills').load()
-  if (path === 'plugins')    Alpine.store('plugins').load()
-  if (path === 'automation') Alpine.store('cron').load()
-  if (path === 'eval')       { void 0 }
+  const page = legacyPageMap[rawPath] || rawPath
+  Alpine.store('nav').page = page
+  history.replaceState({}, '', page === 'chat' ? '/' : `/${page}`)
+  
+  if (page === 'settings')   { Alpine.store('providers').load(); Alpine.store('modelRoles').load() }
+  if (page === 'sessions')   Alpine.store('sessions').load()
+  if (page === 'plugins')    Alpine.store('plugins').load()
+  if (page === 'automation') { Alpine.store('cron').load(); Alpine.store('approvals').startPolling() }
+  if (page === 'eval')       { void 0 }
 
   // 首次配置引导（延迟 400ms 等 Alpine reactive 系统就绪）
   setTimeout(() => Alpine.store('onboard').checkFirstRun(), 400)
