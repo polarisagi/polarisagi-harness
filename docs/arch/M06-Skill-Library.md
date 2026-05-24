@@ -404,6 +404,7 @@ dependencies:
 - 外部 SKILL.md 无 SIGNATURE → 适配器使用 HMAC-SHA256（实例密钥）生成本地签名
 - `SignatureValid=true` + `Capabilities: ["trust:local"]` 标记
 - `trust:local` 技能限制在 Sbx-L1，Cedar 策略不允许升 Sbx-L2
+- **安全管控**: AI 自动生成或手动创建的 Skill 必须通过 `Manager.InstallExtension` 注册，并分配 `TrustLocal(1)` 级别接受中央安全网关拦截审查。
 
 **Progressive Disclosure**:
 - 初始：仅解析 frontmatter → SkillMeta（name + description），不加载全文

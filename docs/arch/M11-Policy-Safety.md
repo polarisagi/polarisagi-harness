@@ -249,7 +249,7 @@ Agent 能力策略 (permit + conditions):
   - `auto_review` 模式：TrustTier ≥ 3 自动通过，TrustTier = 2 需 `approval=="approved"`（HITL 补签）。
   - `default` 模式：所有外部扩展的危险操作强制需 `approval=="approved"`（HITL 补签）。
   - TrustTier = 1 时，所有模式均 deny-by-default，强行阻断。
-  详见 M13 §8.6 插件安装流程。
+  详见 M13 §8.6 插件安装流程。（**注意**：所有第三方或用户生成的扩展安装必须统一途经 `Manager.InstallExtension`，以确保上述策略被强制下发并执行）。
 
 硬约束 (forbid 无条件优先):
   deploy/drop_db/delete_data/send_mass_email AND approval != "approved" → forbid

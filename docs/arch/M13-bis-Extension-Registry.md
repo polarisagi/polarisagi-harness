@@ -132,7 +132,8 @@ DELETE /v1/plugins/{catalog_id}
 
 > 策略制定见 M11 Cedar-Gate。本节只描述 Extension Registry 的触发点。
 
-安装时 `trust_tier` 从 `extension_catalog` 继承，写入 `extension_instances` 和运行时表（`mcp_servers.trust_tier` / `skills.trust_tier`）。
+**核心约束**：所有扩展安装路径（包括手动创建、Agent 自治安装、AI 生成技能）必须强制通过 `Manager.InstallExtension` 中央网关，确保策略拦截（自动/HITL审批/拒绝）不可绕过。
+安装时 `trust_tier` 从 `extension_catalog` 继承（自建内容定为 TrustLocal 1），写入 `extension_instances` 和运行时表（`mcp_servers.trust_tier` / `skills.trust_tier`）。
 同时结合系统全局的 `permission_mode`（`default` / `auto_review` / `full_access`）及扩展是否有钩子(hooks)，由 Cedar 引擎（`InstallSecurityGate`）统一拦截并决断（自动放行 / HITL 审批 / 强制拒绝），并记入 AuditTrail 日志。
 
 **禁止**：安装请求的 `trust_tier` 字段不允许客户端覆盖（server 端强制忽略）。
