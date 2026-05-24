@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"os"
 	"os/exec"
 
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
 	"github.com/mrlaoliai/polaris-harness/internal/protocol"
 )
 
@@ -18,7 +18,7 @@ func NewEdgeTTS() protocol.Tool {
 		Description: "Convert text to speech using Edge TTS",
 		Version:     "1.0.0",
 		Capability:  protocol.CapWriteNetwork,
-		SideEffects: []protocol.SideEffect{protocol.SideNetworkCall},
+		SideEffects: []protocol.SideEffect{protocol.SideNetworkCall, protocol.SideProcessSpawn, protocol.SideFileWrite},
 		RiskLevel:   protocol.RiskLow,
 		SandboxTier: protocol.SandboxInProcess,
 		Source:      protocol.ToolBuiltin,
@@ -41,7 +41,7 @@ func ExecuteEdgeTTS(ctx context.Context, args []byte) ([]byte, error) {
 		Text string `json:"text"`
 	}
 	if err := json.Unmarshal(args, &req); err != nil {
-		return nil, fmt.Errorf("invalid args: %w", err)
+		return nil, perrors.Wrap(perrors.CodeInvalidInput, "invalid args", err)
 	}
 
 	audioURI := ""

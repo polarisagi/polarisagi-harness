@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
 	"github.com/mrlaoliai/polaris-harness/internal/protocol"
 )
 
@@ -20,7 +21,7 @@ func NewVideoAnalysis() protocol.Tool {
 		Description: "Analyze video by extracting keyframes to fit within Tier-0 memory constraints",
 		Version:     "1.0.0",
 		Capability:  protocol.CapWriteNetwork,
-		SideEffects: []protocol.SideEffect{protocol.SideNone},
+		SideEffects: []protocol.SideEffect{protocol.SideProcessSpawn, protocol.SideFileWrite},
 		RiskLevel:   protocol.RiskLow,
 		SandboxTier: protocol.SandboxInProcess,
 		Source:      protocol.ToolBuiltin,
@@ -48,7 +49,7 @@ func ExecuteVideoAnalysis(ctx context.Context, args []byte) ([]byte, error) {
 		IntervalSec int    `json:"interval_sec"`
 	}
 	if err := json.Unmarshal(args, &req); err != nil {
-		return nil, fmt.Errorf("invalid args: %w", err)
+		return nil, perrors.Wrap(perrors.CodeInvalidInput, "invalid args", err)
 	}
 
 	if req.IntervalSec <= 0 {
