@@ -44,7 +44,7 @@ skill-name/
 
 ### 1.2 Go 数据结构
 
-Skill/JSONSchema/Condition/SkillSource 类型定义见 `pkg/cognition/skill.go`。
+Skill/JSONSchema/Condition/SkillSource 类型定义见 `pkg/extensions/skill/skill.go`。
 
 依赖环检测: Register 时对 DependsOn ∪ ComposesOf 构建有向图 → DFS 三色染色 (White/Gray/Black) 检测后向边。存在环 → `ErrCircularDependency{Path}`。O(V+E), V≤100, <1ms。ComposesOf 与 DependsOn 边在环检测中等价处理。
 
@@ -410,7 +410,7 @@ dependencies:
 - 按需：SkillSelector 选中后，才读完整 SKILL.md 传入 LLM 上下文（与 Wasm 懒加载一致）
 - 上下文预算：SkillSelector 的初始技能列表不超过 8000 字符（~2% 上下文窗口）
 
-**代码位置**: `pkg/action/plugin/loader.go` (SkillMetaFromSKILLmd + parseFrontmatter)
+**代码位置**: `pkg/extensions/marketplace/loader.go` (SkillMetaFromSKILLmd + parseFrontmatter)
 
 ---
 
