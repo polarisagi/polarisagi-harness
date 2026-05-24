@@ -51,7 +51,7 @@ func (c *MCPMarketplaceClient) Search(ctx context.Context, query string) ([]prot
 				Description: "Official Polaris Knowledge Base Extension (Go Binary)",
 				Command:     "knowledge_base",
 				Args:        []string{},
-				URL:         "http://127.0.0.1:8080/knowledge_base_" + runtime.GOOS + "_" + runtime.GOARCH, // Mock Release URL
+				URL:         "https://github.com/mrlaoliai/polaris-plugins-official/releases/latest/download/knowledge_base_" + runtime.GOOS + "_" + runtime.GOARCH, // Real GitHub Release URL
 			},
 			{
 				ID:          "github.com/mrlaoliai/polaris-plugins-official/browser_use",
