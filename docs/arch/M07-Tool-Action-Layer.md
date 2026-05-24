@@ -329,7 +329,7 @@ Planner 决定调用工具 → 生成 ToolIntent（不签发 Token）→ M8 Blac
 
 ### 7.1 Computer Use / GUI 自动化架构
 
-**架构定位**: 采用外置的独立 **Rust MCP Sidecar (`polaris-computer-mcp`)** 作为底层驱动，确保主干 Agent 进程的绝对安全与 `Zero-CGO` 纯洁性。严禁在 Sidecar 中内嵌任何 AI 模型（OmniParser / VLM 均保留在主干推理网关）。
+**架构定位**: 采用独立的外部 MCP 插件/微服务（如通过插件市场分发的 Computer MCP Server）作为底层驱动。`computer_use` 能力不再作为硬编码的系统内置侧车运行，而是通过标准的 MCP 协议扩展接入，这确保了主干 Agent 进程的绝对安全与生命周期解耦。严禁在外部扩展中内嵌任何核心 AI 模型（OmniParser / VLM 均保留在主干推理网关）。
 
 **核心技术栈**:
 1. **感知层 (Sensor)**:
@@ -340,7 +340,7 @@ Planner 决定调用工具 → 生成 ToolIntent（不签发 Token）→ M8 Blac
    - **Linux 特化兜底**: 弃用实验性的 Wayland `libei`，直接采用 `evdev` 向 `/dev/uinput` 写入内核级输入信号。
 
 Execute: ForegroundIntent→physical；BackgroundTask/AutoCurriculum→headless。
-- **physical 模式**: 依赖 `polaris-computer-mcp` 本地微服务。
+- **physical 模式**: 依赖外部的 Computer MCP 插件服务。
 - **headless 模式**: Tier 1+ → `Xvfb :99 -screen 0 1280x800x24` 启动虚拟显示器执行。
 
 **执行耗时追踪**: 底层追踪表（如 `decision_log` 或 `agent_actions`）必须录入 `created_at` 与 `updated_at` 时间戳，供前端渲染耗时。
