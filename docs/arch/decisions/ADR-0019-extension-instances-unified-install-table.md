@@ -29,7 +29,7 @@
 - `install_path`：文件系统绝对路径；MCP/App 为空字符串
 - `status`：`downloading` | `installed` | `error` | `disabled`
 
-删除 `skill_sources`、`plugins`、`apps` 三表 DDL（早期开发阶段直接清除，无存量数据）。删除 `026_skills.sql` 死代码。Schema 整体重整为 001-020 标准编号。
+删除 `skill_sources`、`apps` 两表 DDL。`plugins` 表曾一度被删除，但后续（参见 021_plugins.sql）被重新引入，专门作为独立脚本型应用插件的运行时记录。Schema 整体重整为 001-021 标准编号。
 
 ---
 
