@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/exec"
@@ -97,7 +98,7 @@ func RegisterBuiltinTools(
 				Capability:  protocol.CapWriteLocal,
 				SideEffects: []protocol.SideEffect{protocol.SideFileWrite},
 				RiskLevel:   protocol.RiskHigh,
-				SandboxTier: protocol.SandboxInProcess,
+				SandboxTier: protocol.SandboxContainer,
 				Source:      protocol.ToolBuiltin,
 			},
 			fn: makeBashFn(allowedPaths),
@@ -442,6 +443,7 @@ func makeBashFn(allowedPaths []string) action.InProcessFn {
 		execCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 		defer cancel()
 
+		slog.Warn("native: executing high-risk bash command", "cmd", args.Command, "dir", workDir)
 		cmd := exec.CommandContext(execCtx, "bash", "-c", args.Command)
 		if workDir != "" {
 			cmd.Dir = workDir

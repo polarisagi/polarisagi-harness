@@ -10,6 +10,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"log/slog"
+
 	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
 	"github.com/mrlaoliai/polaris-harness/internal/protocol"
 )
@@ -36,8 +38,10 @@ func NewMCPMarketplaceClient(registryURL, baseInstallDir string) *MCPMarketplace
 // Search queries the marketplace for MCP servers or plugins.
 func (c *MCPMarketplaceClient) Search(ctx context.Context, query string) ([]protocol.RegistryEntry, error) {
 	searchURL := fmt.Sprintf("%s/search?q=%s", c.registryURL, url.QueryEscape(query))
+	slog.Info("marketplace: searching for packages", "query", query)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, searchURL, nil)
 	if err != nil {
+		slog.Error("marketplace: invalid search request", "err", err)
 		return nil, perrors.Wrap(perrors.CodeInternal, "marketplace: invalid search request", err)
 	}
 
@@ -115,8 +119,10 @@ func (c *MCPMarketplaceClient) Install(ctx context.Context, pkg protocol.Registr
 
 	manifestPath := filepath.Join(pluginMetaDir, "plugin.json")
 	if err := os.WriteFile(manifestPath, manifestData, 0644); err != nil {
+		slog.Error("marketplace: failed to write plugin.json", "err", err)
 		return "", perrors.Wrap(perrors.CodeInternal, "marketplace: failed to write plugin.json", err)
 	}
 
+	slog.Info("marketplace: install success", "pkg_id", pkg.ID, "dir", pluginDir)
 	return pluginDir, nil
 }

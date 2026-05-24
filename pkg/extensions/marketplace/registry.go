@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"sync"
 
+	"log/slog"
+
 	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
 	"github.com/mrlaoliai/polaris-harness/internal/protocol"
 )
@@ -40,6 +42,7 @@ func (r *Registry) Register(p *Plugin) error {
 		return perrors.New(perrors.CodeInternal, fmt.Sprintf("plugin: %q already registered; unregister first", p.Manifest.Name))
 	}
 	r.plugins[p.Manifest.Name] = p
+	slog.Info("plugin: registered", "name", p.Manifest.Name)
 	return nil
 }
 
@@ -48,6 +51,7 @@ func (r *Registry) Unregister(name string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	delete(r.plugins, name)
+	slog.Info("plugin: unregistered", "name", name)
 }
 
 // SetEnabled 启用/禁用 Plugin（不移除，只改 Enabled 标志）。
@@ -60,6 +64,7 @@ func (r *Registry) SetEnabled(name string, enabled bool) error {
 		return perrors.New(perrors.CodeInternal, fmt.Sprintf("plugin: %q not found", name))
 	}
 	p.Enabled = enabled
+	slog.Info("plugin: status changed", "name", name, "enabled", enabled)
 	return nil
 }
 

@@ -36,7 +36,7 @@ MCP Client 消费端: `ConnectExternalMCP(serverCmd)` → CommandTransport/Strea
 
 **Streamable HTTP** 为默认远程传输层；SSE 仅向后兼容（legacy）。决策见 [ADR-0017](./decisions/ADR-0017-mcp-streamable-http-default.md)。
 
-**MCP Transport 污点保护反序列化**：MCP Client 路径强制使用 `TaintPreservingDecoder`（`pkg/action/taint_preserving_decoder.go` + `mcp_client.go`），禁用 `encoding/json` 直解动态 schema——所有 string 叶子包装为 `TaintedString`（Source=MCP, Origin=server_name），初始 `[TaintLevel]` 按 M11 §2.4 `[Connector-Taint-Table]` 判定。决策与被驳回方案见 [ADR-0018](./decisions/ADR-0018-mcp-taint-preserving-decoder.md)。
+**MCP Transport 污点保护反序列化**：MCP Client 路径强制使用 `TaintPreservingDecoder`（`pkg/action/taint_preserving_decoder.go` + `pkg/extensions/mcp/mcp_client.go`），禁用 `encoding/json` 直解动态 schema——所有 string 叶子包装为 `TaintedString`（Source=MCP, Origin=server_name），初始 `[TaintLevel]` 按 M11 §2.4 `[Connector-Taint-Table]` 判定。决策与被驳回方案见 [ADR-0018](./decisions/ADR-0018-mcp-taint-preserving-decoder.md)。
 
 统一错误映射（transport-agnostic）:
 
@@ -584,7 +584,7 @@ ScanDir → ParseManifest → Plugin.AbsSkillPaths → plugin.ParseSKILLmd → M
 - Plugin Skills 经 `trust:local` 标签注入，Sbx-L1 限制（不得升 Sbx-L2，除非 cosign 签名已验证）
 - Plugin MCP 默认 `trusted=false` → Taint=High（M7 inv_M7_02）
 
-**代码位置**: `pkg/action/plugin/` (plugin.go / registry.go / loader.go)
+**代码位置**: `pkg/extensions/marketplace/` (marketplace.go / registry.go / loader.go)
 
 ---
 
