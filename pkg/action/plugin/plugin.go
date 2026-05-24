@@ -70,4 +70,3 @@ func validateManifest(m *PluginJSON, path string) error {
 	}
 	return nil
 }
-
