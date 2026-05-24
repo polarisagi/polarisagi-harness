@@ -43,11 +43,12 @@ api/proto/        Protobuf 原始定义
 cmd/polaris/      主入口
 configs/          启动配置
 policies/         Cedar 策略 + ESCALATE/KILLSWITCH 协议
-skills/builtin/   内置 Skill 三件套（SKILL.md + schema.json + impl.wasm），embed 进二进制随版本发布
+# skills/builtin/ （已废弃，官方技能与插件作为官方 bundle 解耦发布至 GitHub，不再随主程序硬编码打包）
 
 pkg/substrate/    L0: inference/storage/observability/policy
 pkg/cognition/    L1: kernel/memory/skill
-pkg/action/       L1: tool（沙箱/MCP）
+pkg/action/       L1: 原生内置工具集（核心读写、沙箱基础等 survival kit）
+pkg/extensions/   L2: 官方扩展包（Skill/MCP/Plugin/Browser，对齐 OpenAI/Anthropic 标准，独立于云端动态下载分发，不再硬编码）
 pkg/swarm/        L2: orchestrator/self_improve/knowledge
 pkg/governance/   L3: eval
 pkg/edge/         L3: scheduler

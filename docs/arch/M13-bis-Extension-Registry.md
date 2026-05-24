@@ -43,17 +43,31 @@ Layer 2  Runtime（运行时层）
 
 | ext_type | 运行时绑定 | 文件下载 | 典型来源 |
 |----------|-----------|---------|---------|
-| `mcp`    | `mcp_servers` | 否（进程自管理） | marketplace / user |
+| `mcp`    | `mcp_servers` | 是（或自管理进程） | marketplace / user |
 | `skill`  | `skills`（008） | 是（wasm/script） | marketplace / learned |
 | `plugin` | `mcp_servers` + `skills`（一对多） | 是（bundle 解压） | marketplace |
 | `app`    | 无（URL 直记） | 否 | marketplace / user |
+
+### 2.1 Polaris Extension Format (行业标准打包)
+
+为了对齐前沿 AI 公司的扩展标准，我们分发和解析的插件包（`.tar.gz`）遵循 **OpenAI / Anthropic 双轨标准**：
+
+```text
+bundle.tar.gz
+├── ai-plugin.json       # [OpenAI 标准] 元数据、认证方式及 API 描述地址
+├── openapi.yaml         # [OpenAI 标准] 声明式的 REST API schema
+├── mcp_server/          # [Anthropic 标准] 本地可执行文件（Node/Python/Go MCP 服务）
+└── SKILL.md             # [兼容标准] 兼容 agentskills.io 的纯文本技能
+```
+安装 `plugin` bundle 时，解析器会同时提取 `ai-plugin.json` 注册为声明式 API 工具，解压启动 `mcp_server` 注册为双向 RPC 工具，从而实现对行业标准的完全兼容。
 
 **origin 枚举**：
 
 | origin | 含义 | trust_tier 默认值 |
 |--------|------|-----------------|
-| `builtin`     | 程序内嵌，启动 UPSERT | 4 TrustSystem |
-| `marketplace` | 市场安装（catalog_id 非空） | 继承 registry_cache |
+| `builtin`     | 仅限维持 Agent 基础生存的极简原生工具（如 `bash`, `marketplace_installer`） | 4 TrustSystem |
+| `official`    | 官方云端市场下载的推荐扩展包（解耦二进制） | 3 TrustOfficial |
+| `marketplace` | 第三方社区市场下载 | 继承 registry_cache |
 | `user`        | 用户手动创建/配置 | 1 TrustLocal |
 | `learned`     | M9 自演化 promote | 1 TrustLocal |
 
