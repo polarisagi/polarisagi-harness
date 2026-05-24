@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS mcp_servers (
     enabled     INTEGER NOT NULL DEFAULT 1,
     timeout     INTEGER NOT NULL DEFAULT 30,        -- 单次请求超时（秒）
     trust_tier  INTEGER NOT NULL DEFAULT 2,         -- 0-4，见上方说明
-    catalog_id  TEXT    NOT NULL DEFAULT '',        -- 关联 registry_cache.id；用户手动配置时为空
+    catalog_id  TEXT    NOT NULL DEFAULT '',        -- 关联 extension_catalog.id；用户手动配置时为空
     created_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
     updated_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
 );

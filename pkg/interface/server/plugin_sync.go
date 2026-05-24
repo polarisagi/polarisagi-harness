@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"os"
@@ -265,25 +266,27 @@ func discoverMarketplaceEntries(mpDir string, mp protocol.Marketplace) ([]protoc
 }
 
 // handleSyncMarketplaces 刷新/同步市场
-func (s *Server) handleSyncMarketplaces(w http.ResponseWriter, r *http.Request) {
+// SyncAllMarketplaces 后台静默同步所有可用市场并更新缓存
+func (s *Server) SyncAllMarketplaces(ctx context.Context) (int, error) {
 	var mps []protocol.Marketplace
-	rows, err := s.db.QueryContext(r.Context(), "SELECT id, name, type, publisher, repo_url, description, is_builtin, trust_tier, enabled, created_at FROM plugin_marketplaces WHERE enabled=1")
-	if err == nil {
-		for rows.Next() {
-			var m protocol.Marketplace
-			if err := rows.Scan(&m.ID, &m.Name, &m.Type, &m.Publisher, &m.RepoURL, &m.Description, &m.IsBuiltin, &m.TrustTier, &m.Enabled, &m.CreatedAt); err == nil {
-				mps = append(mps, m)
-			}
-		}
-		rows.Close()
+	rows, err := s.db.QueryContext(ctx, "SELECT id, name, type, publisher, repo_url, description, is_builtin, trust_tier, enabled, created_at FROM plugin_marketplaces WHERE enabled=1")
+	if err != nil {
+		return 0, err
 	}
+	for rows.Next() {
+		var m protocol.Marketplace
+		if err := rows.Scan(&m.ID, &m.Name, &m.Type, &m.Publisher, &m.RepoURL, &m.Description, &m.IsBuiltin, &m.TrustTier, &m.Enabled, &m.CreatedAt); err == nil {
+			mps = append(mps, m)
+		}
+	}
+	rows.Close()
 
 	home, _ := os.UserHomeDir()
 	tmpDir := filepath.Join(home, ".polaris-harness", "tmp", "marketplaces")
 	_ = os.MkdirAll(tmpDir, 0755)
 
 	// Clean cache, keeping the seeded built-in ones
-	_, _ = s.db.ExecContext(r.Context(), "DELETE FROM registry_cache WHERE marketplace_id != 'builtin'")
+	_, _ = s.db.ExecContext(ctx, "DELETE FROM extension_catalog WHERE marketplace_id != 'builtin'")
 
 	syncedCount := 0
 	for _, mp := range mps {
@@ -327,14 +330,24 @@ func (s *Server) handleSyncMarketplaces(w http.ResponseWriter, r *http.Request) 
 
 			payload, _ := json.Marshal(e)
 
-			_, _ = s.db.ExecContext(r.Context(),
-				`INSERT INTO registry_cache(id, marketplace_id, type, name, description, publisher, trust_tier, url, payload) 
+			_, _ = s.db.ExecContext(ctx,
+				`INSERT INTO extension_catalog(id, marketplace_id, type, name, description, publisher, trust_tier, url, payload) 
 				VALUES(?,?,?,?,?,?,?,?,?)`,
 				e.ID, mp.ID, e.Type, e.Name, e.Description, mp.Publisher, mp.TrustTier, e.URL, string(payload))
 			syncedCount++
 		}
 	}
 
+	return syncedCount, nil
+}
+
+// handleSyncMarketplaces 刷新/同步市场
+func (s *Server) handleSyncMarketplaces(w http.ResponseWriter, r *http.Request) {
+	syncedCount, err := s.SyncAllMarketplaces(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{"status": "synced", "synced_count": syncedCount})
 }

@@ -122,7 +122,7 @@ make build-skills
 001_events · 002_outbox · 003_episodic_memory · 004_semantic_memory · 005_workspace_vfs
 006_decision_log · 007_tasks · 008_skills · 009_rag_chunks · 010_self_improve
 011_providers · 012_channels · 013_chat · 014_cron_jobs · 015_mcp_servers
-016_preferences · 017_automations · 018_plugin_marketplaces · 019_registry_cache · 020_extension_instances
+016_preferences · 017_automations · 018_plugin_marketplaces · 019_extension_catalog · 020_extension_instances
 ```
 
 **禁止**：

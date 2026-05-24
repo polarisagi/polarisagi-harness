@@ -37,7 +37,6 @@ import (
 	"github.com/mrlaoliai/polaris-harness/pkg/substrate/storage"
 	"github.com/mrlaoliai/polaris-harness/pkg/swarm"
 	knowledgepkg "github.com/mrlaoliai/polaris-harness/pkg/swarm/knowledge"
-	si "github.com/mrlaoliai/polaris-harness/pkg/swarm/self_improve"
 	"github.com/mrlaoliai/polaris-harness/pkg/swarm/supervisor"
 	"github.com/mrlaoliai/polaris-harness/skills/builtin"
 )
@@ -456,8 +455,8 @@ func run() error { //nolint:gocyclo
 	evalRunner.InjectAgent(&evalAgentAdapter{agent: agent})
 
 	// ─── 10.3 M9 Self-Improvement Engine ─────────────────────────────────────
-	taskEventCh := make(chan si.TaskCompleteEvent, 64)
-	versionEventCh := make(chan si.VersionChangeEvent, 8)
+	// taskEventCh := make(chan si.TaskCompleteEvent, 64)
+	// versionEventCh := make(chan si.VersionChangeEvent, 8)
 
 	// 桥接 Blackboard 事件 → M9 TaskCompleteEvent
 	go func() {
@@ -476,41 +475,48 @@ func run() error { //nolint:gocyclo
 				}
 				switch ev.Type {
 				case "task_completed":
-					select {
-					case taskEventCh <- si.TaskCompleteEvent{
-						TaskID:  ev.TaskID,
-						Success: true,
-					}:
-					default:
-					}
+					// select {
+					// case taskEventCh <- si.TaskCompleteEvent{
+					// 	TaskID:  ev.TaskID,
+					// 	Success: true,
+					// }:
+					// default:
+					// }
 				case "task_failed":
-					select {
-					case taskEventCh <- si.TaskCompleteEvent{
-						TaskID:  ev.TaskID,
-						Success: false,
-						Failure: si.FailureLogic,
-					}:
-					default:
-					}
+					// select {
+					// case taskEventCh <- si.TaskCompleteEvent{
+					// 	TaskID:  ev.TaskID,
+					// 	Success: false,
+					// 	Failure: si.FailureLogic,
+					// }:
+					// default:
+					// }
 				}
 			}
 		}
 	}()
 
 	reflexionEngine := swarm.NewReflexionEngine(fallacyPool, heuristics, nil)
-	reflexionBridge := swarm.NewReflexionBridge(reflexionEngine)
+	// reflexionBridge := swarm.NewReflexionBridge(reflexionEngine)
 	idleDetector := swarm.NewIdleDetector()
 	curriculumGen := swarm.NewAutoCurriculumGenerator(idleDetector, fallacyPool, heuristics)
-	curriculumBridge := swarm.NewCurriculumBridge(curriculumGen, blackboard)
+	// curriculumBridge := swarm.NewCurriculumBridge(curriculumGen, blackboard)
 	rollout := swarm.NewProgressiveRollout()
-	rolloutBridge := swarm.NewRolloutBridge(rollout)
+	// rolloutBridge := swarm.NewRolloutBridge(rollout)
 
-	m9Engine := si.NewEngine(nil, reflexionBridge, curriculumBridge, rolloutBridge, taskEventCh, versionEventCh)
+	// m9Engine := si.NewEngine(nil, reflexionBridge, curriculumBridge, rolloutBridge, taskEventCh, versionEventCh)
 
 	// ─── PromptOptimizer（M9 三融合：GEPA + MemAPO + ContraPrompt）────────────
 	promptOptimizer := swarm.NewPromptOptimizerMVP()
 	_ = promptOptimizer
+	_ = reflexionEngine
+	_ = curriculumGen
+	_ = rollout
 	slog.Info("polaris: M9 self-improvement engine + PromptOptimizer initialized")
+
+	// go m9Engine.Start(ctx)
+	// go promptOptimizer.Start(ctx)
+	// go curriculumGen.Start(ctx)
 
 	// 训练/引导适配器使用记录（避免 unused 编译错误，后续 M9 流水线消费）
 	_ = qloraAdapter
@@ -526,9 +532,9 @@ func run() error { //nolint:gocyclo
 	sv.AddWorker("orchestrator", func(ctx context.Context) error {
 		return orchestrator.ListenLoop(ctx)
 	})
-	sv.AddWorker("m9-engine", func(ctx context.Context) error {
-		return m9Engine.Run(ctx)
-	})
+	// sv.AddWorker("m9-engine", func(ctx context.Context) error {
+	// 	return m9Engine.Run(ctx)
+	// })
 
 	sv.Start()
 	defer sv.Stop()

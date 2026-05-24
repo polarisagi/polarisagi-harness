@@ -3,12 +3,12 @@
 -- ============================================================================
 -- 架构角色: 所有已安装扩展的单一事实来源。替代旧的 skill_sources/plugins/apps 三表。
 -- 三层模型:
---   Layer 0: plugin_marketplaces + registry_cache（目录层）
+--   Layer 0: plugin_marketplaces + extension_catalog（目录层）
 --   Layer 1: extension_instances（安装层，本表）
 --   Layer 2: mcp_servers / skills（运行时层）
 -- origin 枚举:
 --   builtin    = 程序内嵌，启动 UPSERT，trust_tier=4
---   marketplace= 市场安装（catalog_id 非空），trust_tier 继承 registry_cache
+--   marketplace= 市场安装（catalog_id 非空），trust_tier 继承 extension_catalog
 --   user       = 用户手动创建，trust_tier=1
 --   learned    = M9 自演化 promote，trust_tier=1
 -- 关联: M13-bis(Extension Registry), ADR-0019
@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS extension_instances (
     id           TEXT    PRIMARY KEY,           -- "ext_{8字节hex}"
     ext_type     TEXT    NOT NULL,              -- 'mcp' | 'skill' | 'plugin' | 'app'
     origin       TEXT    NOT NULL,              -- 'builtin' | 'marketplace' | 'user' | 'learned'
-    catalog_id   TEXT    NOT NULL DEFAULT '',   -- registry_cache.id；user/learned 时为空
+    catalog_id   TEXT    NOT NULL DEFAULT '',   -- extension_catalog.id；user/learned 时为空
     name         TEXT    NOT NULL,
     publisher    TEXT    NOT NULL DEFAULT '',
     trust_tier   INTEGER NOT NULL DEFAULT 0,

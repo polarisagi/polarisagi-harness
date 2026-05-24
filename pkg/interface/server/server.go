@@ -2,7 +2,9 @@ package server
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"io/fs"
 	"log/slog"
@@ -131,7 +133,7 @@ func NewServer(addr string, dataDir string, agent *kernel.Agent, bb protocol.Bla
 		if err := yaml.Unmarshal(b, &entries); err == nil {
 			for _, e := range entries {
 				payload, _ := json.Marshal(e)
-				_, _ = db.Exec(`INSERT OR IGNORE INTO registry_cache(id, marketplace_id, type, name, description, publisher, trust_tier, url, payload) 
+				_, _ = db.Exec(`INSERT OR IGNORE INTO extension_catalog(id, marketplace_id, type, name, description, publisher, trust_tier, url, payload) 
 				                VALUES(?,?,?,?,?,?,?,?,?)`,
 					e.ID, "builtin", e.Type, e.Name, e.Description, e.Publisher, e.TrustTier, e.URL, string(payload))
 			}
@@ -427,6 +429,7 @@ func (s *Server) Start() error {
 	}()
 	go s.channelMgr.LoadFromDB(s.db)        // 启动所有已配置平台的 poller
 	s.startCronRunner(context.Background()) // 启动 Cron 定时任务后台 runner
+	go s.bootMarketplaceInit(context.Background())
 
 	// gateway.startup hook：服务完全启动后触发，fire-and-forget
 	workspace := os.Getenv("POLARIS_DATA_DIR")
@@ -691,4 +694,71 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		"agent_state":     agentState,
 		"agent_config":    agentConfig,
 	})
+}
+
+//nolint:nestif
+func (s *Server) bootMarketplaceInit(ctx context.Context) {
+	slog.Info("polaris-server: auto-syncing marketplaces...")
+	if _, err := s.SyncAllMarketplaces(ctx); err != nil {
+		slog.Error("polaris-server: auto-sync marketplaces failed", "err", err)
+		return
+	}
+	slog.Info("polaris-server: auto-sync marketplaces finished")
+
+	// 自动静默安装内置市场的所有插件
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT c.id, c.type, c.name, c.publisher, c.trust_tier, c.payload
+		FROM extension_catalog c
+		JOIN plugin_marketplaces m ON c.marketplace_id = m.id
+		WHERE m.is_builtin = 1
+	`)
+	if err != nil {
+		slog.Warn("polaris-server: extension_catalog query failed", "err", err)
+		return
+	}
+
+	type extCatalogEntry struct {
+		catalogID string
+		extType   string
+		name      string
+		publisher string
+		trustTier int
+		payload   string
+	}
+	var entriesToInstall []extCatalogEntry
+
+	for rows.Next() {
+		var e extCatalogEntry
+		if err := rows.Scan(&e.catalogID, &e.extType, &e.name, &e.publisher, &e.trustTier, &e.payload); err == nil {
+			entriesToInstall = append(entriesToInstall, e)
+		}
+	}
+	rows.Close()
+
+	for _, e := range entriesToInstall {
+		var existCount int
+		_ = s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM extension_instances WHERE catalog_id=?`, e.catalogID).Scan(&existCount)
+		if existCount == 0 {
+			var entry protocol.RegistryEntry
+			if json.Unmarshal([]byte(e.payload), &entry) == nil {
+				b := make([]byte, 8)
+				_, _ = rand.Read(b)
+				extID := "ext_" + hex.EncodeToString(b)
+				now := time.Now().UTC().Format(time.RFC3339)
+				req := protocol.PluginInstallRequest{CatalogID: e.catalogID, Name: e.name}
+
+				if e.extType == "mcp" || e.extType == "" {
+					_, errMCP := s.internalInstallMCP(ctx, extID, &entry, req, now)
+					if errMCP != nil {
+						slog.Warn("polaris-server: auto-install mcp failed", "catalog_id", e.catalogID, "err", errMCP)
+					}
+				} else {
+					_, errGen := s.internalInstallGeneric(ctx, extID, &entry, req, now)
+					if errGen != nil {
+						slog.Warn("polaris-server: auto-install generic failed", "catalog_id", e.catalogID, "err", errGen)
+					}
+				}
+			}
+		}
+	}
 }

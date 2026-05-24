@@ -110,6 +110,8 @@ func (c *MCPMarketplaceClient) Search(ctx context.Context, query string) ([]prot
 }
 
 // Install auto-configures the downloaded MCP server into a local plugin layout.
+//
+//nolint:gocyclo,nestif
 func (c *MCPMarketplaceClient) Install(ctx context.Context, pkg protocol.RegistryEntry) (string, error) {
 	if pkg.Command == "" {
 		return "", perrors.New(perrors.CodeInternal, "marketplace: package missing install command")
@@ -128,28 +130,28 @@ func (c *MCPMarketplaceClient) Install(ctx context.Context, pkg protocol.Registr
 		if runtime.GOOS == "windows" {
 			binaryPath += ".exe"
 		}
-		
+
 		slog.Info("marketplace: downloading binary release", "url", pkg.URL, "to", binaryPath)
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, pkg.URL, nil)
 		if err != nil {
 			return "", perrors.Wrap(perrors.CodeInternal, "marketplace: invalid download request", err)
 		}
-		
+
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
 			return "", perrors.Wrap(perrors.CodeInternal, "marketplace: binary download failed", err)
 		}
 		defer resp.Body.Close()
-		
+
 		if resp.StatusCode != http.StatusOK {
 			return "", perrors.New(perrors.CodeInternal, fmt.Sprintf("marketplace: download returned %d", resp.StatusCode))
 		}
-		
+
 		outFile, err := os.OpenFile(binaryPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
 		if err != nil {
 			return "", perrors.Wrap(perrors.CodeInternal, "marketplace: failed to create binary file", err)
 		}
-		
+
 		if _, err := io.Copy(outFile, resp.Body); err != nil {
 			outFile.Close()
 			return "", perrors.Wrap(perrors.CodeInternal, "marketplace: failed to write binary file", err)

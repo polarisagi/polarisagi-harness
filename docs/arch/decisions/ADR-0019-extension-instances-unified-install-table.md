@@ -24,7 +24,7 @@
 **关键字段**：
 - `ext_type`：`mcp` | `skill` | `plugin` | `app`
 - `origin`：`builtin` | `marketplace` | `user` | `learned`
-- `catalog_id`：关联 `registry_cache.id`；user/learned 时为空
+- `catalog_id`：关联 `extension_catalog.id`；user/learned 时为空
 - `runtime_id`：安装完成后写入，指向 `mcp_servers.id` 或 `skills.name`
 - `install_path`：文件系统绝对路径；MCP/App 为空字符串
 - `status`：`downloading` | `installed` | `error` | `disabled`
