@@ -298,6 +298,9 @@ PII 检测与红化 (11-Policy-Safety, §5.1)。Tier 0 使用 Go 原生正则检
 ### [App] (第三方应用集成与 Connector)
 参考 ChatGPT Apps (原名 Connectors) 行业共识。在 Polaris 架构中，应用（App）指的是 **外部第三方软件或服务（如 Github、Zillow、Apple Music 等）的集成连接器**。App 的底层通信标准正是 **MCP (Model Context Protocol)**。开发者通过搭建一个 MCP Server，将第三方系统的数据和操作能力暴露给大模型。在 Polaris 中，用户可以在会话中直接挂载这些 App，让 Agent 真正拥有与外部真实商业软件系统互联互通的能力。部分高级 App 还可以下发自定义的交互式前端组件（UI Widgets）到聊天流中。
 
+### [Marketplace] (插件与技能应用市场)
+参考 MCP Registry (registry.modelcontextprotocol.io) 与第三方市场生态 (如 mcp.so)。Marketplace 是系统发现、安装和分发外部 Plugin、Skill 和 App 的中心枢纽。Polaris 系统并非依靠用户手动编写模板来安装第三方能力，而是内置对接开源市场协议，支持大模型在会话中根据用户意图直接向 Marketplace 检索可用扩展，获取安装与配置指令（如 `npx` 执行参数或下载链接），然后全自动完成配置并注册生效。
+
 ### [Codex-Automation] (后台自动化与定时任务)
 参考 OpenAI Codex Automations。用于调度周期性循环任务、后台静默执行的检查流，并将结果推送到用户的“Triage (收件箱)”进行审批或通知。在 Polaris 架构中，此概念由 **M8 (Multi-Agent Orchestrator)** 结合定时调度器实现，后台执行必须遵循默认的安全沙箱级别。
 

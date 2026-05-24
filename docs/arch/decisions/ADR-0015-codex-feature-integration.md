@@ -122,7 +122,19 @@ mcp_servers: []
 
 **挑战 G**（State-in-DB，HE-Rule-6）: Codex 用独立 SQLite（`sqlite_home`）存储 job 状态。Polaris HE-Rule-6 要求所有持久状态走 M2 EventLog。解法：每行 Task 的状态变更写入 EventLog（`event_type=csv_job_row_*`），结果用 Blackboard 的 `task.Result` 字段存储，无独立 SQLite，导出时从 EventLog 重建 CSV。
 
-### 2.6 不做（P3，本 ADR 范围外）
+### 2.6 LLM Auto-Generation (Skill-Creator) (P1)
+
+**决策**: 废弃用户手动编写模板的假设，在 `pkg/swarm/self_improve/` 下新增 `skill_creator.go` 机制。
+
+**理由**: 对标 Codex `$skill-creator`，技能和插件不应由人类手写。Polaris 内部注册一条特权系统级指令（System Prompt/Workflow），在会话中与用户对话获取意图后，由大模型自动利用标准的 `SKILL.md`（带 name/description 元数据前缀）和 `.mcp.json` 模板结构，在物理文件系统生成对应的规范化包。
+
+### 2.7 Marketplace Integration (市场协议接入) (P1)
+
+**决策**: 在 `pkg/action/plugin/` 下新增 `marketplace.go`，支持检索与自动安装。
+
+**理由**: 现代 Agent 必须能连接外部应用生态。我们将接入官方的 MCP Registry (`registry.modelcontextprotocol.io`) 及社区聚合平台（如 `mcp.so`）。系统提供统一的 API 封装：`SearchMarketplace(query)` 与 `InstallExtension(pkgID)`。大模型可通过调用系统工具直接向市场查阅可用 App / Plugin，读取安装配置指令后，由系统全自动下载并写入本地 `plugin.json`。
+
+### 2.8 不做（P3，本 ADR 范围外）
 
 - **prefix_rule DSL**: Cedar 已覆盖且更强，新增 DSL 引入双策略引擎风险（[ADR-0005] Cedar 是唯一策略执行器）。如需 UX 改善，在 M13 UI 层提供 prefix_rule → Cedar 策略生成器。
 - **Permission Profile**: 需要 OS 沙箱扩展（macOS sandbox / Linux seccomp），与 M7 三级沙箱体系集成工作量大，列入 ROADMAP。
