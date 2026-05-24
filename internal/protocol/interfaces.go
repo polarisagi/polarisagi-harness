@@ -231,6 +231,21 @@ type PolicyGate interface {
 	Review(ctx context.Context, req PolicyReviewRequest) (PolicyReviewResult, error)
 }
 
+// PermissionMode 定义外部扩展调用的权限模式。
+type PermissionMode string
+
+const (
+	ModeDefault    PermissionMode = "default"
+	ModeAutoReview PermissionMode = "auto_review"
+	ModeFullAccess PermissionMode = "full_access"
+)
+
+// PreferencesRepo 提供对系统偏好的访问。
+type PreferencesRepo interface {
+	GetPermissionMode(ctx context.Context) (PermissionMode, error)
+	SetPermissionMode(ctx context.Context, mode PermissionMode) error
+}
+
 // ============================================================================
 // M11 Policy & Safety — SafeDialer (统一安全拨号器)
 // @consumer: M7(Tool Sandbox - 网络出口连接), M10(Connector - 远程数据源拉取),

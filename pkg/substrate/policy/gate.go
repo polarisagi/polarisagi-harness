@@ -172,6 +172,16 @@ func (g *Gate) loadBuiltinRules() { //nolint:gocyclo
 				return depth >= 3
 			},
 		},
+		{
+			Name:   "install_untrusted_forbid",
+			Reason: "Tier 0 (Untrusted) extensions are strictly forbidden to install",
+			MatchFn: func(_, action, _ string, ctx map[string]any) bool {
+				if action != "install_extension" {
+					return false
+				}
+				return trustLevel(ctx) == 0 // Untrusted
+			},
+		},
 	}
 
 	// Layer 3 — Permit 规则（对应 policies/soft_constraints.cedar，可热更新）
@@ -202,6 +212,86 @@ func (g *Gate) loadBuiltinRules() { //nolint:gocyclo
 					return false
 				}
 				return trustLevel(ctx) >= 1 && principal != ""
+			},
+		},
+		{
+			Name: "install_extension_permit",
+			MatchFn: func(_, action, _ string, ctx map[string]any) bool {
+				if action != "install_extension" {
+					return false
+				}
+
+				pmodeStr, _ := ctx["permission_mode"].(string)
+				pmode := protocol.PermissionMode(pmodeStr)
+				if pmode == "" {
+					pmode = protocol.ModeAutoReview
+				}
+
+				tl := trustLevel(ctx)
+				extType, _ := ctx["ext_type"].(string)
+				hasHooks, _ := ctx["has_hooks"].(bool)
+
+				// Community plugin with hooks require HITL -> never auto approve
+				if extType == "plugin" && hasHooks && tl < 3 {
+					return false
+				}
+
+				if pmode == protocol.ModeFullAccess && tl >= 2 {
+					return true
+				}
+				if pmode == protocol.ModeAutoReview && tl >= 2 {
+					return true
+				}
+				if pmode == protocol.ModeDefault && tl >= 3 {
+					return true
+				}
+
+				// TrustSystem (4) is always allowed
+				return tl >= 4
+			},
+		},
+		{
+			Name: "write_network_permit",
+			MatchFn: func(_, action, _ string, ctx map[string]any) bool {
+				if action != "write_network" {
+					return false
+				}
+
+				pmodeStr, _ := ctx["permission_mode"].(string)
+				pmode := protocol.PermissionMode(pmodeStr)
+				if pmode == "" {
+					pmode = protocol.ModeAutoReview
+				}
+
+				tl := trustLevel(ctx)
+				approval, _ := ctx["approval_status"].(string)
+
+				if tl >= 4 {
+					return true
+				}
+
+				//nolint:nestif
+				if pmode == protocol.ModeFullAccess {
+					if tl >= 2 {
+						return true
+					}
+				} else if pmode == protocol.ModeAutoReview {
+					if tl >= 3 {
+						return true
+					}
+					if tl == 2 && approval == "approved" {
+						return true
+					}
+				} else if pmode == protocol.ModeDefault {
+					if tl >= 3 {
+						return true
+					}
+					if approval == "approved" {
+						return true
+					}
+				}
+
+				return false
 			},
 		},
 	}

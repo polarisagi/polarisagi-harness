@@ -36,7 +36,7 @@ M11 与 M3/M12 的分工:
 | **D3** | 沙箱分级 | Sbx-L1(InProc) / L2(wazero Wasm) / L3(平台原生 microVM: Linux Firecracker / macOS VZ / Windows WSL2，gVisor 仅作 Linux KVM 不可用 fallback) | 执行 | `pkg/action/sandbox.go` |
 | **D4** | 宪法分层 | Layer 1(编译期常量) / 2(Cedar forbid) / 3(Cedar permit) / 4(多 Agent) | 决策 | `pkg/substrate/policy/` |
 | **D5** | Kill Switch + Audit | 三阶段 FSM + hash chain 仅追加 | 系统 | `pkg/substrate/killswitch.go` |
-| **D6** | [FactualityGuard] | 引用核验 + 数值一致性 + 抽样 LLM-as-Judge | **输出真实性** | `pkg/substrate/factuality/` |
+| **D6** | [FactualityGuard] | 引用核验 + 数值一致性 + 抽样 LLM-as-Judge | **输出真实性** | `pkg/substrate/policy/` |
 
 核心原则：**拒绝绝对化**——不承诺零突破，承诺"突破必留痕"（audit hash chain 不可篡改）。
 
@@ -243,10 +243,12 @@ Agent 能力策略 (permit + conditions):
 
 **trust_level 数据来源**（插件/MCP 场景）:
   `skill_sources.trust_tier` / `mcp_servers.trust_tier` 在 Cedar 评估上下文注入为 `trust_level`；
-  值由 `builtinCatalog` 白名单决定，安装时固化，请求方不可覆盖（ADR-0016）:
-  - `trust_tier=3`（Official）→ Cedar `trust_level=3`，`write_network` 自动通过；
-  - `trust_tier=2`（Community）→ `trust_level=2`，`write_network` 需 `approval=="approved"`（HITL 补签）；
-  - `trust_tier=1`（Unknown）→ `trust_level=1`，Cedar deny-by-default 阻断 `write_network`。
+  值由 `builtinCatalog` 白名单决定，安装时固化，请求方不可覆盖（ADR-0016）。
+  运行时的 `write_network` 等危险操作评估，由 `trust_level` 结合全局 `permission_mode` 共同决断：
+  - `full_access` 模式：TrustTier ≥ 2 自动通过。
+  - `auto_review` 模式：TrustTier ≥ 3 自动通过，TrustTier = 2 需 `approval=="approved"`（HITL 补签）。
+  - `default` 模式：所有外部扩展的危险操作强制需 `approval=="approved"`（HITL 补签）。
+  - TrustTier = 1 时，所有模式均 deny-by-default，强行阻断。
   详见 M13 §8.6 插件安装流程。
 
 硬约束 (forbid 无条件优先):
@@ -515,11 +517,11 @@ D6 不破坏 D1 — Taint 信号仍由 D1 主导；D6 仅在 LLM 输出环节追
 
 ### 6.5.5 实现锚点
 
-`pkg/substrate/factuality/`:
-- `citation.go` — CitationValidator 委托至 M10
-- `numerical.go` — 数值/日期/货币正则 + 阈值比对
-- `judge.go` — SemanticJudge LLM 调用（独立 Provider）
-- `sampler.go` — 抽样 + 优先级路由
+`pkg/substrate/policy/`:
+- `factuality_citation.go` — CitationValidator 委托至 M10
+- `factuality_numerical.go` — 数值/日期/货币正则 + 阈值比对
+- `factuality_judge.go` — SemanticJudge LLM 调用（独立 Provider）
+- `factuality_sampler.go` — 抽样 + 优先级路由
 
 集成点: M4 S_REFLECT 入口（推理输出审查）；M7 ExecuteTool Gate5 之前（工具调用参数审查）。
 

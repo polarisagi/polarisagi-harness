@@ -250,6 +250,9 @@ TestInvariant6_StateMachineControlFlow [HE-Rule-5]:
 TestFullSafetyChain:
   prompt injection → M11 [Taint-High] → M4 SchemaValidator → M11 [Cedar-Gate] 拒绝
   → M7 Capability 委托链拒绝 → [EventLog] 完整拒绝链路
+
+TestPermissionModes:
+  验证 `default` / `auto_review` / `full_access` 三种安全模式下，对不同信任等级扩展的安装拦截与运行时危险操作（如 write_network）的 HITL 审批/自动放行逻辑符合 Cedar 策略预期。
 ```
 
 CI: PR 自动执行，失败 = PR reject(P0 同级)。套件受 M9 Immutable Kernel 保护(`ci/safety/`)。

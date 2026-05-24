@@ -133,10 +133,11 @@ DELETE /v1/plugins/{catalog_id}
 > 策略制定见 M11 Cedar-Gate。本节只描述 Extension Registry 的触发点。
 
 安装时 `trust_tier` 从 `extension_catalog` 继承，写入 `extension_instances` 和运行时表（`mcp_servers.trust_tier` / `skills.trust_tier`）。
+同时结合系统全局的 `permission_mode`（`default` / `auto_review` / `full_access`）及扩展是否有钩子(hooks)，由 Cedar 引擎（`InstallSecurityGate`）统一拦截并决断（自动放行 / HITL 审批 / 强制拒绝），并记入 AuditTrail 日志。
 
 **禁止**：安装请求的 `trust_tier` 字段不允许客户端覆盖（server 端强制忽略）。
 
-TrustTier 影响：
+TrustTier 及 PermissionMode 共同影响：
 
 | trust_tier | 安装时 | 运行时 |
 |------------|-------|-------|

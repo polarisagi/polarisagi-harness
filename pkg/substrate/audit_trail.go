@@ -2,6 +2,7 @@ package substrate
 
 import (
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -11,6 +12,13 @@ import (
 	"time"
 
 	perrors "github.com/mrlaoliai/polaris-harness/internal/errors"
+)
+
+// Standard Audit Actions for Extension Installation
+const (
+	ActionInstallApproved    = "install_approved"
+	ActionInstallRejected    = "install_rejected"
+	ActionInstallHITLPending = "install_hitl_pending"
 )
 
 // AuditTrail — 不可变哈希链审计轨迹。
@@ -31,11 +39,15 @@ type AuditTrail struct {
 	// epochStartHash 记录当前 epoch 的第一条 PrevHash，用于跨 epoch 连续性校验
 	epochStartHash string
 	archiveDir     string
+	db             *sql.DB
 }
 
 // NewAuditTrail 创建审计轨迹，archiveDir 为归档路径（e.g. ~/.polaris-harness/audit/archive/）。
-func NewAuditTrail(archiveDir string) *AuditTrail {
-	return &AuditTrail{archiveDir: archiveDir}
+func NewAuditTrail(db *sql.DB, archiveDir string) *AuditTrail {
+	return &AuditTrail{
+		db:         db,
+		archiveDir: archiveDir,
+	}
 }
 
 // AuditRecord 单条审计记录。
@@ -70,6 +82,31 @@ func (at *AuditTrail) Record(record *AuditRecord) error {
 	data := serializeRecord(record)
 	hash := sha256.Sum256(data)
 	record.RecordHash = hex.EncodeToString(hash[:])
+
+	// 持久化到数据库
+	if at.db != nil {
+		id := record.EventID
+		if id == "" {
+			id = fmt.Sprintf("audit_%d", record.Timestamp)
+			record.EventID = id
+		}
+		topic := "audit.policy"
+		actor := record.AgentID
+		if actor == "" {
+			actor = "system"
+		}
+		typ := "system"
+		payload := mustJSON(record) // 序列化完整结构（虽然规范建议 protobuf，暂按 JSON 存）
+
+		_, err := at.db.Exec(`
+			INSERT INTO events (id, topic, actor, type, payload, created_at)
+			VALUES (?, ?, ?, ?, ?, ?)
+		`, id, topic, actor, typ, payload, time.Now().UnixMicro())
+
+		if err != nil {
+			return perrors.Wrap(perrors.CodeInternal, "failed to persist audit record (fail-closed)", err)
+		}
+	}
 
 	at.records = append(at.records, record)
 	at.lastHash = record.RecordHash
@@ -153,17 +190,56 @@ func (at *AuditTrail) RotateIfNeeded(currentSizeMB int) error {
 	return nil
 }
 
-// RecoverOnStartup 扫描归档目录，校验跨 Epoch hash 链连续性。
-// 若发现断裂，返回包含诊断信息的 error。
-func (at *AuditTrail) RecoverOnStartup() error {
-	if at.archiveDir == "" {
-		return nil
+// RecoverOnStartup 扫描归档目录，校验跨 Epoch hash 链连续性，并从 DB 恢复尾部状态。
+func (at *AuditTrail) RecoverOnStartup() error { //nolint:nestif
+	if at.archiveDir != "" {
+		// 检测 .fullstop 密封文件
+		fullstopPath := filepath.Join(filepath.Dir(at.archiveDir), ".fullstop")
+		if _, err := os.Stat(fullstopPath); err == nil {
+			return perrors.New(perrors.CodeInternal, fmt.Sprintf("audit: system is sealed (.fullstop exists at %s) — run unseal before starting", fullstopPath))
+		}
 	}
-	// 检测 .fullstop 密封文件
-	fullstopPath := filepath.Join(filepath.Dir(at.archiveDir), ".fullstop")
-	if _, err := os.Stat(fullstopPath); err == nil {
-		return perrors.New(perrors.CodeInternal, fmt.Sprintf("audit: system is sealed (.fullstop exists at %s) — run unseal before starting", fullstopPath))
+
+	//nolint:nestif
+	if at.db != nil {
+		rows, err := at.db.Query(`
+			SELECT payload FROM events 
+			WHERE topic = 'audit.policy' 
+			ORDER BY offset DESC LIMIT 100
+		`)
+		if err == nil {
+			defer rows.Close()
+			var loaded []*AuditRecord
+			for rows.Next() {
+				var payload []byte
+				if err := rows.Scan(&payload); err != nil {
+					continue
+				}
+				var rec AuditRecord
+				if err := json.Unmarshal(payload, &rec); err == nil {
+					loaded = append(loaded, &rec)
+				}
+			}
+			// Reverse loaded slice because we read DESC
+			for i, j := 0, len(loaded)-1; i < j; i, j = i+1, j-1 {
+				loaded[i], loaded[j] = loaded[j], loaded[i]
+			}
+
+			at.mu.Lock()
+			at.records = append(at.records, loaded...)
+			if len(loaded) > 0 {
+				at.lastHash = loaded[len(loaded)-1].RecordHash
+			}
+			at.mu.Unlock()
+
+			// Verify continuity of loaded records
+			ok, idx := at.VerifyIntegrity()
+			if !ok {
+				return perrors.New(perrors.CodeInternal, fmt.Sprintf("audit: integrity check failed on DB recovery at index %d", idx))
+			}
+		}
 	}
+
 	return nil
 }
 

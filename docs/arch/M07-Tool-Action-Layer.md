@@ -349,7 +349,8 @@ GUI Action Loop: see→decide→act循环maxSteps次。Capture+UITree→VLM Deci
 
 **HITL 拦截门控**（`interceptComputerUse`，`pkg/cognition/kernel/agent_execute.go`）:
 - 触发工具: `computer_use` 和 `browser_use`（均需经此门控）
-- 受 `StateContext.Preferences["computer_use_mode"]` 控制（由 `Agent.SetPreferences` 注入，来源 `preferences` 表）:
+- 受全局 `permission_mode` 控制（由 `PreferencesRepo.GetPermissionMode` 注入）:
+  - `full_access`: 自动放行（依赖 Cedar 的最终防线预检）
   - `auto_review`（默认）: 仅危险动作触发 HITL
   - `default`: 所有调用均触发 HITL
 - 危险动作定义:
