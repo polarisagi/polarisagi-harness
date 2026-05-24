@@ -24,31 +24,6 @@ func RegisterExtensionTools(
 	}{
 		{
 			meta: protocol.Tool{
-				Name:        "computer_use",
-				Description: "提供 GUI 自动化能力（截图/点击/鼠标/键盘）。",
-				Version:     "1.0.0",
-				Capability:  protocol.CapWriteLocal,
-				SideEffects: []protocol.SideEffect{protocol.SideProcessSpawn},
-				RiskLevel:   protocol.RiskHigh,
-				SandboxTier: protocol.SandboxInProcess,
-				Source:      protocol.ToolBuiltin,
-				InputSchema: map[string]any{
-					"type": "object",
-					"properties": map[string]any{
-						"action": map[string]any{
-							"type": "string",
-							"enum": []string{"screenshot", "left_click", "mouse_move", "type", "key"},
-						},
-						"coordinate": map[string]any{"type": "array", "items": map[string]any{"type": "integer"}},
-						"text":       map[string]any{"type": "string"},
-					},
-					"required": []string{"action"},
-				},
-			},
-			fn: NewComputerUseTool(mcpManager).Execute,
-		},
-		{
-			meta: protocol.Tool{
 				Name:        "browser_use",
 				Description: "提供无头浏览器 (Chrome) 控制能力（导航/点击/输入/截图）。",
 				Version:     "1.0.0",

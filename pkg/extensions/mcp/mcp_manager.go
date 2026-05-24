@@ -16,18 +16,7 @@ import (
 	"github.com/mrlaoliai/polaris-harness/internal/protocol"
 )
 
-// StartBuiltinComputerMCP 启动默认的本地 Computer MCP Sidecar
-func (m *MCPManager) StartBuiltinComputerMCP(ctx context.Context, mcpBinaryPath string) error {
-	cfg := MCPClientConfig{
-		Transport:  MCPStdio,
-		Command:    mcpBinaryPath,
-		Args:       []string{},
-		Timeout:    30 * time.Second,
-		ServerName: "polaris-computer",
-		Trusted:    true,
-	}
-	return m.Add(ctx, "polaris-computer", "Polaris Computer MCP", cfg)
-}
+
 
 // MCPServerInfo MCP Server 运行时状态快照。
 type MCPServerInfo struct {

@@ -38,6 +38,7 @@ import (
 	"github.com/mrlaoliai/polaris-harness/pkg/substrate/storage"
 	"github.com/mrlaoliai/polaris-harness/pkg/swarm"
 	knowledgepkg "github.com/mrlaoliai/polaris-harness/pkg/swarm/knowledge"
+	si "github.com/mrlaoliai/polaris-harness/pkg/swarm/self_improve"
 	"github.com/mrlaoliai/polaris-harness/pkg/swarm/supervisor"
 	"github.com/mrlaoliai/polaris-harness/skills/builtin"
 )
@@ -328,11 +329,7 @@ func run() error { //nolint:gocyclo
 	toolReg := polartool.NewInMemoryToolRegistry(nil)
 	mcpMgr := mcp.NewMCPManager(inProcSandbox, safeHTTPClient)
 
-	// 自动启动内置 MCP Sidecar
-	sidecarPath := "/Users/mrlaoliai/Polaris/polaris-computer-mcp/target/debug/polaris-computer-mcp"
-	if err := mcpMgr.StartBuiltinComputerMCP(ctx, sidecarPath); err != nil {
-		slog.Warn("polaris: failed to start builtin computer mcp sidecar", "err", err)
-	}
+
 
 	mktClient := marketplace.NewMCPMarketplaceClient("", filepath.Join(cfg.System.DataDir, "plugins"))
 	if err := tool.RegisterBuiltinTools(inProcSandbox, toolReg, allowedPaths, dialer); err != nil {
@@ -459,8 +456,8 @@ func run() error { //nolint:gocyclo
 	evalRunner.InjectAgent(&evalAgentAdapter{agent: agent})
 
 	// ─── 10.3 M9 Self-Improvement Engine ─────────────────────────────────────
-	// taskEventCh := make(chan si.TaskCompleteEvent, 64)
-	// versionEventCh := make(chan si.VersionChangeEvent, 8)
+	taskEventCh := make(chan si.TaskCompleteEvent, 64)
+	versionEventCh := make(chan si.VersionChangeEvent, 8)
 
 	// 桥接 Blackboard 事件 → M9 TaskCompleteEvent
 	go func() {
@@ -479,43 +476,40 @@ func run() error { //nolint:gocyclo
 				}
 				switch ev.Type {
 				case "task_completed":
-					// select {
-					// case taskEventCh <- si.TaskCompleteEvent{
-					// 	TaskID:  ev.TaskID,
-					// 	Success: true,
-					// }:
-					// default:
-					// }
+					select {
+					case taskEventCh <- si.TaskCompleteEvent{
+						TaskID:  ev.TaskID,
+						Success: true,
+					}:
+					default:
+					}
 				case "task_failed":
-					// select {
-					// case taskEventCh <- si.TaskCompleteEvent{
-					// 	TaskID:  ev.TaskID,
-					// 	Success: false,
-					// 	Failure: si.FailureLogic,
-					// }:
-					// default:
-					// }
+					select {
+					case taskEventCh <- si.TaskCompleteEvent{
+						TaskID:  ev.TaskID,
+						Success: false,
+						Failure: si.FailureLogic,
+					}:
+					default:
+					}
 				}
 			}
 		}
 	}()
 
 	reflexionEngine := swarm.NewReflexionEngine(fallacyPool, heuristics, nil)
-	// reflexionBridge := swarm.NewReflexionBridge(reflexionEngine)
+	reflexionBridge := swarm.NewReflexionBridge(reflexionEngine)
 	idleDetector := swarm.NewIdleDetector()
 	curriculumGen := swarm.NewAutoCurriculumGenerator(idleDetector, fallacyPool, heuristics)
-	// curriculumBridge := swarm.NewCurriculumBridge(curriculumGen, blackboard)
+	curriculumBridge := swarm.NewCurriculumBridge(curriculumGen, blackboard)
 	rollout := swarm.NewProgressiveRollout()
-	// rolloutBridge := swarm.NewRolloutBridge(rollout)
+	rolloutBridge := swarm.NewRolloutBridge(rollout)
 
-	// m9Engine := si.NewEngine(nil, reflexionBridge, curriculumBridge, rolloutBridge, taskEventCh, versionEventCh)
+	m9Engine := si.NewEngine(nil, reflexionBridge, curriculumBridge, rolloutBridge, taskEventCh, versionEventCh)
 
 	// ─── PromptOptimizer（M9 三融合：GEPA + MemAPO + ContraPrompt）────────────
 	promptOptimizer := swarm.NewPromptOptimizerMVP()
 	_ = promptOptimizer
-	_ = reflexionEngine
-	_ = curriculumGen
-	_ = rollout
 	slog.Info("polaris: M9 self-improvement engine + PromptOptimizer initialized")
 
 	// go m9Engine.Start(ctx)
@@ -536,9 +530,9 @@ func run() error { //nolint:gocyclo
 	sv.AddWorker("orchestrator", func(ctx context.Context) error {
 		return orchestrator.ListenLoop(ctx)
 	})
-	// sv.AddWorker("m9-engine", func(ctx context.Context) error {
-	// 	return m9Engine.Run(ctx)
-	// })
+	sv.AddWorker("m9-engine", func(ctx context.Context) error {
+		return m9Engine.Run(ctx)
+	})
 
 	sv.Start()
 	defer sv.Stop()
