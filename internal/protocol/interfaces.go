@@ -470,6 +470,7 @@ type SkillMeta struct {
 	RiskLevel    string // low / medium / high
 	Sandbox      int    // Sbx-L1=1 / Sbx-L2=2 / Sbx-L3=3
 	Capabilities []string
+	ExecMode     string    // tool / ambient
 	Trust        TrustTier // 替代 SignatureValid bool（ADR-0016 §2.1）
 	Idempotent   bool
 	Benchmarks   SkillBenchmarks

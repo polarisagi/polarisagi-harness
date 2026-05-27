@@ -110,6 +110,7 @@ func (s *Server) handleCreateMCPServer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	c.CreatedAt, c.UpdatedAt = now, now
+	s.clearToolSchemaCache()
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(c) //nolint:errcheck
@@ -149,6 +150,7 @@ func (s *Server) handleUpdateMCPServer(w http.ResponseWriter, r *http.Request) {
 
 	c.ID = id
 	c.UpdatedAt = now
+	s.clearToolSchemaCache()
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(c) //nolint:errcheck
 }
@@ -162,6 +164,7 @@ func (s *Server) handleDeleteMCPServer(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	s.clearToolSchemaCache()
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "deleted"}) //nolint:errcheck
 }

@@ -206,8 +206,53 @@ func (s *Server) handleWebhookReceive(w http.ResponseWriter, r *http.Request) {
 	if f, ok := w.(http.Flusher); ok {
 		f.Flush()
 	}
-
 	go s.dispatchChannelMessage(channelType, channelID, cfg, msg)
+	go s.triggerWebhookAutomations(channelID, msg.Text)
+}
+
+func (s *Server) triggerWebhookAutomations(channelID, text string) {
+	ctx := context.Background()
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, name, prompt, trigger_type, cron_schedule, channel_id,
+		       working_dir, reasoning_effort, result_action,
+		       sandbox_level, cedar_rules_json
+		FROM automations
+		WHERE enabled=1
+		  AND (trigger_type='webhook' OR trigger_type='both')
+		  AND channel_id=?
+		  AND last_run_status != 'running'`,
+		channelID)
+	if err != nil {
+		slog.Warn("triggerWebhookAutomations: query failed", "err", err)
+		return
+	}
+	defer rows.Close()
+
+	var due []automation
+	for rows.Next() {
+		var a automation
+		if err := rows.Scan(
+			&a.ID, &a.Name, &a.Prompt, &a.TriggerType, &a.CronSchedule, &a.ChannelID,
+			&a.WorkingDir, &a.ReasoningEffort, &a.ResultAction,
+			&a.SandboxLevel, &a.CedarRulesJSON,
+		); err != nil {
+			continue
+		}
+		due = append(due, a)
+	}
+	rows.Close()
+
+	for i := range due {
+		a := &due[i]
+		// 动态拼接上下文文本，让 agent 可以感知收到的 webhook 内容
+		// 由于 prompt 只有执行时固定，这里临时在 prompt 后追加收到的文本内容
+		originalPrompt := a.Prompt
+		if text != "" {
+			a.Prompt = a.Prompt + "\n[Webhook Payload]:\n" + text
+		}
+		s.executeAutomation(ctx, a, "webhook")
+		a.Prompt = originalPrompt // revert just in case (though `a` is a local copy)
+	}
 }
 
 // dispatchChannelMessage 推理 + 发回平台。被 webhook handler 和各平台 poller 共用。

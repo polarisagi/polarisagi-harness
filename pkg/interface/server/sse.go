@@ -448,7 +448,7 @@ func (s *Server) handleAgentStream(w http.ResponseWriter, r *http.Request) { //n
 	})
 }
 
-func (s *Server) injectSystemPrompt(history []protocol.Message) []protocol.Message {
+func (s *Server) injectSystemPrompt(history []protocol.Message) []protocol.Message { //nolint:gocyclo,nestif
 	if s.agent == nil || s.agent.Memory() == nil {
 		return history
 	}
@@ -485,6 +485,24 @@ func (s *Server) injectSystemPrompt(history []protocol.Message) []protocol.Messa
 			}
 		}
 		ic.InstalledPlugins = strings.Join(mcp, ", ")
+	}
+
+	// Ambient skills
+	if s.db != nil { //nolint:nestif
+		rows, err := s.db.Query(`SELECT name, instructions FROM skills WHERE runtime='script' AND exec_mode='ambient' AND deprecated=0`)
+		if err == nil {
+			defer rows.Close()
+			var ambientInstructions []string
+			for rows.Next() {
+				var name, inst string
+				if rows.Scan(&name, &inst) == nil {
+					ambientInstructions = append(ambientInstructions, "Ambient Skill: "+name+"\n"+inst)
+				}
+			}
+			if len(ambientInstructions) > 0 {
+				ic.SystemPromptTemplate += "\n\n" + strings.Join(ambientInstructions, "\n\n")
+			}
+		}
 	}
 
 	return ic.PrependToMessages(history)

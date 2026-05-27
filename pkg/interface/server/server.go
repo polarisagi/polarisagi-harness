@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/polarisagi/polaris-harness/configs"
@@ -34,27 +35,29 @@ import (
 
 // Server 包装 HTTP 与 WebSocket 服务，作为 M13 的对外网关。
 type Server struct {
-	addr          string
-	srv           *http.Server
-	agent         *kernel.Agent
-	blackboard    protocol.Blackboard
-	hitlGateway   protocol.HITL
-	db            *sql.DB
-	registry      *inference.ProviderRegistry                                                       // 热重载 Provider 注册表
-	httpClient    *http.Client                                                                      // 复用 SafeHTTPClient
-	transcriptDir string                                                                            // per-session JSONL transcript 目录
-	hooks         *HookRunner                                                                       // Shell Script Hooks（End-User 扩展点）
-	compressor    *Compressor                                                                       // 上下文超长自动压缩
-	channelMgr    *channels.Manager                                                                 // 所有聊天平台 poller 管理
-	mcpMgr        *mcp.MCPManager                                                                   // MCP Server 连接管理
-	toolReg       protocol.ToolRegistry                                                             // builtin tool 元数据
-	skillReg      protocol.SkillRegistry                                                            // skill 元数据
-	toolExec      func(ctx context.Context, name string, args []byte) (*protocol.ToolResult, error) // tool_use 执行器
-	logStore      *LogStore                                                                         // 日志环形缓冲 + SSE 广播
-	evalRunner    protocol.EvalRunner                                                               // M12 评测套件
-	dataDir       string                                                                            // 项目统一的数据根目录
-	installMgr    *marketplace.Manager
-	skillSignKey  []byte
+	addr            string
+	srv             *http.Server
+	agent           *kernel.Agent
+	blackboard      protocol.Blackboard
+	hitlGateway     protocol.HITL
+	db              *sql.DB
+	registry        *inference.ProviderRegistry                                                       // 热重载 Provider 注册表
+	httpClient      *http.Client                                                                      // 复用 SafeHTTPClient
+	transcriptDir   string                                                                            // per-session JSONL transcript 目录
+	hooks           *HookRunner                                                                       // Shell Script Hooks（End-User 扩展点）
+	compressor      *Compressor                                                                       // 上下文超长自动压缩
+	channelMgr      *channels.Manager                                                                 // 所有聊天平台 poller 管理
+	mcpMgr          *mcp.MCPManager                                                                   // MCP Server 连接管理
+	toolReg         protocol.ToolRegistry                                                             // builtin tool 元数据
+	skillReg        protocol.SkillRegistry                                                            // skill 元数据
+	toolExec        func(ctx context.Context, name string, args []byte) (*protocol.ToolResult, error) // tool_use 执行器
+	logStore        *LogStore                                                                         // 日志环形缓冲 + SSE 广播
+	evalRunner      protocol.EvalRunner                                                               // M12 评测套件
+	dataDir         string                                                                            // 项目统一的数据根目录
+	installMgr      *marketplace.Manager
+	skillSignKey    []byte
+	toolSchemaCache []protocol.ToolSchema
+	toolSchemaMu    sync.RWMutex
 }
 
 func (s *Server) SetInstallManager(m *marketplace.Manager) { s.installMgr = m }
@@ -81,7 +84,15 @@ func (s *Server) SetLogStore(ls *LogStore) { s.logStore = ls }
 func (s *Server) SetEvalRunner(r protocol.EvalRunner) { s.evalRunner = r }
 
 // buildToolSchemas 收集全部可用工具 schema，用于注入 InferRequest.Tools。
-func (s *Server) buildToolSchemas() []protocol.ToolSchema {
+func (s *Server) buildToolSchemas() []protocol.ToolSchema { //nolint:nestif
+	s.toolSchemaMu.RLock()
+	if len(s.toolSchemaCache) > 0 {
+		cache := s.toolSchemaCache
+		s.toolSchemaMu.RUnlock()
+		return cache
+	}
+	s.toolSchemaMu.RUnlock()
+
 	var schemas []protocol.ToolSchema
 	if s.toolReg != nil {
 		for _, t := range s.toolReg.List() {
@@ -96,9 +107,9 @@ func (s *Server) buildToolSchemas() []protocol.ToolSchema {
 		schemas = append(schemas, s.mcpMgr.ListToolSchemas()...)
 	}
 	// script runtime 技能：以 "skill:{name}" 工具形式暴露给 LLM
-	if s.db != nil {
+	if s.db != nil { //nolint:nestif
 		rows, err := s.db.QueryContext(context.Background(),
-			`SELECT name, capabilities FROM skills WHERE runtime='script' AND deprecated=0`)
+			`SELECT name, capabilities FROM skills WHERE runtime='script' AND exec_mode='tool' AND deprecated=0`)
 		if err == nil {
 			defer rows.Close()
 			for rows.Next() {
@@ -129,7 +140,17 @@ func (s *Server) buildToolSchemas() []protocol.ToolSchema {
 			}
 		}
 	}
+
+	s.toolSchemaMu.Lock()
+	s.toolSchemaCache = schemas
+	s.toolSchemaMu.Unlock()
 	return schemas
+}
+
+func (s *Server) clearToolSchemaCache() {
+	s.toolSchemaMu.Lock()
+	s.toolSchemaCache = nil
+	s.toolSchemaMu.Unlock()
 }
 
 // NewServer 创建新的 HTTP Server。

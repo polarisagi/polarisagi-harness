@@ -6,9 +6,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"maps"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -204,6 +206,7 @@ func (s *Server) handleInstallPlugin(w http.ResponseWriter, r *http.Request) { /
 	default: // skill | plugin | app
 		s.installGenericExtension(w, r, extID, &entry, req, now)
 	}
+	s.clearToolSchemaCache()
 }
 
 // installMCPExtension 安装 MCP 类型：写 extension_instances + mcp_servers + 异步启动。
@@ -366,6 +369,13 @@ func (s *Server) handleUninstallPlugin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	id := r.PathValue("id")
+	if _, err := s.db.ExecContext(r.Context(), "DELETE FROM extension_instances WHERE id=?", id); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	s.clearToolSchemaCache()
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "uninstalled"}) //nolint:errcheck
 }
@@ -451,7 +461,7 @@ func cond(pred bool, a, b string) string {
 // downloadAndInstallExtension 异步下载并安装扩展，更新数据库。
 //
 //nolint:nestif
-func (s *Server) downloadAndInstallExtension(ctx context.Context, extID, catalogID string, entry *protocol.RegistryEntry, now, name string) {
+func (s *Server) downloadAndInstallExtension(ctx context.Context, extID, catalogID string, entry *protocol.RegistryEntry, now, name string) { //nolint:gocyclo,nestif
 	// 1. 获取本地 tmp 目录路径
 	home, _ := os.UserHomeDir()
 	parts := strings.SplitN(catalogID, "/", 2)
@@ -486,16 +496,16 @@ func (s *Server) downloadAndInstallExtension(ctx context.Context, extID, catalog
 			s.updateExtensionInstanceError(ctx, extID, "SKILL.md not found")
 			return
 		}
-		_, desc, _ := parseSkillMD(string(skillMD))
+		_, desc, _, execMode := parseSkillMD(string(skillMD))
 		if desc == "" {
 			desc = entry.Description
 		}
 		capJSON, _ := json.Marshal([]string{"description:" + desc})
 
 		_, err = s.db.ExecContext(ctx,
-			`INSERT INTO skills(name, version, runtime, risk_level, sandbox, capabilities, trust_tier, idempotent, benchmarks, instructions, created_at, updated_at)
-			 VALUES(?,?,?,?,?,?,?,0,'{}',?,?,?)`,
-			runtimeID, "1.0.0", "script", "low", 1, string(capJSON), entry.TrustTier, string(skillMD), now, now)
+			`INSERT INTO skills(name, version, runtime, risk_level, sandbox, capabilities, exec_mode, trust_tier, idempotent, benchmarks, instructions, created_at, updated_at)
+			 VALUES(?,?,?,?,?,?,?,?,0,'{}',?,?,?)`,
+			runtimeID, "1.0.0", "script", "low", 1, string(capJSON), execMode, entry.TrustTier, string(skillMD), now, now)
 		if err != nil {
 			s.updateExtensionInstanceError(ctx, extID, "insert skill err: "+err.Error())
 			return
@@ -551,6 +561,16 @@ func (s *Server) downloadAndInstallExtension(ctx context.Context, extID, catalog
 		if err != nil {
 			s.updateExtensionInstanceError(ctx, extID, "insert plugin err: "+err.Error())
 			return
+		}
+
+		if hook, ok := bundle.Hooks["install"]; ok && hook != "" {
+			if hookPath, ok := safeJoin(destDir, hook); ok {
+				cmd := exec.CommandContext(ctx, hookPath)
+				cmd.Dir = destDir
+				if err := cmd.Run(); err != nil {
+					slog.Warn("plugin_catalog: install hook failed", "ext", extID, "err", err)
+				}
+			}
 		}
 	}
 
@@ -667,7 +687,7 @@ func (s *Server) installBundleSkill(ctx context.Context, parentExtID, bundleDir,
 		return
 	}
 
-	parsedName, desc, _ := parseSkillMD(string(data))
+	parsedName, desc, _, execMode := parseSkillMD(string(data))
 	if skillName == "" {
 		skillName = parsedName
 	}
@@ -680,9 +700,9 @@ func (s *Server) installBundleSkill(ctx context.Context, parentExtID, bundleDir,
 	capJSON, _ := json.Marshal([]string{"description:" + desc})
 
 	if _, err := s.db.ExecContext(ctx,
-		`INSERT INTO skills(name, version, runtime, risk_level, sandbox, capabilities, trust_tier, idempotent, benchmarks, instructions, created_at, updated_at)
-		 VALUES(?,?,?,?,?,?,?,0,'{}',?,?,?)`,
-		runtimeID, "1.0.0", "script", "low", 1, string(capJSON), trustTier, string(data), now, now); err != nil {
+		`INSERT INTO skills(name, version, runtime, risk_level, sandbox, capabilities, exec_mode, trust_tier, idempotent, benchmarks, instructions, created_at, updated_at)
+		 VALUES(?,?,?,?,?,?,?,?,0,'{}',?,?,?)`,
+		runtimeID, "1.0.0", "script", "low", 1, string(capJSON), execMode, trustTier, string(data), now, now); err != nil {
 		return
 	}
 

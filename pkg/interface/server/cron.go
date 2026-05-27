@@ -12,11 +12,13 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	perrors "github.com/polarisagi/polaris-harness/internal/errors"
 
 	"github.com/polarisagi/polaris-harness/internal/protocol"
+	"github.com/polarisagi/polaris-harness/pkg/interface/channels"
 
 	"gopkg.in/yaml.v3"
 )
@@ -383,7 +385,8 @@ func (s *Server) cronTick(ctx context.Context) {
 		WHERE enabled=1
 		  AND (trigger_type='cron' OR trigger_type='both')
 		  AND cron_schedule != ''
-		  AND (next_run_at = '' OR next_run_at <= ?)`,
+		  AND (next_run_at = '' OR next_run_at <= ?)
+		  AND last_run_status != 'running'`,
 		now)
 	if err != nil {
 		slog.Warn("cronTick: query failed", "err", err)
@@ -410,22 +413,34 @@ func (s *Server) cronTick(ctx context.Context) {
 	}
 }
 
+type cronCtxKey string
+
+const (
+	ctxKeySandboxLevel cronCtxKey = "sandbox_level"
+	ctxKeyCedarRules   cronCtxKey = "cedar_rules_json"
+)
+
 // executeAutomation 创建 run 记录、调用 Agent 执行、更新状态。
 // 返回 runID，异步执行不阻塞调用方。
+//
+//nolint:gocyclo,funlen
 func (s *Server) executeAutomation(ctx context.Context, a *automation, trigger string) string {
 	runID := newRunID()
 	now := time.Now().UTC().Format(time.RFC3339)
 
-	// 写 run 记录（running 状态）
+	// 1. 生成 session ID
+	sessionID := newSessionID()
+
+	// 2. 写 run 记录（running 状态）
 	if _, err := s.db.ExecContext(ctx, `
-		INSERT INTO automation_runs(id, automation_id, trigger, status, prompt_snapshot, started_at)
-		VALUES(?,?,?,?,?,?)`,
-		runID, a.ID, trigger, "running", a.Prompt, now,
+		INSERT INTO automation_runs(id, automation_id, trigger, status, session_id, prompt_snapshot, started_at)
+		VALUES(?,?,?,?,?,?,?)`,
+		runID, a.ID, trigger, "running", sessionID, a.Prompt, now,
 	); err != nil {
 		slog.Warn("automation: insert run failed", "run", runID, "err", err)
 	}
 
-	// 更新 automations 执行状态
+	// 3. 更新 automations 执行状态
 	nextRun := calcNextRun(a.CronSchedule, now)
 	if _, err := s.db.ExecContext(ctx, `
 		UPDATE automations
@@ -437,53 +452,207 @@ func (s *Server) executeAutomation(ctx context.Context, a *automation, trigger s
 	}
 
 	go func() {
-		bgCtx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+		// 动态映射超时
+		timeout := 15 * time.Minute
+		switch a.ReasoningEffort {
+		case "low":
+			timeout = 5 * time.Minute
+		case "medium":
+			timeout = 15 * time.Minute
+		case "high":
+			timeout = 30 * time.Minute
+		case "ultra":
+			timeout = 60 * time.Minute
+		}
+
+		bgCtx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
+
+		// 注入上下文（Sandbox Level / Cedar Rules）
+		bgCtx = context.WithValue(bgCtx, ctxKeySandboxLevel, a.SandboxLevel)
+		bgCtx = context.WithValue(bgCtx, ctxKeyCedarRules, a.CedarRulesJSON)
 
 		status := "ok"
 		errMsg := ""
+		finishedAt := ""
 
-		// 调用 Agent 执行 prompt（复用 handleAgentQuery 路径）
-		// SetTaskIntent 注入用户意图字节，SendIntent 驱动 FSM 从 IDLE→PLANNING
-		if s.agent != nil {
-			s.agent.SetTaskIntent([]byte(a.Prompt))
-			s.agent.SendIntent(protocol.TriggerIntentReceived)
-			slog.Info("automation: agent triggered", "id", a.ID, "run", runID,
-				"dir", a.WorkingDir, "effort", a.ReasoningEffort)
-		} else {
-			slog.Info("automation: agent not available, skipping exec", "id", a.ID)
+		defer func() {
+			finishedAt = time.Now().UTC().Format(time.RFC3339)
+			// 更新 run 记录
+			if _, err := s.db.ExecContext(context.Background(), `
+				UPDATE automation_runs
+				SET status=?, finished_at=?, error_msg=?
+				WHERE id=?`,
+				status, finishedAt, errMsg, runID,
+			); err != nil {
+				slog.Warn("automation: update run failed", "run", runID, "err", err)
+			}
+
+			// 更新 automations 统计
+			if _, err := s.db.ExecContext(context.Background(), `
+				UPDATE automations
+				SET last_run_status=?, last_run_error=?, run_count=run_count+1, updated_at=?
+				WHERE id=?`,
+				status, errMsg, finishedAt, a.ID,
+			); err != nil {
+				slog.Warn("automation: update stats failed", "id", a.ID, "err", err)
+			}
+		}()
+
+		// 准备 Provider
+		p := s.registry.PickProvider("default")
+		if p == nil {
+			p = s.registry.PickProvider("general")
+		}
+		if p == nil {
+			status = "error"
+			errMsg = "no provider available"
+			slog.Warn("automation: no provider available", "id", a.ID)
+			return
 		}
 
-		finishedAt := time.Now().UTC().Format(time.RFC3339)
-
-		// 更新 run 记录
-		if _, err := s.db.ExecContext(bgCtx, `
-			UPDATE automation_runs
-			SET status=?, finished_at=?, error_msg=?
-			WHERE id=?`,
-			status, finishedAt, errMsg, runID,
-		); err != nil {
-			slog.Warn("automation: update run failed", "run", runID, "err", err)
+		if err := s.ensureSession(bgCtx, sessionID); err != nil {
+			status = "error"
+			errMsg = "ensure session failed: " + err.Error()
+			return
 		}
 
-		// 更新 automations 统计
-		if _, err := s.db.ExecContext(bgCtx, `
-			UPDATE automations
-			SET last_run_status=?, last_run_error=?, run_count=run_count+1, updated_at=?
-			WHERE id=?`,
-			status, errMsg, finishedAt, a.ID,
-		); err != nil {
-			slog.Warn("automation: update stats failed", "id", a.ID, "err", err)
+		// 构建初始 history
+		var history []protocol.Message
+		history = s.injectSystemPrompt(history)
+
+		// 追加用户消息
+		history = append(history, protocol.Message{Role: "user", Content: a.Prompt})
+		if err := s.saveMessage(bgCtx, sessionID, "user", a.Prompt, "", 0); err != nil {
+			slog.Warn("automation: saveMessage user failed", "err", err)
+		}
+
+		// 获取可用工具
+		toolSchemas := s.buildToolSchemas()
+
+		// 执行推理
+		req := &protocol.InferRequest{
+			Messages:        history,
+			MaxTokens:       4096,
+			Temperature:     0.7,
+			Tools:           toolSchemas,
+			ReasoningEffort: parseReasoningEffort(a.ReasoningEffort),
+		}
+
+		startInfer := time.Now()
+		var sb strings.Builder
+		const maxToolRounds = 10
+
+		for range maxToolRounds {
+			ch, err := p.StreamInfer(bgCtx, req)
+			if err != nil {
+				status = "error"
+				errMsg = "infer failed: " + err.Error()
+				return
+			}
+
+			var roundText strings.Builder
+			var toolCalls []map[string]json.RawMessage
+
+			for ev := range ch {
+				switch ev.Type {
+				case protocol.StreamTextDelta:
+					if ev.Content != "" {
+						roundText.WriteString(ev.Content)
+						sb.WriteString(ev.Content)
+					}
+				case protocol.StreamToolCall:
+					var call map[string]json.RawMessage
+					if json.Unmarshal([]byte(ev.Content), &call) == nil {
+						toolCalls = append(toolCalls, call)
+					}
+				}
+			}
+
+			if len(toolCalls) == 0 || s.toolExec == nil {
+				break
+			}
+
+			assistantParts := make([]any, 0, 1+len(toolCalls))
+			if roundText.Len() > 0 {
+				assistantParts = append(assistantParts, map[string]any{"type": "text", "text": roundText.String()})
+			}
+			toolResultParts := make([]any, 0, len(toolCalls))
+
+			for _, tc := range toolCalls {
+				var toolID, toolName string
+				var inputRaw json.RawMessage
+				if b, ok := tc["id"]; ok {
+					json.Unmarshal(b, &toolID) //nolint:errcheck
+				}
+				if b, ok := tc["name"]; ok {
+					json.Unmarshal(b, &toolName) //nolint:errcheck
+				}
+				if b, ok := tc["input"]; ok {
+					inputRaw = b
+				}
+				assistantParts = append(assistantParts, map[string]any{
+					"type": "tool_use", "id": toolID, "name": toolName, "input": inputRaw,
+				})
+
+				result, execErr := s.toolExec(bgCtx, toolName, inputRaw)
+				var resultText string
+				if execErr != nil {
+					resultText = "error: " + execErr.Error()
+				} else if result != nil {
+					resultText = string(result.Output)
+				}
+				slog.Info("automation: tool executed", "name", toolName, "ok", execErr == nil)
+				toolResultParts = append(toolResultParts, map[string]any{
+					"type": "tool_result", "tool_use_id": toolID, "content": resultText,
+				})
+			}
+			req.Messages = append(req.Messages,
+				protocol.Message{Role: "assistant", Parts: assistantParts},
+				protocol.Message{Role: "user", Parts: toolResultParts},
+			)
+		}
+
+		reply := sb.String()
+		latencyMs := time.Since(startInfer).Milliseconds()
+
+		if err := s.saveMessage(bgCtx, sessionID, "assistant", reply, "", latencyMs); err != nil {
+			slog.Warn("automation: saveMessage assistant failed", "err", err)
+		}
+		_ = s.updateSessionTitle(bgCtx, sessionID, a.Name)
+
+		// 处理 result_action
+		if strings.HasPrefix(a.ResultAction, "channel:") {
+			chID := strings.TrimPrefix(a.ResultAction, "channel:")
+			// 向 Channel 发送消息
+			// 注: 自动化无回话对象，构造空 message
+			s.channelMgr.SendReply(bgCtx, "", chID, nil, channels.Message{ChatID: ""}, reply)
 		}
 	}()
 
 	return runID
 }
 
+func parseReasoningEffort(e string) protocol.ReasoningEffort {
+	switch e {
+	case "low":
+		return protocol.ReasoningEffortLow
+	case "medium":
+		return protocol.ReasoningEffortMedium
+	case "high":
+		return protocol.ReasoningEffortHigh
+	case "ultra":
+		return protocol.ReasoningEffortHigh // ultra map to high
+	default:
+		return protocol.ReasoningEffortMedium
+	}
+}
+
 // ─── Cron 表达式解析（简化版，支持标准5字段格式 + @daily/@weekly 别名）────────
 
 // calcNextRun 基于当前时间计算下次触发时间（RFC3339）。
-// 仅实现分钟级精度的简单解析，满足日常/每周/每月场景。
+//
+//nolint:gocyclo
 func calcNextRun(expr, fromRFC3339 string) string {
 	from, err := time.Parse(time.RFC3339, fromRFC3339)
 	if err != nil {
@@ -511,29 +680,53 @@ func calcNextRun(expr, fromRFC3339 string) string {
 		return ""
 	}
 
-	minute := parts[0]
-	hour := parts[1]
+	minuteMatch := false
+	hourMatch := false
+	domMatch := false
+	monthMatch := false
+	dowMatch := false
 
-	// 只解析固定值（不支持 */n、范围等复杂语法）
-	// 对于 `*` 取步长 1，固定值取该值
-	minVal := -1
-	hourVal := -1
-	if v, e := strconv.Atoi(minute); e == nil {
-		minVal = v
-	}
-	if v, e := strconv.Atoi(hour); e == nil {
-		hourVal = v
-	}
+	// parse
+	minStep, minFixed := parseCronField(parts[0])
+	hourStep, hourFixed := parseCronField(parts[1])
+	domStep, domFixed := parseCronField(parts[2])
+	monthStep, monthFixed := parseCronField(parts[3])
+	dowStep, dowFixed := parseCronField(parts[4])
 
-	// 从 from+1min 开始向前推，找下一个匹配时刻（最多搜索 1 年）
 	t := from.Add(time.Minute).Truncate(time.Minute)
+	// 从 from+1min 开始向前推，找下一个匹配时刻（最多搜索 1 年）
 	for range 525600 { // 最多 365 天 × 1440 分钟
-		if (minVal == -1 || t.Minute() == minVal) && (hourVal == -1 || t.Hour() == hourVal) {
+		minuteMatch = (minFixed == -1 && t.Minute()%minStep == 0) || (minFixed != -1 && t.Minute() == minFixed)
+		hourMatch = (hourFixed == -1 && t.Hour()%hourStep == 0) || (hourFixed != -1 && t.Hour() == hourFixed)
+		domMatch = (domFixed == -1 && t.Day()%domStep == 0) || (domFixed != -1 && t.Day() == domFixed)
+		monthMatch = (monthFixed == -1 && int(t.Month())%monthStep == 0) || (monthFixed != -1 && int(t.Month()) == monthFixed)
+		dowMatch = (dowFixed == -1 && int(t.Weekday())%dowStep == 0) || (dowFixed != -1 && int(t.Weekday()) == dowFixed)
+
+		if minuteMatch && hourMatch && domMatch && monthMatch && dowMatch {
 			return t.UTC().Format(time.RFC3339)
 		}
 		t = t.Add(time.Minute)
 	}
 	return ""
+}
+
+// parseCronField 解析字段，返回 step 和 fixed (-1 为通配)。
+// 对于 "*" 返回 1, -1。对于 "*/n" 返回 n, -1。对于 "n" 返回 1, n。
+func parseCronField(part string) (int, int) {
+	if part == "*" {
+		return 1, -1
+	}
+	if strings.HasPrefix(part, "*/") {
+		step, err := strconv.Atoi(part[2:])
+		if err == nil && step > 0 {
+			return step, -1
+		}
+		return 1, -1 // fallback
+	}
+	if fixed, err := strconv.Atoi(part); err == nil {
+		return 1, fixed
+	}
+	return 1, -1 // fallback
 }
 
 // ─── 自动化模板市场 ───────────────────────────────────────────────────────────
@@ -577,9 +770,7 @@ type templateCache struct {
 
 // Server 侧的模板缓存（按来源 ID 存储）。
 // 用 sync.Map 保证并发安全；TTL 1h，超时则重新拉取。
-var templateCacheMap = struct {
-	m map[string]*templateCache
-}{m: make(map[string]*templateCache)}
+var templateCacheMap sync.Map // map[string]*templateCache
 
 const templateCacheTTL = time.Hour
 
@@ -612,8 +803,10 @@ func loadLocalTemplates(dir string) []automationTemplate {
 
 // fetchRemoteTemplates 拉取远程 index.json，命中缓存则直接返回。
 func (s *Server) fetchRemoteTemplates(src automationSource) []automationTemplate {
-	if c, ok := templateCacheMap.m[src.ID]; ok && time.Since(c.fetchedAt) < templateCacheTTL {
-		return c.templates
+	if val, ok := templateCacheMap.Load(src.ID); ok {
+		if c, isType := val.(*templateCache); isType && time.Since(c.fetchedAt) < templateCacheTTL {
+			return c.templates
+		}
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -652,7 +845,7 @@ func (s *Server) fetchRemoteTemplates(src automationSource) []automationTemplate
 		}
 	}
 
-	templateCacheMap.m[src.ID] = &templateCache{templates: idx.Templates, fetchedAt: time.Now()}
+	templateCacheMap.Store(src.ID, &templateCache{templates: idx.Templates, fetchedAt: time.Now()})
 	slog.Info("automation-templates: remote fetched", "id", src.ID, "count", len(idx.Templates))
 	return idx.Templates
 }

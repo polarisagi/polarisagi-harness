@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS skills (
     risk_level  TEXT    NOT NULL DEFAULT 'high', -- 'low' | 'medium' | 'high'
     sandbox     INTEGER NOT NULL DEFAULT 1,      -- 1=启用沙箱
     capabilities TEXT   NOT NULL,               -- JSON array
+    exec_mode   TEXT    NOT NULL DEFAULT 'tool', -- 'tool' | 'ambient'
     trust_tier  INTEGER NOT NULL DEFAULT 0,      -- 0-4，见上方说明
     idempotent  INTEGER NOT NULL DEFAULT 0,      -- 1=幂等，允许缓存结果
     benchmarks  TEXT    NOT NULL DEFAULT '{}',   -- JSON: PassRate/AvgLatency 等

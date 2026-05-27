@@ -18,7 +18,7 @@ import (
 
 // parseSkillMD 从 SKILL.md 中解析 Frontmatter 元数据。
 // 这么做是为了提取技能名称、描述和标签，避免将其作为一个整体的大仓库对待。
-func parseSkillMD(content string) (string, string, []string) {
+func parseSkillMD(content string) (string, string, []string, string) {
 	lines := strings.Split(content, "\n")
 	firstDash := -1
 	secondDash := -1
@@ -40,12 +40,17 @@ func parseSkillMD(content string) (string, string, []string) {
 			Name        string   `yaml:"name"`
 			Description string   `yaml:"description"`
 			Tags        []string `yaml:"tags"`
+			ExecMode    string   `yaml:"exec_mode"`
 		}
 		if err := yaml.Unmarshal([]byte(yamlContent), &fm); err == nil {
-			return fm.Name, fm.Description, fm.Tags
+			execMode := fm.ExecMode
+			if execMode == "" {
+				execMode = "tool"
+			}
+			return fm.Name, fm.Description, fm.Tags, execMode
 		}
 	}
-	return "", "", nil
+	return "", "", nil, "tool"
 }
 
 // formatName 将连字符分隔的目录名格式化为人类可读的名称。
@@ -73,7 +78,7 @@ func parseSkillEntry(path string, mpDir string, mp protocol.Marketplace) (*proto
 		return nil, err
 	}
 
-	name, desc, tags := parseSkillMD(string(contentBytes))
+	name, desc, tags, _ := parseSkillMD(string(contentBytes))
 	if name == "" {
 		name = filepath.Base(filepath.Dir(path))
 		name = formatName(name)
@@ -214,7 +219,7 @@ func parseMCPEntry(path string, mpDir string, mp protocol.Marketplace) (*protoco
 
 // discoverMarketplaceEntries 递归遍历市场目录，自动发现所有的插件和技能。
 // 这解决了插件/技能页面只列出整个市场仓库的系统漏洞。
-func discoverMarketplaceEntries(mpDir string, mp protocol.Marketplace) ([]protocol.RegistryEntry, error) {
+func discoverMarketplaceEntries(mpDir string, mp protocol.Marketplace) ([]protocol.RegistryEntry, error) { //nolint:gocyclo
 	var entries []protocol.RegistryEntry
 
 	err := filepath.Walk(mpDir, func(path string, info os.FileInfo, err error) error {
