@@ -233,16 +233,7 @@ count < Limits.Mesh 且 CurrentMode==Mesh → TopologyHierarchy（降回）
 
 ## 4. Agent Card 与能力发现
 
-```
-AgentCard{ Name, Description, Version, Skills[], Tools[], Models[], MaxConcurrent, CurrentLoad,
-  ActivationRule{ TaskTypes[], MinPriority, MaxLoad, RequiresTools[] }, PriorityBias(0-1), TrustLevel(1-5), SandboxTier, Endpoint, HealthCheck }
-
-AgentRegistry{ agents map(agentID→AgentHandle, RWMutex) }
-AgentHandle{ AgentCard, Handle(本地chan|远程A2A gRPC), RegisteredAt, Status(active|inactive|unreachable) }
-  RegisterAgent: Lock写入→EventAgentRegistered; 同ID重注: 先退后注
-  DeregisterAgent: 删除+inactive; 已认领任务 Reaper 回收
-  MarkUnreachable: 心跳超时60s/gRPC断开→unreachable, 不参与匹配
-```
+AgentCard 声明 Agent 能力集（Skills/Tools/Models）、激活条件（TaskTypes/MaxLoad/RequiresTools）、信任级别与沙箱层级；AgentRegistry 以 RWMutex 保护 agentID→Handle 映射，支持本地 chan 与远程 A2A gRPC 两种 Handle 类型，心跳 60s 超时标记 unreachable 并从匹配池移除。
 
 FindBestAgent: Phase1 硬过滤(DeclaredCapabilities⊇RequiredCapabilities; 空→全体) → Phase2 加权降序
 `score = 0.6 * LaplaceSuccRate + 0.4 * LoadFactor`
@@ -256,20 +247,13 @@ LoadFactor: `1.0/max(CurrentLoad,1)`
 Macro-DAG(本模块): 节点=子任务跨Agent边界, [Blackboard] 发布, 边=data|approval|sequential
 Micro-DAG(M4): 子任务内部工具调用, M4 Agent Kernel 管理
 
-```
-TaskDAG{ RootTask, Nodes[]{TaskNode{Task,AssignedTo,Status}}, Edges[]{TaskDependency{From,To,Type}} }
-ExecuteDAG: 拓扑排序→逐层errgroup并发PostTask→WaitForCompletion→任一层失败终止
-Planner: 5min超时→DAG Rollback | CRITIQUE_ME 接受质疑 | 崩溃→Supervisor重启, [EventLog] 恢复
-```
+Macro-DAG 节点为跨 Agent 子任务，边类型为 data/approval/sequential；ExecuteDAG 按拓扑分层并发（errgroup），任一层失败即终止并触发 Saga Rollback；Planner 5min 超时 → DAG Rollback，崩溃后由 Supervisor 通过 [EventLog] 恢复。
 
 ---
 
 ## 8. 编排拓扑自演化
 
-```
-TopologyFitness{ Topology, TaskType, SuccessRate(30d), AvgLatencyMs, AvgTokenCost, AgentUtilization(0-1), SampleSize(<10不参与) }
-TopologyEvolver.Evaluate: 获取候选fitness → Pareto前沿(成功率×token效率) → 候选≥当前5pp→TopologyChange(A/B 50/50分流50任务) → 否则nil
-```
+TopologyEvolver 以 30 天成功率 × token 效率的 Pareto 前沿评估候选拓扑，候选领先当前 ≥5pp 时启动 A/B 50/50 分流 50 任务的渐进切换；样本 <10 的拓扑不参与评估。
 
 | 阶段 | 流量 | 观察 | 回滚条件 |
 |------|------|------|---------|

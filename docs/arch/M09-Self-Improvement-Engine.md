@@ -228,45 +228,12 @@ Gate 4: Full Rollout, 旧版本保留 7 天 rollback target
 
 ### RAGAS Evolution 三阶段流水线
 
-```
-Input: chunks []string（来自 M10 知识库分片）
-Output: []SyntheticCase（Severity 硬上限 P2，needs_human_audit=true）
-```
+输入 M10 知识库 chunks，输出 SyntheticCase（Severity 硬上限 P2，needs_human_audit=true）。
 
-**Stage 1 — Simple 生成**（每个 chunk）:
-```
-Prompt: 从文本生成一个事实性 QA 对（答案仅凭该文本可回答）
-→ SyntheticCase{Type: factual, Difficulty: easy}
-Temperature=0.7（多样性，避免同质问题）
-Model: deepseek-chat（budget 层）
-```
-
-**Stage 2 — Evolution 难度演化**（按 chunk 索引 % 3 分流）:
-```
-i%3==1: Reasoning Evolution
-  → 改写为多步推理问题（答案仍可从原文找到依据）
-  → Type: multi_hop, Difficulty: medium
-
-i%3==2: Conditioning Evolution
-  → 改写为反事实/条件推理（如：如果X不成立那么会怎样）
-  → GroundTruth = 文本中与假设相关的事实陈述
-  → Type: counterfactual, Difficulty: hard
-
-i%3==0: 保持 Stage 1 factual/easy 不演化
-```
-
-**Stage 3 — Groundedness 验证**（Judge LLM 过滤）:
-```
-判断：答案是否能从给定 chunk 找到依据（不依赖外部知识）
-→ grounded=true: ContextBound=true，进入去重
-→ grounded=false: 丢弃，不进入结果集
-```
-
-**n-gram 去重**（防测试集污染）:
-```
-3-gram SHA-256 指纹：前 3 个词联合哈希（词频独立 → 近义问题可通过）
-重复指纹 → 丢弃（去掉同义复述，保留语义不同变体）
-```
+- **Stage 1 — Simple 生成**：对每个 chunk 用 deepseek-chat 生成一个事实性 QA 对（Type: factual/easy，Temperature=0.7 保多样性）。
+- **Stage 2 — Evolution 难度演化**：按 chunk 索引 %3 分流：multi_hop 多步推理（medium）/ counterfactual 反事实推理（hard）/ 保持 factual/easy 不演化。
+- **Stage 3 — Groundedness 验证**：Judge LLM 过滤，答案无法从 chunk 找到依据的丢弃；通过者设 ContextBound=true。
+- **n-gram 去重**：3-gram SHA-256 指纹去除同义复述，保留语义不同变体。
 
 ### EvalGenerator 配置
 
@@ -278,18 +245,7 @@ i%3==0: 保持 Stage 1 factual/easy 不演化
 
 ### SyntheticCase 结构
 
-```
-SyntheticCase:
-  ID           string          // "syn_{sha256前6字节}"
-  Question     string
-  GroundTruth  string
-  ChunkID      string          // 来源 chunk SHA-256 前 8 字节
-  Type         QuestionType    // factual | multi_hop | abstractive | counterfactual
-  Difficulty   DifficultyLevel // easy | medium | hard
-  ContextBound bool            // Stage 3 验证通过后设为 true
-```
-
-调用方需实现 `SyntheticCase → EvalCase` 适配（设 `Source=SourceSynthetic, Severity=P2, needs_human_audit=true`），M12 §5 DataSplitter 将 `SourceSynthetic` 路由至 Training Set。
+类型定义见 `pkg/governance/synthetic/generator.go`（字段：ID/Question/GroundTruth/ChunkID/Type/Difficulty/ContextBound）。调用方需实现 `SyntheticCase → EvalCase` 适配（设 `Source=SourceSynthetic, Severity=P2, needs_human_audit=true`），M12 §5 DataSplitter 将 `SourceSynthetic` 路由至 Training Set。
 流程: L2+ 变更 → [Blackboard].Publish(EventCoEvolution) → 联合回归 → 退化按级别补偿 (L0 调参 / L1 prompt / L2+ LogicCollapse) → [EventLog]
 
 ---

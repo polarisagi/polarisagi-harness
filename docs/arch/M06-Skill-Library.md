@@ -135,27 +135,7 @@ CompileGate 准入: 空闲内存 >= 80MB (50MB 技能预算 + 30MB 安全边距)
 - 一次编译，三平台运行
 
 **远程编译数据安全** (AST 脱敏 — `TaintSanitizeForRemoteCompilation`):
-```
-Go AST parser 解析 impl.go → 遍历所有字面量节点:
-  *ast.BasicLit STRING → strParams[{N}], 排除:
-    - ast.ImportSpec: 包路径保持原值 (编译器强制字面量，不含 PII)
-    - ast.Field.Tag: key 保留 (json/xml/yaml 协议名), value → field_{N}
-    - ast.File.Name: 包声明 (类型守卫跳过)
-  *ast.GenDecl CONST 块: Tok 降级为 VAR；iota 展开为显式整数序列 → intParams[{N}]
-  *ast.BasicLit INT: 全量脱敏，仅保留 ForStmt 步进值、IndexExpr 下标、make/len/cap 容量参数、ArrayType.Len 长度声明。八/十六/二进制先转十进制再判定
-  *ast.BasicLit FLOAT → floatParams[{N}]
-  *ast.BasicLit CHAR → rune(intParams[{N}])
-  *ast.BasicLit IMAG → complex(floatParams[{N}], floatParams[{M}])
-  *ast.CompositeLit 类型感知参数化:
-    []byte/[]uint8 → decodeByteSlice(intParams[{N}:{N+M}])
-    []int/[]int32/[]int64 → decodeIntSlice(intParams[{N}:{N+M}])
-    []float32/[]float64 → decodeFloatSlice(floatParams[{N}:{N+M}])
-    []string → decodeStringSlice(strParams[{N}:{N+M}])
-    map[K]V/StructType → 扁平参数序列注入导出函数参数列表
-  *ast.CommentGroup → [REDACTED_COMMENT]
-  *ast.Ident 非内置标识符 → id_{N}
-```
-清洗后 AST 重打印 + `redaction_map.json` 仅存本地 M2 Workspace。编译后 Wasm 通过线性内存传递参数:
+脱敏实现见 `pkg/extensions/skill/compile.go`（`TaintSanitizeForRemoteCompilation`）：解析 impl.go AST，将字符串/数值/标识符/注释替换为参数化占位符，保留包路径与协议关键字，生成 `redaction_map.json` 存本地，确保 PII 不离开本机。编译后 Wasm 通过线性内存传递参数:
 
 **Wasm ABI (共享线性内存方案)**:
 - Wasm 导出函数: `run(ptr i32, len i32) -> (result_ptr i32, result_len i32)`。wazero/Wasm 核心规范仅支持 i32/i64/f32/f64 基本数值类型，Go 切片类型不可直接跨 FFI 传递

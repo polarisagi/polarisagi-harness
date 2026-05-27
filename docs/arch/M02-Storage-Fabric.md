@@ -303,32 +303,11 @@ BEFORE DELETE trigger 自动递减引用计数，引用归零入队 GC。4KB 硬
 
 ## 5. SchemaManager — 版本迁移
 
-```
-SchemaManager:
-  db: *sql.DB
-  currentVersion: int
-  migrations: []Migration
+启动时自动创建 `schema_versions` 追踪表，按版本升序在单事务内执行未应用迁移（`internal/protocol/schema/NNN_*.sql`），失败回滚并阻止启动。
 
-Migration:
-  Version: int, Description: string
-  Up: func(tx) error    // 正向迁移
-  Down: func(tx) error  // 回滚 (仅开发环境)
+**崩溃恢复**：迁移前在 `sys_config` 写 `migration_status='in_progress'`，重启检测到该状态则进入 Maintenance Mode（仅 M2+M3 初始化），操作员通过 `polaris db recover` 或 `polaris db rollback` 恢复；迁移前自动 VACUUM INTO 回滚点保留 7 天。
 
-启动流程:
-  1. CREATE TABLE IF NOT EXISTS schema_versions (version INTEGER PK, applied_at TEXT, checksum TEXT)
-  2. 查询 max(version)
-  3. 按 version 升序执行未应用迁移
-  4. 每迁移单事务: BEGIN → Up(tx) → INSERT INTO schema_versions → COMMIT
-  5. 失败回滚事务 → 阻止启动
-```
-
-MigrationGuard 崩溃恢复:
-  1. 迁移前: `UPDATE sys_config SET migration_status='in_progress', migration_version_target=N` (同事务)
-  2. 迁移成功: `UPDATE sys_config SET migration_status='completed', migration_version=N`
-  3. 启动时检查: `in_progress` → 进入 Maintenance Mode (仅 M2+M3 初始化, M4-M13 挂起) → CRITICAL 日志 → 操作员执行 `polaris db recover` 或 `polaris db rollback`
-  4. 迁移前自动 VACUUM INTO 回滚点, 保留 7 天
-
-策略: 前向兼容 — 新字段一律 NULLABLE 或有 DEFAULT。后向兼容 — 降级不自动执行 Down, 旧代码忽略新列。开发环境 CLI: `polaris db migrate --down <version>`
+**兼容策略**：新字段一律 NULLABLE 或有 DEFAULT（前向兼容）；降级不执行 Down，旧代码忽略新列（后向兼容）。开发环境支持 `polaris db migrate --down <version>`。
 
 冷存储 EventLog 重放: >30 天记录归档 Parquet。重放优先 M4 FSM Snapshot → Snapshot 不可用则 DuckDB 从 Parquet 回读。
 

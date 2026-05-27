@@ -330,30 +330,9 @@ MCPManager 内部 goroutine 监控任务完成 → 写入 tasks 缓存
 
 自动化是**有触发器的 Agent 任务**，是第一类扩展类型（ext_type='automation'）。设计参考 Codex Automations + Claude Code Routines 理念：**automation prompt 是自包含的任务规约**（须声明目标与成功标准），Agent 在独立上下文中执行，结果推送至指定目标。这与"对话延续"根本不同——每次执行产生独立 session，与主聊天互相隔离。
 
-### 9.1 数据模型（017_automations.sql）
+### 9.1 数据模型
 
-```sql
-CREATE TABLE automations (
-  id               TEXT    PRIMARY KEY,               -- "auto_{8字节hex}"
-  name             TEXT    NOT NULL DEFAULT '',
-  prompt           TEXT    NOT NULL,                  -- 自包含任务规约（含成功标准与终止条件）
-  trigger_type     TEXT    NOT NULL DEFAULT 'cron',   -- 'cron' | 'webhook' | 'both' | 'manual'
-  cron_schedule    TEXT    NOT NULL DEFAULT '',        -- 5字段 cron 表达式；webhook 时可空
-  channel_id       TEXT    NOT NULL DEFAULT '',        -- channels.id；webhook 触发时非空
-  working_dir      TEXT    NOT NULL DEFAULT '',        -- Agent 工作目录；env_type=local/worktree 时必填
-  reasoning_effort TEXT    NOT NULL DEFAULT 'medium',  -- low/medium/high/ultra → model_roles 自动映射
-  result_action    TEXT    NOT NULL DEFAULT 'session', -- 'session' | 'channel:{id}' | 'silent'
-  sandbox_level    INTEGER NOT NULL DEFAULT 2,         -- L1 InProc / L2 Wasm / L3 MicroVM
-  cedar_rules_json TEXT    NOT NULL DEFAULT '[]',      -- Cedar 显式授权规则
-  enabled          INTEGER NOT NULL DEFAULT 1,
-  -- 执行追踪
-  last_run_at      TEXT    NOT NULL DEFAULT '',
-  next_run_at      TEXT    NOT NULL DEFAULT '',        -- cronTick 预计算，索引加速
-  run_count        INTEGER NOT NULL DEFAULT 0,
-  last_run_status  TEXT    NOT NULL DEFAULT '',        -- 'ok' | 'error' | 'running'
-  last_run_error   TEXT    NOT NULL DEFAULT ''
-);
-```
+DDL 见 `internal/protocol/schema/017_automations.sql`。核心字段：`prompt`（自包含任务规约）、`trigger_type`（cron/webhook/both/manual）、`cron_schedule`、`working_dir`、`reasoning_effort`、`result_action`（session/channel:{id}/silent）、`sandbox_level`、`cedar_rules_json`、`next_run_at`（cronTick 预计算索引）、`last_run_status`（ok/error/running 防重入）。
 
 ### 9.2 执行环境（env_type）
 
