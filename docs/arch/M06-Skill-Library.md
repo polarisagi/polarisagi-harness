@@ -77,7 +77,7 @@ Skill/JSONSchema/Condition/SkillSource 类型定义见 `pkg/extensions/skill/ski
 
 ### 2.2 Logic Collapse: System 2 → System 1
 
-> **实现状态**：`FeatureLogicCollapse` 特性门控已定义（Tier1+，≥1GB free 自动启用），编译流水线（AST 脱敏 → 远程 TinyGo → 双源验证 → wazero 入库）尚未实现，当前 Tier 0 仅加载预编译技能。编译相关代码入口预留于 `pkg/extensions/skill/`（待 `compile.go` 实现）。
+> **实现状态**：`FeatureLogicCollapse` 特性门控已定义（Tier1+，≥1GB free 自动启用）。编译流水线已实现于 `pkg/extensions/skill/compile.go`（`LogicCollapseCompiler`）：FreshnessChecker → DataStripper → CompileGate → LLMCodeGenerator → StaticCFGAnalyzer → TaintSanitizeForRemoteCompilation → DualSourceCompiler（双源 WasmHash 验证）→ wazero 魔数验证 → 风险分级 → HMAC-SHA256 签名 → SkillRegistry 写入。M9 触发器实现于 `pkg/swarm/logic_collapse_trigger.go`（`LogicCollapseMonitor`，Welford 在线语义方差估算 + HITL 分流）。Tier 0 仍仅加载预编译技能（CompileGate 拦截）。
 
 ```
 System 2 成功执行 → 轨迹分析 (识别确定/概率部分) → LLM 代码生成 (Go) → TinyGo → Wasm → wazero 验证 → 签名入库
