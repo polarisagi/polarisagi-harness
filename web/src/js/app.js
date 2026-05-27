@@ -97,7 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
     status: 'monitor', insights: 'monitor', logs: 'monitor',
     providers: 'settings', channels: 'settings', config: 'settings', computer: 'settings',
     approvals: 'automation', cron: 'automation',
-    agents: 'monitor', capabilities: 'plugins',
+    agents: 'monitor', capabilities: 'skills',
   }
   const page = legacyPageMap[rawPath] || rawPath
   Alpine.store('nav').page = page
@@ -105,6 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   if (page === 'settings')   { Alpine.store('providers').load(); Alpine.store('modelRoles').load() }
   if (page === 'sessions')   Alpine.store('sessions').load()
+  if (page === 'skills')     Alpine.store('skills').load()
   if (page === 'plugins')    Alpine.store('plugins').load()
   if (page === 'automation') { Alpine.store('cron').load(); Alpine.store('approvals').startPolling() }
   if (page === 'eval')       { void 0 }

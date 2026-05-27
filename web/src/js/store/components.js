@@ -100,7 +100,7 @@ Alpine.data('chatInput', () => ({
     const nav = Alpine.store('nav')
     switch (item.cmd) {
       case '/sessions': nav.navigate('sessions');     Alpine.store('sessions').load(); break
-      case '/skills':   nav.navigate('capabilities'); Alpine.store('skills').load(); break
+      case '/skills':   nav.navigate('skills');        Alpine.store('skills').load(); break
       case '/status':   nav.navigate('monitor');                                     break
       case '/clear':    Alpine.store('chat').clearView();                          break
       case '/compact':  this.sendCompact();                                        break

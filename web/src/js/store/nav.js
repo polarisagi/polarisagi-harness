@@ -9,6 +9,7 @@ Alpine.store('nav', {
     this.page = page
     history.pushState({}, '', page === 'chat' ? '/' : `/${page}`)
     if (page === 'settings')   { Alpine.store('providers').load(); Alpine.store('modelRoles').load() }
+    if (page === 'skills')     Alpine.store('skills').load()
     if (page === 'plugins')    Alpine.store('plugins').load()
     if (page === 'automation') { Alpine.store('cron').load(); Alpine.store('approvals').startPolling() }
     else                       { Alpine.store('approvals').stopPolling() }
