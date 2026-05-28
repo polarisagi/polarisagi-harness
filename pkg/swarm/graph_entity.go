@@ -37,12 +37,13 @@ func (ee *EntityExtractor) PreExtractionFilter(chunk string) (bool, float64) {
 	return novelty > 0.3, novelty
 }
 
-// Extract 从文档中提取实体列表。
+// Extract 从文档文本中提取实体列表。
+// docText 是已加载的文档原始内容（非 docID），由调用方从 Store 取出后传入。
 // 主路径: LLM 提取（DeepSeek ¥1/1M tokens，成本可忽略）。
 // 回退: 规则引擎（词典匹配 + 正则模式）。
-func (ee *EntityExtractor) Extract(ctx context.Context, docID string) ([]*Entity, error) {
+func (ee *EntityExtractor) Extract(ctx context.Context, docText string) ([]*Entity, error) {
 	if ee.llmClient != nil {
-		entities, err := ee.llmClient.ExtractEntities(ctx, docID)
+		entities, err := ee.llmClient.ExtractEntities(ctx, docText)
 		if err == nil && len(entities) > 0 {
 			return entities, nil
 		}
@@ -53,7 +54,7 @@ func (ee *EntityExtractor) Extract(ctx context.Context, docID string) ([]*Entity
 		return known, nil
 	}
 
-	return extractEntitiesByPattern(docID), nil
+	return extractEntitiesByPattern(docText), nil
 }
 
 // entityPatterns 实体提取正则模式。

@@ -14,10 +14,12 @@ import (
 // SQLiteRolloutStore 实现 StagingPipeline 接口，State-in-DB。
 // 架构文档: docs/arch/M09-Self-Improvement-Engine.md §2.3
 //
-// 表结构（由 storage 层 schema 创建，此处使用 CREATE TABLE IF NOT EXISTS）:
-//   rollout_states (version TEXT PRIMARY KEY, baseline TEXT, current_gate INT,
-//                   canary_percent INT, status TEXT, started_at INT, last_advanced_at INT,
-//                   metadata TEXT)
+// Gate 语义:
+//   Gate 0 (Pending):       SubmitCandidate → 等待 Eval 完成（eval_score 置位）
+//   Gate 1 (Shadow 1%):     Eval 通过后自动进入，路由 1% 真实流量做影子对比
+//   Gate 2 (Canary 5%):     Shadow 稳定 24h 后推进
+//   Gate 3 (Canary 25%+):   按 canarySteps 逐步推进（25/50/100）
+//   Gate 4 (Committed):     100% 流量切换，保留 7d 回滚窗口
 
 const createRolloutTable = `
 CREATE TABLE IF NOT EXISTS rollout_states (
@@ -26,6 +28,8 @@ CREATE TABLE IF NOT EXISTS rollout_states (
 	current_gate     INTEGER NOT NULL DEFAULT 0,
 	canary_percent   INTEGER NOT NULL DEFAULT 0,
 	status           TEXT    NOT NULL DEFAULT 'pending',
+	eval_score       REAL    NOT NULL DEFAULT -1,
+	shadow_ok        INTEGER NOT NULL DEFAULT 0,
 	started_at       INTEGER NOT NULL,
 	last_advanced_at INTEGER NOT NULL,
 	metadata         TEXT    NOT NULL DEFAULT '{}'
@@ -42,20 +46,28 @@ func NewSQLiteRolloutStore(db *sql.DB) (*SQLiteRolloutStore, error) {
 	if _, err := db.Exec(createRolloutTable); err != nil {
 		return nil, perrors.Wrap(perrors.CodeInternal, "rollout_store: create table", err)
 	}
+	// 兼容旧表（无 eval_score/shadow_ok 列）：ADD COLUMN IF NOT EXISTS
+	for _, col := range []string{
+		"ALTER TABLE rollout_states ADD COLUMN eval_score REAL NOT NULL DEFAULT -1",
+		"ALTER TABLE rollout_states ADD COLUMN shadow_ok INTEGER NOT NULL DEFAULT 0",
+	} {
+		_, _ = db.Exec(col) // 已存在时忽略错误
+	}
 	return &SQLiteRolloutStore{
 		db:      db,
 		rollout: NewProgressiveRollout(),
 	}, nil
 }
 
-// SubmitCandidate 提交新候选版本，初始化为 Gate 0 Pending。
+// SubmitCandidate 提交新候选版本，直接进入 Gate 1 Shadow（1% 流量），状态 pending。
+// Eval 通过 RecordEvalScore 异步补充；未调用时默认 eval_score=-1（不阻塞 Shadow 观察）。
 func (s *SQLiteRolloutStore) SubmitCandidate(ctx context.Context, snap *AgentVersionSnapshot) error {
 	now := time.Now().Unix()
 	meta, _ := json.Marshal(snap)
 	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO rollout_states
-			(version, baseline, current_gate, canary_percent, status, started_at, last_advanced_at, metadata)
-		VALUES (?, 'baseline', 0, 1, 'pending', ?, ?, ?)
+			(version, baseline, current_gate, canary_percent, status, eval_score, shadow_ok, started_at, last_advanced_at, metadata)
+		VALUES (?, 'baseline', 1, 1, 'pending', -1, 0, ?, ?, ?)
 		ON CONFLICT(version) DO NOTHING
 	`, snap.Version, now, now, string(meta))
 	if err != nil {
@@ -64,11 +76,49 @@ func (s *SQLiteRolloutStore) SubmitCandidate(ctx context.Context, snap *AgentVer
 	return nil
 }
 
-// AdvanceGate 根据当前统计数据推进或回滚。
-// 规则：
-//   - CheckHardStop → 触发 → 自动 Rollback
-//   - 当前 Gate 最后推进时间 < 24h → 跳过（防止快速跳过）
-//   - CanaryPercent 按 canarySteps 推进
+// RecordEvalScore 记录 Eval 结果（异步补充评分，不阻塞 Shadow 观察）。
+// passRate 不达标时触发回滚；达标时更新 eval_score 并将 status 设为 running。
+func (s *SQLiteRolloutStore) RecordEvalScore(ctx context.Context, version string, passRate float64, baselinePassRate float64) error {
+	// Eval 未通过（低于基线 × 0.95）→ 立即回滚
+	if passRate < baselinePassRate*0.95 {
+		_, _ = s.Rollback(ctx, version, fmt.Sprintf("eval regression: passRate=%.3f < baseline×0.95=%.3f", passRate, baselinePassRate*0.95))
+		return nil
+	}
+
+	// 更新 eval_score 并激活 Shadow
+	now := time.Now().Unix()
+	_, err := s.db.ExecContext(ctx, `
+		UPDATE rollout_states
+		SET eval_score = ?, status = 'running', last_advanced_at = ?
+		WHERE version = ? AND status = 'pending'
+	`, passRate, now, version)
+	return err
+}
+
+// ConfirmShadow 确认影子执行结果正常，允许从 Gate 1 推进到 Gate 2（Canary 5%）。
+// 由影子执行监控组件在 shadow_ok 条件满足后调用。
+func (s *SQLiteRolloutStore) ConfirmShadow(ctx context.Context, version string) error {
+	state, err := s.GetState(ctx, version)
+	if err != nil {
+		return err
+	}
+	if state.CurrentGate != GateShadowExecution {
+		return nil
+	}
+	now := time.Now().Unix()
+	_, err = s.db.ExecContext(ctx, `
+		UPDATE rollout_states
+		SET shadow_ok = 1, current_gate = 2, canary_percent = 5, status = 'running', last_advanced_at = ?
+		WHERE version = ?
+	`, now, version)
+	return err
+}
+
+// AdvanceGate 根据当前指标推进或触发硬停止。
+// Gate 路径：
+//   0 (Pending)       → 等待 RecordEvalScore 自动推进
+//   1 (Shadow 1%)     → 等待 ConfirmShadow 推进到 Gate 2
+//   2+ (Canary)       → 稳定 24h 后按 canarySteps 逐步推进到 100%
 func (s *SQLiteRolloutStore) AdvanceGate(ctx context.Context, version string, stats RolloutStats) (*RolloutState, error) {
 	state, err := s.GetState(ctx, version)
 	if err != nil {
@@ -78,17 +128,22 @@ func (s *SQLiteRolloutStore) AdvanceGate(ctx context.Context, version string, st
 		return state, nil
 	}
 
-	// 硬停止检查
+	// 硬停止：任意指标超限立即回滚
 	if s.rollout.CheckHardStop(stats) {
-		return s.Rollback(ctx, version, "hard stop: error rate / latency / safety violation exceeded threshold")
+		return s.Rollback(ctx, version, "hard stop: metrics regression or safety violation")
 	}
 
-	// 24h 稳定期检查（防止快速推进）
+	// Gate 1 Shadow：由 ConfirmShadow 推进到 Gate 2，此处跳过
+	if RolloutGate(state.CurrentGate) <= GateShadowExecution {
+		return state, nil
+	}
+
+	// Gate 2+：稳定期检查（24h）
 	if time.Since(time.Unix(state.LastAdvancedAt, 0)) < 24*time.Hour {
-		return state, nil // 尚未稳定，维持当前状态
+		return state, nil
 	}
 
-	// 推进 Canary 百分比
+	// 按 canarySteps 推进
 	nextPercent, nextGate := s.rollout.NextStep(state.CanaryPercent, int(state.CurrentGate))
 	newStatus := RolloutStatusRunning
 	if nextPercent >= 100 {
@@ -142,11 +197,10 @@ func (s *SQLiteRolloutStore) GetState(ctx context.Context, version string) (*Rol
 
 // NextStep 根据当前 CanaryPercent 返回下一步的 (percent, gate)。
 func (pr *ProgressiveRollout) NextStep(currentPercent, currentGate int) (int, int) {
-	for i, step := range pr.canarySteps {
+	for _, step := range pr.canarySteps {
 		if step > currentPercent {
 			return step, currentGate + 1
 		}
-		_ = i
 	}
 	return 100, currentGate + 1 // 全量
 }

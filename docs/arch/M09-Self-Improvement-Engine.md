@@ -197,14 +197,14 @@ SKILL.md → 收集轨迹 → LLM 编译 Wasm → System1 执行
 
 ```
 Gate 1: Eval Harness 离线回归 — 全部黄金用例 + Welch's t-test p<0.05 → 发布 EventEvalCompleted
-Gate 2: Shadow Execution (3-7天) — 成功率/Token/工具正确率/[SurpriseIndex] 无退化。candidate 版本执行真实任务但输出不面用户（仅 M12 ShadowExecutor 对比）。安全护栏: candidate 禁止 write_network + privileged（仅 read_only + write_local 且写入隔离影子 workspace，防候选版本产生不可逆副作用）。影子执行中 write_network 工具调用强制路由至 M7 Shadow Sink（§5.3）mock 模式，输出记录于影子 workspace；影子 vs 基线对比时此类步骤以 tool_call 参数一致性（而非实际输出）作为评估依据。
-Gate 3: Canary Rollout（阶梯权威源 `spec/state.yaml §m9_self_improve.canary_steps`）
-  硬停止: error>baseline×1.2 | P95 latency>baseline×1.4 | 安全违规>0 → autoRollback
-  每阶段驻留时长见 `canary_dwell_per_step_hours_ht0` 后进阶
+Gate 1: Shadow (1% 流量) — `SubmitCandidate` 立即进入此阶段。`RecordEvalScore` 异步补充 Eval 结果：passRate < baseline×0.95 触发自动 Rollback；passRate ≥ baseline×1.05 将 status 激活为 running。
+Gate 2: Shadow Execution (3-7天) — `ConfirmShadow` 确认影子指标正常后推进至 Canary 5%。candidate 版本执行真实任务但输出不面用户，安全护栏禁止 write_network + privileged。
+Gate 3: Canary Rollout（阶梯: 5%→25%→50%→100%，每步驻留 24h）
+  硬停止: error>baseline×1.2 | P95 latency>baseline×1.4 | 安全违规>0 | SurpriseIndex 退化 → autoRollback
 Gate 4: Full Rollout, 旧版本保留 7 天 rollback target
 ```
 
-实现见 `pkg/swarm/rollout.go` (ProgressiveRollout, RolloutStage)。阶梯与驻留时长权威源 `spec/state.yaml §m9_self_improve.canary_steps` / `canary_dwell_per_step_hours_ht0`。硬停止条件: ErrorRate>baseline×1.2 | P95Latency>baseline×1.4 | SafetyViolations>0 → autoRollback。M9 外环订阅 `EventEvalCompleted`，更新候选评分，达标即触发 `Activate(CAS)` 激活候选；随后 M9 决策阶段推进，M13 TrafficSplitter 执行分发，M12 ShadowExecutor 对比评估。
+实现见 `pkg/swarm/rollout.go` (ProgressiveRollout) 和 `pkg/swarm/rollout_store.go` (SQLiteRolloutStore)。持久化状态表 `rollout_states` 新增 `eval_score`（Eval 得分）与 `shadow_ok`（影子确认标志）列。Gate 转换由三个方法驱动：`SubmitCandidate`（Gate 0→1，自动进入 Shadow）、`RecordEvalScore`（Eval 结果写入，不达标自动 Rollback）、`ConfirmShadow`（Gate 1→2，影子观测通过）；`AdvanceGate` 仅处理 Gate 2+ 的 Canary 推进，不覆盖 Gate 0/1 专属路径。硬停止条件全局适用于所有 Gate。`StagingPipeline` 接口保持稳定，M13 TrafficSplitter 按 `canary_percent` 分发。
 
 ### 2.4 Cross-Module Co-Evolution [Module-Topology] [Blackboard]
 

@@ -9,7 +9,13 @@ import (
 )
 
 // GraphBuildPipeline — 知识图谱构建管线（5 阶段）。
-// 架构文档: docs/arch/10-Knowledge-RAG-深度选型.md §2.7
+// 架构文档: docs/arch/M10-Knowledge-RAG.md §2.7
+
+// DocFetcher 文档内容获取接口（consumer-side，防包循环）。
+// 由调用方注入，返回指定 docID 的原始文本内容。
+type DocFetcher interface {
+	FetchText(ctx context.Context, docID string) (string, error)
+}
 
 type GraphBuildPipeline struct {
 	entityExtractor   *EntityExtractor
@@ -17,6 +23,7 @@ type GraphBuildPipeline struct {
 	crossDocLinker    *CrossDocumentLinker
 	clusterer         *Clusterer
 	semanticMem       protocol.SemanticMemory
+	fetcher           DocFetcher // optional：nil 时将 docID 本身作为文本占位
 }
 
 // NewGraphBuildPipeline 构造知识图谱构建管线。
@@ -37,12 +44,23 @@ func NewGraphBuildPipeline(llm LLMClient, tier int, semanticMem protocol.Semanti
 	}
 }
 
+// SetDocFetcher 注入文档内容获取器（可选；nil 时降级为规则提取）。
+func (p *GraphBuildPipeline) SetDocFetcher(f DocFetcher) { p.fetcher = f }
+
 // Run 执行完整 5 阶段构建管线。
 // Phase 1: EntityExtraction → Phase 2: RelationExtraction →
 // Phase 3: CrossDocumentLinking → Phase 4: Clustering →
 // Phase 5: ConceptSynthesizer.
 func (p *GraphBuildPipeline) Run(ctx context.Context, docID string) error {
-	entities, err := p.entityExtractor.Extract(ctx, docID)
+	// 获取文档文本（fetcher 注入时从 store 取；否则降级用 docID 占位）
+	docText := docID
+	if p.fetcher != nil {
+		if text, err := p.fetcher.FetchText(ctx, docID); err == nil && text != "" {
+			docText = text
+		}
+	}
+
+	entities, err := p.entityExtractor.Extract(ctx, docText)
 	if err != nil {
 		return perrors.Wrap(perrors.CodeInternal, "GraphBuildPipeline: Phase1 entity extraction failed", err)
 	}

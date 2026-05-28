@@ -41,32 +41,22 @@
 5. 元数据富化 + Embedding
 6. 多引擎索引: `[Storage-SQLite]` doc_nodes + `[Storage-SurrealDB-Core]` 向量 + FTS5 全文
 
-### 1.2 知识源摄入 (Plugin-driven Ingestion)
+### 1.2 知识源摄入 (Plugin-driven + 直连 Connector)
 
-> **设计重构与架构哲学**：对齐 OpenAI 与 Anthropic 的安全规范（Security-by-Design），M10 主体剥离所有直接针对本地系统 API 或第三方 SaaS (Notion/Slack) 的网络直连代码。所有的外部知识获取必须通过标准的 AI Agent 插件（Plugin Bundle，内部基于 MCP 协议或 Wasm Skill 驱动）。
+**直连 Connector（已实现，Tier 0 内置）**:
+- `ObsidianConnector` (`pkg/swarm/knowledge/obsidian_connector.go`): 本地 Markdown 目录监听，基于 fsnotify 实时推送变更事件（created/updated/deleted），List/Fetch/Watch 三接口完整，支持 YAML frontmatter 解析。
+- `SyncScheduler` (`pkg/swarm/knowledge/sync_scheduler.go`): 消费 `KnowledgeConnector.Watch` 事件并驱动 `KnowledgePipeline.Ingest/Delete`。启动时执行全量初始同步，后切入增量 Watch 模式。防抖窗口 500ms 合并同一文件的连续变更，指数退避重试最多 3 次。
 
-**数据拉取模式（Plugin Provider）**:
-M10 Ingester 不再硬编码特定的 Connector（如 ObsidianConnector, NotionConnector）。而是消费在 `M13-bis Extension Registry` 中注册且声明了 `capability: knowledge_provider` 的 Plugin。
+**Plugin-driven Ingestion（长期架构目标）**:
+M10 长期方向是消费 `M13-bis Extension Registry` 中声明了 `capability: knowledge_provider` 的 Plugin（MCP 协议），将外部知识获取完全下放至插件沙箱（L2/L3），零信任边界。短期阶段 ObsidianConnector+SyncScheduler 作为 P0 内置 Connector 使用。
 
-- **本地文件系统（Local Folder / Obsidian Vault）**：用户通过市场安装官方或第三方的 `Filesystem Plugin`。主系统与该插件的 MCP Server 交互，获取目标目录的文件列表与内容读取流。插件运行在独立的 Sandbox 中，严格控制物理路径边界。
-- **云端应用（Notion / Git / Slack 等）**：通过安装对应的应用插件（如 `Notion Plugin`）。插件内部处理复杂的 OAuth/Token 鉴权、游标分页，并通过统一的标准接口向 M10 Ingester 吐出 Markdown 或结构化文本。
+**DocTree 持久化**: `PipelineImpl.Ingest` 将文档分块写入 `rag_chunks`（FTS5 支持）的同时，将 DocTree 结构序列化为 JSON 写入 `rag_docs` 表（uri 为主键，ON CONFLICT DO UPDATE 幂等）。
 
-**PluginSyncScheduler**:
-  ingester, syncStates{pluginID→SyncState}, outboxBacklogLimit(500)
-  Run: 定期轮询（或基于插件提供的 webhook/SSE 变更事件推送）
-  doSync: 
-  (1) outbox积压>limit → 跳过+WARN
-  (2) 向目标 Plugin 发起 `ListResources`/`ReadResource` 请求获取元数据与哈希对比
-  (3) 调用 Plugin 拉取变更内容 → 按打 [TaintLevel] 标（远端默认 High，本地按策略调整）→ Ingester.Ingest 
-  (4) 更新 SyncState
-
-**可观测性**: `polaris_knowledge_indexing_lag_seconds` Gauge / SLA: 同步延迟 >1800s → ALERT + 暂停非关键知识源插件。
-
-**安全与零信任边界**: 知识接入层完全下放至独立的插件进程（沙箱 L2/L3），保证核心 M10 没有提权或数据泄漏直连的风险。就算插件进程被恶意数据（Prompt Injection）攻击，爆炸半径也仅限于插件被授权的目录或单一第三方系统的 Token。
+**可观测性**: 同步延迟 >1800s → ALERT + 暂停非关键知识源。
 
 ### 1.3 文档树数据结构
 
-DocNode/LeafChunk/ParentChunk/ChunkProvenance 类型定义见 `pkg/swarm/knowledge.go`。
+DocNode/LeafChunk/ParentChunk/Chunk 类型定义见 `pkg/swarm/knowledge/rag.go`。DocTree 在 `rag_docs` 表持久化（tree_json 列）。
 
 ### 1.4 结构解析 + 父子双存
 
@@ -187,6 +177,12 @@ ContextExpander.Expand: LeafChunk.NodeID→DocNode→AugmentedContext{Content=Pa
 EntityExtractor/RelationExtractor/CrossDocumentLinker/Clusterer 实现见 `pkg/swarm/graph_build.go`。
 
 触发: 文档摄入后, Ingester 通过 Outbox 写 graph_build_task。GraphBuildWorker 每5s轮询。Phase 1-5 完整流程见代码。
+
+**DocFetcher 注入**: `EntityExtractor.Extract` 接收文档文本（非 docID），调用方通过 `GraphBuildPipeline.SetDocFetcher(DocFetcher)` 注入内容获取器；未注入时降级为以 docID 字符串作为占位文本执行规则提取。LLM 路径通过 `ProviderLLMClient` 适配，规则路径为词典匹配+正则模式。
+
+**HybridRetrieverImpl 双路检索** (`pkg/swarm/knowledge/retriever.go`):
+- Tier 0 (embedder=nil): FTS5 BM25 单路，按 rank 排序，TopK 截断。
+- Tier 1+ (embedder 非 nil): FTS5 + Dense Vector 双路 RRF 融合（k=60，FTS5 权重 1.0，向量权重 0.8）。密集向量通过 `VectorEmbedder.Embed` 计算查询向量后，与 `rag_chunks.embedding` 列余弦相似度排序；无 embedding 的 chunk 跳过（幂等）。`NewHybridRetrieverWithEmbedder` 注入 embedder，`NewHybridRetriever` 保持 Tier 0 默认。
 
 **CommunityExtractiveSummarizer**（纯 Go 确定性管道，零 LLM 调用）:
 1. **社区检测**: Leiden/Louvain 算法划分社区 (`gonum/graph/community`)
