@@ -245,33 +245,19 @@ Tier 0 默认禁用自动归档（HT0 无磁盘压力），仅在磁盘水位触
 
 ## 4. WorkspaceManager — 重型中间物文件系统
 
-大规模爬取结果、AST dump、diff patch、二进制文件不入 SQLite (Blob 膨胀)，不入 Working Memory ([Tier-0-Limit])。Working Memory 仅持有路径+摘要。
+大规模爬取结果、AST dump、diff patch、二进制文件不入 SQLite（Blob 膨胀），不入 Working Memory（[Tier-0-Limit]）。Working Memory 仅持有路径+摘要。物理路径：`~/.polaris-harness/workspaces/<task_id>/`，权限 0700。
 
-```
-~/.polaris-harness/workspaces/<task_id>/
-  crawl_results.json / ast_dump.txt / diff_<commit>.patch / manifest.yaml
+实现见 `pkg/substrate/workspace_manager.go`：
 
-WorkspaceManager:
-  rootDir: string (~/.polaris-harness/workspaces)
-  maxSize: int64 (Tier 0 = 500MB)
-  manifests: map[string]*WorkspaceManifest
+- `Create(taskID)`：创建任务隔离目录并注册 manifest（幂等，重复调用安全）；`NewWorkspaceManager` 启动时自动创建 rootDir。
+- `RegisterFile(taskID, file)`：将文件元数据写入 manifest，供 CheckQuota 累计配额。
+- `CheckQuota(pendingWrite)`：在写入前校验累积占用 + 待写大小是否超过 maxSize（Tier 0 = 500MB）。
+- `GC(now)`：物理删除超过 7 天的工作区（`os.RemoveAll` 删磁盘目录 + manifest 注销）；按 CreatedAt 升序处理，单条失败不中断整体。
+- `DirPath(taskID)`：返回任务工作区物理路径（不创建）。
 
-WorkspaceManifest:
-  TaskID, CreatedAt: int64
-  Files: []WorkspaceFile, TotalSize: int64
+写入实时拦截：workspace_write 前 CheckQuota → 超限返回 ErrQuotaExhausted。每 30s OTel 探针上报可用空间，<100MB → CRITICAL + 暂停所有 workspace_write。
 
-WorkspaceFile:
-  Path: 相对路径, Size: int64, Summary: ~50字, ContentType: MIME
-```
-
-写入实时拦截: workspace_write 前 du 累积占用量 + 待写入 > maxSize → ErrQuotaExhausted。每 30s OTel 探针上报可用空间，<100MB → CRITICAL + 暂停所有 workspace_write。
-
-**Workspace GC**: M13 ResourceReaper 每日 04:00 触发，回收 >7 天且关联 Task 状态为 Done/Failed 的 workspace。策略:
-  (1) 按 CreatedAt 升序扫 manifests
-  (2) 查 M8 Blackboard 确认 Task Status 终态
-  (3) `os.RemoveAll(workspace/<task_id>/)` + 删 manifest 条目
-  (4) 释放空间 < maxSize × 0.7 → 停止；否则 LRU 继续回收至水位线下
-紧急模式: 写入拦截触发 → Reaper.RunNow()，跳过定时。
+**Workspace GC**：M13 ResourceReaper 每日 04:00 触发，回收 >7 天且关联 Task 状态为 Done/Failed 的 workspace。紧急模式：写入拦截触发 → Reaper.RunNow()，跳过定时。
 
 **Workspace 绝对生命周期上限防线（防永久泄漏）**:
 
@@ -303,9 +289,11 @@ BEFORE DELETE trigger 自动递减引用计数，引用归零入队 GC。4KB 硬
 
 ## 5. SchemaManager — 版本迁移
 
-启动时自动创建 `schema_versions` 追踪表，按版本升序在单事务内执行未应用迁移（`internal/protocol/schema/NNN_*.sql`），失败回滚并阻止启动。
+实现见 `pkg/substrate/schema_manager.go`（`NewSchemaManager(db, migrations)`）。
 
-**崩溃恢复**：迁移前在 `sys_config` 写 `migration_status='in_progress'`，重启检测到该状态则进入 Maintenance Mode（仅 M2+M3 初始化），操作员通过 `polaris db recover` 或 `polaris db rollback` 恢复；迁移前自动 VACUUM INTO 回滚点保留 7 天。
+按版本升序执行未应用迁移，每次迁移前后通过 `BeginMigration`/`CompleteMigration` 在 `sys_config` 表写入状态标记（idle / in_progress / completed）。
+
+**崩溃恢复**：`Recover()` 在启动时检查 `sys_config.migration_status`；检测到 `in_progress`（迁移途中进程崩溃）时返回错误阻止启动，要求操作员检查并将状态重置为 idle 后再重启。首次启动或无记录时视为正常。迁移前自动 VACUUM INTO 回滚点保留 7 天。
 
 **兼容策略**：新字段一律 NULLABLE 或有 DEFAULT（前向兼容）；降级不执行 Down，旧代码忽略新列（后向兼容）。开发环境支持 `polaris db migrate --down <version>`。
 

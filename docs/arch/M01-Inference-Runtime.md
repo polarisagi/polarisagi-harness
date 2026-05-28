@@ -210,9 +210,10 @@ TokenBurnDetector 仅做单流加速度检测，系统级燃烧速率从 M3 `pol
 
 实现见 `pkg/substrate/embedding_batcher.go`。
 
-双优先级队列: pendingHigh[180] (SurpriseIndex、交互式查询) / pendingLow[76] (GraphRAG、Consolidation)。
-batchWindow=10ms, maxBatchSize=100, 保留 20% 槽位给 Low 防饥饿。Low >100ms 升 High。
-背压: High cap 80% → 指数退避 (50ms 初始, max 2s); Low cap 80% → 排队 30ms。
+双优先级队列：pendingHigh[180]（SurpriseIndex、交互式查询）/ pendingLow[76]（GraphRAG、Consolidation）。batchWindow=10ms，maxBatchSize=100，保留 20% 槽位给 Low 防饥饿。Low >100ms 升 High。背压：High cap 80% → 指数退避（50ms 初始，max 2s）；Low cap 80% → 排队 30ms。
+
+**文本去重（dedup）**：相同文本重复入队时，仅占用一个队列槽位，额外等待者追加到扇出列表；API 调用返回后，结果同步广播给所有等待同一文本的调用方。消除并发场景下对相同文本的重复 Embedding API 调用。
+
 [PIIGuard] 红化预处理后文本发远程 API。
 
 ### 6.2 SemanticCache
@@ -239,13 +240,11 @@ Primary → Secondary (同级备选) → Tertiary (降级备选) → GracefulDeg
 | Content Filter | 400 | 不重试 |
 | Token Limit | 400 | 压缩 context 后重试 |
 
-### 7.3 CircuitBreaker
+### 7.3 CircuitBreaker + FallbackExecutor
 
-```
-状态: Closed → Open → HalfOpen → Closed
-字段: failureThreshold / cooldownPeriod / halfOpenMax 见 §4.5 路由配置参数表（权威 spec/state.yaml §m1_router.circuit_breaker_*）
-转换: failureThreshold 次连续失败 → Open (冷却 cooldownPeriod) → HalfOpen → halfOpenMax 次探测成功 → Closed
-```
+CircuitBreaker 三态：Closed（正常）→ Open（熔断，冷却期拒绝请求）→ HalfOpen（探测）→ Closed。`failureThreshold` 次连续失败触发 Open，冷却 `cooldownPeriod` 后进入 HalfOpen，探测成功恢复 Closed。参数见 `spec/state.yaml §m1_router.circuit_breaker_*`。
+
+`FallbackExecutor.Execute()` 按注入的 Provider 列表顺序依次检查可用性，选中第一个可用 Provider 并更新 CircuitBreaker 状态；全部不可用时标记失败并返回 `ErrAllProvidersFailed`，触发调用方进入 GracefulDegradation 或 [ESCALATE] 路径。实现见 `pkg/substrate/fallback.go`。
 
 **Provider 恢复事件**: 当所有 Provider 均处于 Open 状态（`ErrAllProvidersExhausted` 已触发）后，任意一个 Provider 的 CircuitBreaker 完成 HalfOpen→Closed 转换（半开探测成功）时，M1 向 M2 Outbox 写入：
   `MutationIntent{Table:"outbox", Op:OpInsert, Payload:{target_engine:"m4_provider_recovery", provider_id:<providerID>, recovered_at:<timestamp>}}`
