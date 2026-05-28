@@ -38,11 +38,11 @@
   trust_tier: 3
   enabled: 1
   created_at: "1970-01-01T00:00:00Z"
-- id: polarisagi/polaris-plugins-official
+- id: polarisagi/polarisagi-plugins-official
   name: Polaris Official Plugins
   type: plugin
   publisher: polarisagi
-  repo_url: https://github.com/polarisagi/polaris-plugins-official
+  repo_url: https://github.com/polarisagi/polarisagi-plugins-official
   description: Polaris 官方插件与扩展市场。包含核心的生存级外挂扩展以及官方维护的精选 MCP 与 Skills。
   is_builtin: 1
   trust_tier: 3
