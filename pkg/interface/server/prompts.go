@@ -10,8 +10,8 @@ import (
 // allowedUserPrompts 用户可通过 API 编辑的提示词文件名白名单。
 // Layer 0（embedded tool_enforcement / platform）不在此列——那是产品行为逻辑，不暴露给用户。
 var allowedUserPrompts = map[string]string{
-	"identity":             "identity.md",
-	"custom_instructions":  "custom_instructions.md",
+	"identity":            "identity.md",
+	"custom_instructions": "custom_instructions.md",
 }
 
 // PromptEntry API 响应中的单条提示词描述。
@@ -31,7 +31,7 @@ func (s *Server) handleListPrompts(w http.ResponseWriter, r *http.Request) {
 		"custom_instructions": "追加的行为指令（我应该怎么做）。拼接到身份文本之后。",
 	}
 
-	var entries []PromptEntry
+	entries := make([]PromptEntry, 0, len(allowedUserPrompts))
 	for name, filename := range allowedUserPrompts {
 		defaultVal := memory.ReadPromptDefault(filename)
 		currentVal := memory.ReadPrompt(filename, defaultVal)

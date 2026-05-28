@@ -60,7 +60,7 @@ type Server struct {
 	toolSchemaMu    sync.RWMutex
 
 	// 系统提示词组装缓存（启动时一次性加载，运行期不变）
-	soulMDContent string // ~/.polaris-harness/config/SOUL.md 内容
+	soulMDContent  string // ~/.polaris-harness/config/SOUL.md 内容
 	serverPlatform string // 接入平台标识，决定平台感知提示词（cli/webui/api/cron）
 
 	// M9 激活的系统提示词（从 DB prompt_versions 表读取，Activate 回调热更新）
@@ -181,33 +181,7 @@ func NewServer(addr string, dataDir string, agent *kernel.Agent, bb protocol.Bla
 	}
 
 	// 注入内置的 yaml 配置作为种子数据到数据库（SSoT 架构）
-	if b, err := configs.FS.ReadFile("marketplaces.yaml"); err == nil {
-		var mps []protocol.Marketplace
-		if err := yaml.Unmarshal(b, &mps); err == nil {
-			now := time.Now().UTC().Format(time.RFC3339)
-			for _, mp := range mps {
-				_, _ = db.Exec(`INSERT OR IGNORE INTO plugin_marketplaces(id, name, type, publisher, repo_url, description, is_builtin, trust_tier, enabled, created_at) 
-				                VALUES(?,?,?,?,?,?,1,?,1,?)`,
-					mp.ID, mp.Name, mp.Type, mp.Publisher, mp.RepoURL, mp.Description, mp.TrustTier, now)
-			}
-		}
-	} else {
-		slog.Warn("polaris-server: configs/marketplaces.yaml load failed", "err", err)
-	}
-
-	if b, err := configs.FS.ReadFile("registry.yaml"); err == nil {
-		var entries []protocol.RegistryEntry
-		if err := yaml.Unmarshal(b, &entries); err == nil {
-			for _, e := range entries {
-				payload, _ := json.Marshal(e)
-				_, _ = db.Exec(`INSERT OR IGNORE INTO extension_catalog(id, marketplace_id, type, name, description, publisher, trust_tier, url, payload) 
-				                VALUES(?,?,?,?,?,?,?,?,?)`,
-					e.ID, "builtin", e.Type, e.Name, e.Description, e.Publisher, e.TrustTier, e.URL, string(payload))
-			}
-		}
-	} else {
-		slog.Warn("polaris-server: configs/registry.yaml load failed", "err", err)
-	}
+	seedBuiltinConfig(db)
 
 	prefs, _ := LoadAllPreferences(context.Background(), db)
 	sysTmpl, ok := prefs["system_prompt_template"]
@@ -402,6 +376,37 @@ func NewServer(addr string, dataDir string, agent *kernel.Agent, bb protocol.Bla
 	}
 
 	return s
+}
+
+// seedBuiltinConfig 将 embedded yaml 配置作为种子数据写入数据库（INSERT OR IGNORE）。
+func seedBuiltinConfig(db *sql.DB) {
+	if b, err := configs.FS.ReadFile("marketplaces.yaml"); err == nil {
+		var mps []protocol.Marketplace
+		if err := yaml.Unmarshal(b, &mps); err == nil {
+			now := time.Now().UTC().Format(time.RFC3339)
+			for _, mp := range mps {
+				_, _ = db.Exec(`INSERT OR IGNORE INTO plugin_marketplaces(id, name, type, publisher, repo_url, description, is_builtin, trust_tier, enabled, created_at)
+				                VALUES(?,?,?,?,?,?,1,?,1,?)`,
+					mp.ID, mp.Name, mp.Type, mp.Publisher, mp.RepoURL, mp.Description, mp.TrustTier, now)
+			}
+		}
+	} else {
+		slog.Warn("polaris-server: configs/marketplaces.yaml load failed", "err", err)
+	}
+
+	if b, err := configs.FS.ReadFile("registry.yaml"); err == nil {
+		var entries []protocol.RegistryEntry
+		if err := yaml.Unmarshal(b, &entries); err == nil {
+			for _, e := range entries {
+				payload, _ := json.Marshal(e)
+				_, _ = db.Exec(`INSERT OR IGNORE INTO extension_catalog(id, marketplace_id, type, name, description, publisher, trust_tier, url, payload)
+				                VALUES(?,?,?,?,?,?,?,?,?)`,
+					e.ID, "builtin", e.Type, e.Name, e.Description, e.Publisher, e.TrustTier, e.URL, string(payload))
+			}
+		}
+	} else {
+		slog.Warn("polaris-server: configs/registry.yaml load failed", "err", err)
+	}
 }
 
 // InitSTTEngine 按 FeatureGate 门控初始化 STT 引擎。

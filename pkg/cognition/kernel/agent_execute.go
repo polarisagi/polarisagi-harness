@@ -566,7 +566,7 @@ func aggregateDAGResults(results []NodeResult) []byte {
 	}
 
 	// 多节点：构建聚合结构
-	var buf []byte
+	buf := make([]byte, 0, 256+len(results)*64)
 	buf = append(buf, `{"results":[`...)
 	for i, r := range results {
 		if i > 0 {

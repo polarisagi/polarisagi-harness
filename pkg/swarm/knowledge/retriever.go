@@ -20,7 +20,7 @@ type VectorEmbedder interface {
 //   - Tier 0 (embedder=nil): FTS5 BM25 单路，按 rank 排序。
 //   - Tier 1+ (embedder 非 nil): FTS5 + Dense Vector 双路 RRF 融合。
 type HybridRetrieverImpl struct {
-	db      *sql.DB
+	db       *sql.DB
 	embedder VectorEmbedder // optional，nil = FTS5 only
 }
 
@@ -188,7 +188,7 @@ func rrf(fts, vec []Chunk, topK int) []Chunk {
 		id    string
 		score float64
 	}
-	var sorted []kv
+	sorted := make([]kv, 0, len(scores))
 	for id, s := range scores {
 		sorted = append(sorted, kv{id, s})
 	}
@@ -253,48 +253,68 @@ func parseEmbedding(s string) ([]float32, error) {
 
 // parseFloat 轻量 float 解析（无 strconv 依赖，Tier 0 Wasm 友好）。
 func parseFloat(s string) float64 {
-	neg := false
 	i := 0
-	if i < len(s) && s[i] == '-' {
-		neg = true
-		i++
-	}
-	var intPart float64
-	for i < len(s) && s[i] >= '0' && s[i] <= '9' {
-		intPart = intPart*10 + float64(s[i]-'0')
-		i++
-	}
-	var fracPart float64
-	if i < len(s) && s[i] == '.' {
-		i++
-		scale := 0.1
-		for i < len(s) && s[i] >= '0' && s[i] <= '9' {
-			fracPart += float64(s[i]-'0') * scale
-			scale *= 0.1
-			i++
-		}
-	}
-	var exp float64
-	if i < len(s) && (s[i] == 'e' || s[i] == 'E') {
-		i++
-		expNeg := false
-		if i < len(s) && s[i] == '-' {
-			expNeg = true
-			i++
-		} else if i < len(s) && s[i] == '+' {
-			i++
-		}
-		for i < len(s) && s[i] >= '0' && s[i] <= '9' {
-			exp = exp*10 + float64(s[i]-'0')
-			i++
-		}
-		if expNeg {
-			exp = -exp
-		}
-	}
+	neg := pfSign(s, &i)
+	intPart := pfDigits(s, &i)
+	fracPart := pfFrac(s, &i)
+	exp := pfExp(s, &i)
 	val := (intPart + fracPart) * math.Pow(10, exp)
 	if neg {
 		val = -val
 	}
 	return val
+}
+
+func pfSign(s string, i *int) bool {
+	if *i < len(s) && s[*i] == '-' {
+		*i++
+		return true
+	}
+	return false
+}
+
+func pfDigits(s string, i *int) float64 {
+	var v float64
+	for *i < len(s) && s[*i] >= '0' && s[*i] <= '9' {
+		v = v*10 + float64(s[*i]-'0')
+		*i++
+	}
+	return v
+}
+
+func pfFrac(s string, i *int) float64 {
+	var v float64
+	if *i < len(s) && s[*i] == '.' {
+		*i++
+		scale := 0.1
+		for *i < len(s) && s[*i] >= '0' && s[*i] <= '9' {
+			v += float64(s[*i]-'0') * scale
+			scale *= 0.1
+			*i++
+		}
+	}
+	return v
+}
+
+func pfExp(s string, i *int) float64 {
+	if *i >= len(s) || (s[*i] != 'e' && s[*i] != 'E') {
+		return 0
+	}
+	*i++
+	neg := false
+	if *i < len(s) && s[*i] == '-' {
+		neg = true
+		*i++
+	} else if *i < len(s) && s[*i] == '+' {
+		*i++
+	}
+	var exp float64
+	for *i < len(s) && s[*i] >= '0' && s[*i] <= '9' {
+		exp = exp*10 + float64(s[*i]-'0')
+		*i++
+	}
+	if neg {
+		return -exp
+	}
+	return exp
 }

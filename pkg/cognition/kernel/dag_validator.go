@@ -241,7 +241,7 @@ func validateL3Watchdog(ctx context.Context, vCtx *DAGValidationContext) error {
 	for _, n := range vCtx.Plan.Nodes {
 		toolSet[n.ToolName] = struct{}{}
 	}
-	var tools []string
+	tools := make([]string, 0, len(toolSet))
 	for t := range toolSet {
 		tools = append(tools, t)
 	}
@@ -264,7 +264,7 @@ func validateL3Watchdog(ctx context.Context, vCtx *DAGValidationContext) error {
 	resp, err := vCtx.Provider.Infer(ctx, req)
 	if err != nil {
 		// fail-open: LLM 不可用时不阻断执行（L3 是辅助层，非主防线）
-		return nil
+		return nil //nolint:nilerr
 	}
 
 	if strings.HasPrefix(strings.TrimSpace(strings.ToUpper(resp.Content)), "UNSAFE") {

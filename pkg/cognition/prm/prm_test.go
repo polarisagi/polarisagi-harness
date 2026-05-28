@@ -169,8 +169,8 @@ func TestSelectBest_AllBelowThreshold_ReturnsFirst(t *testing.T) {
 		},
 	}
 	p := NewDefaultPRM(PRMConfig{
-		Enabled:       true,
-		MinThreshold:  0.5,
+		Enabled:        true,
+		MinThreshold:   0.5,
 		ComplexityGate: 0.0,
 	}, provider)
 

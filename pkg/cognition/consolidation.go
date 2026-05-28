@@ -171,7 +171,7 @@ func (p *ConsolidationPipeline) llmExtract(
 	}
 
 	now := time.Now().UnixNano()
-	var entities []*protocol.Entity
+	entities := make([]*protocol.Entity, 0, len(result.Entities))
 	entityIdx := make(map[string]string) // name → ID
 
 	for i, e := range result.Entities {
@@ -190,7 +190,7 @@ func (p *ConsolidationPipeline) llmExtract(
 		entityIdx[e.Name] = id
 	}
 
-	var relations []*protocol.Relation
+	relations := make([]*protocol.Relation, 0, len(result.Relations))
 	for _, r := range result.Relations {
 		fromID, okFrom := entityIdx[r.From]
 		toID, okTo := entityIdx[r.To]
@@ -225,7 +225,7 @@ func (p *ConsolidationPipeline) ruleExtract(
 		{regexp.MustCompile(`(?i)\b(tool|skill|func|function)[\s_-]+(\w+)`), "tool"},
 		{regexp.MustCompile(`\b([A-Z][a-z]+(?:[A-Z][a-z]+)+)\b`), "concept"}, // CamelCase 词
 		{regexp.MustCompile(`(?:^|\s)([\w./\\-]+\.\w{2,5})\b`), "file"},      // 文件路径
-		{regexp.MustCompile(`https?://[^\s"'>]+`), "url"},                     // URL
+		{regexp.MustCompile(`https?://[^\s"'>]+`), "url"},                    // URL
 		{regexp.MustCompile(`\b([A-Z]{2,}(?:_[A-Z]+)*)\b`), "constant"},      // 常量/枚举
 	}
 
@@ -351,7 +351,7 @@ func (p *ConsolidationPipeline) buildSummary(
 	for _, se := range events {
 		types[string(se.Event.Type)]++
 	}
-	var parts []string
+	parts := make([]string, 0, min(len(types), 5))
 	for t, n := range types {
 		parts = append(parts, fmt.Sprintf("%s×%d", t, n))
 		if len(parts) >= 5 {

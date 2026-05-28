@@ -87,4 +87,3 @@ type NodeRunner interface {
 	Run(ctx context.Context, node DAGNode) ([]byte, error)
 	Undo(ctx context.Context, nodeID string) error
 }
-

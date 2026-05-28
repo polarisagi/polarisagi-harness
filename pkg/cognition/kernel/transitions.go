@@ -24,10 +24,10 @@ func parsePlanOnSuccess(sCtx *StateContext, pCtx protocol.StateContext, content 
 	for i, n := range protocolPlan.Nodes {
 		argsBytes, _ := json.Marshal(n.Params)
 		execNodes[i] = ExecNode{
-			ID:        n.ID,
-			ToolName:  n.Action,
-			Args:      argsBytes,
-			DependsOn: dependsMap[n.ID],
+			ID:         n.ID,
+			ToolName:   n.Action,
+			Args:       argsBytes,
+			DependsOn:  dependsMap[n.ID],
 			TaintLevel: pCtx.MaxTaintLevel,
 		}
 	}

@@ -137,7 +137,7 @@ func TestApproximateColBERTReranker_OrderChanged(t *testing.T) {
 	// doc-a: "golang goroutines channels concurrency" (高相关)
 	// doc-b: "python web framework django" (低相关)
 	docs := []ScoredFragment{
-		{Content: "python web framework django", Score: 0.9},  // RRF 高分但低相关
+		{Content: "python web framework django", Score: 0.9},            // RRF 高分但低相关
 		{Content: "golang goroutines channels concurrency", Score: 0.5}, // RRF 低分但高相关
 	}
 	r := NewApproximateColBERTReranker(mockEmbedder{}, 2)

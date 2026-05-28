@@ -17,7 +17,7 @@ import (
 //  1. SessionPIIVault.RestoreFromSnapshot：将会话 PII 快照从临时存储恢复到 WorkingMemory
 //  2. Blackboard.ResumeFromSuspended：将 suspended 状态任务重新投递到 Blackboard
 type ProviderRecoveryHandler struct {
-	piiVault  PIIVaultRestorer
+	piiVault   PIIVaultRestorer
 	blackboard BlackboardResumer
 }
 

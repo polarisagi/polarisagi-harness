@@ -17,8 +17,8 @@ import (
 // Map: 将父任务按 Scope 拆分后投递至黑板
 // Reduce: 收集 Result，去重 Artifacts hash，聚合结果写回。
 type MapReduceExecutor struct {
-	bb             *swarm.SQLiteBlackboard
-	totalTimeout   time.Duration // 全局等待超时，默认 10min
+	bb           *swarm.SQLiteBlackboard
+	totalTimeout time.Duration // 全局等待超时，默认 10min
 }
 
 // NewMapReduceExecutor 创建 MapReduceExecutor，totalTimeout=0 使用默认值 10min。

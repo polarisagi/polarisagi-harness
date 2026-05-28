@@ -14,7 +14,7 @@ import (
 //   - P[from][to] 为历史转移概率（Laplace 平滑，prior=1e-4）
 //   - Surprise(seq) = mean(-log P(t_i | t_{i-1})) / log(vocabSize+1)，归一化到 [0,1]
 type MarkovMatrix struct {
-	mu    sync.RWMutex
+	mu sync.RWMutex
 	// counts[from][to] = 观测到的转移次数（Laplace 计数）
 	counts map[string]map[string]float64
 	// totals[from] = from 工具的总出发次数

@@ -14,8 +14,8 @@ import (
 // 架构文档: docs/arch/M08-Multi-Agent-Orchestrator.md §3
 // 行为: Task A 的输出将作为 Task B 的输入，依次串联执行。
 type SequentialExecutor struct {
-	bb              *swarm.SQLiteBlackboard
-	perTaskTimeout  time.Duration // 单任务等待超时，默认 5min
+	bb             *swarm.SQLiteBlackboard
+	perTaskTimeout time.Duration // 单任务等待超时，默认 5min
 }
 
 // NewSequentialExecutor 创建 SequentialExecutor，perTaskTimeout=0 使用默认值 5min。

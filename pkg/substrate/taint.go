@@ -155,18 +155,18 @@ func NewTaintBoundarySerializer(key []byte) *TaintBoundarySerializer {
 // TaintEnvelope 跨边界传输的污点信封。
 // HMACHex 覆盖全信封（除 hmac 字段自身外），防止部分字段被篡改。
 type TaintEnvelope struct {
-	Content string             `json:"content"`
+	Content string              `json:"content"`
 	Level   protocol.TaintLevel `json:"level"`
-	Source  TaintSource        `json:"source"`
-	HMACHex string             `json:"hmac"`
+	Source  TaintSource         `json:"source"`
+	HMACHex string              `json:"hmac"`
 }
 
 // taintEnvelopeForMAC 是用于 HMAC 计算的信封副本（不含 hmac 字段），
 // 保证序列化字段集合与 TaintEnvelope 完全一致，防止字段遗漏。
 type taintEnvelopeForMAC struct {
-	Content string             `json:"content"`
+	Content string              `json:"content"`
 	Level   protocol.TaintLevel `json:"level"`
-	Source  TaintSource        `json:"source"`
+	Source  TaintSource         `json:"source"`
 }
 
 // Seal 序列化 TaintedString 为带 HMAC 的信封（传输至另一模块前调用）。

@@ -129,11 +129,11 @@ func (te *TopologyEvolver) Evaluate(candidate *TopologyFitness, baseline string)
 
 // TopologyFitness 拓扑适应度。
 type TopologyFitness struct {
-	Topology        string
-	TaskType        string
-	SuccessRate     float64
-	AvgLatencyMs    int64
-	AvgTokenCost    float64
+	Topology         string
+	TaskType         string
+	SuccessRate      float64
+	AvgLatencyMs     int64
+	AvgTokenCost     float64
 	AgentUtilization float64 // 0-1，单任务内 Agent 活跃占比
-	SampleSize      int      // <10 不参与 Pareto 评估
+	SampleSize       int     // <10 不参与 Pareto 评估
 }

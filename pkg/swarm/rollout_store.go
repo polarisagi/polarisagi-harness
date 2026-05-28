@@ -116,9 +116,10 @@ func (s *SQLiteRolloutStore) ConfirmShadow(ctx context.Context, version string) 
 
 // AdvanceGate 根据当前指标推进或触发硬停止。
 // Gate 路径：
-//   0 (Pending)       → 等待 RecordEvalScore 自动推进
-//   1 (Shadow 1%)     → 等待 ConfirmShadow 推进到 Gate 2
-//   2+ (Canary)       → 稳定 24h 后按 canarySteps 逐步推进到 100%
+//
+//	0 (Pending)       → 等待 RecordEvalScore 自动推进
+//	1 (Shadow 1%)     → 等待 ConfirmShadow 推进到 Gate 2
+//	2+ (Canary)       → 稳定 24h 后按 canarySteps 逐步推进到 100%
 func (s *SQLiteRolloutStore) AdvanceGate(ctx context.Context, version string, stats RolloutStats) (*RolloutState, error) {
 	state, err := s.GetState(ctx, version)
 	if err != nil {
@@ -134,7 +135,7 @@ func (s *SQLiteRolloutStore) AdvanceGate(ctx context.Context, version string, st
 	}
 
 	// Gate 1 Shadow：由 ConfirmShadow 推进到 Gate 2，此处跳过
-	if RolloutGate(state.CurrentGate) <= GateShadowExecution {
+	if state.CurrentGate <= GateShadowExecution {
 		return state, nil
 	}
 

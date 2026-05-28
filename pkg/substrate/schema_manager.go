@@ -63,7 +63,7 @@ func (sm *SchemaManager) Recover() error {
 	).Scan(&status)
 	if err != nil {
 		// ErrNoRows 或 sys_config 不存在 → 首次启动，正常
-		return nil
+		return nil //nolint:nilerr
 	}
 
 	if status == "in_progress" {
@@ -80,7 +80,7 @@ func (sm *SchemaManager) BeginMigration(version int) error {
 		return nil
 	}
 	_, err := sm.db.Exec(
-		"INSERT INTO sys_config(key,value) VALUES('migration_status','in_progress') "+
+		"INSERT INTO sys_config(key,value) VALUES('migration_status','in_progress') " +
 			"ON CONFLICT(key) DO UPDATE SET value='in_progress'",
 	)
 	if err != nil {
@@ -100,7 +100,7 @@ func (sm *SchemaManager) CompleteMigration() error {
 		return nil
 	}
 	_, err := sm.db.Exec(
-		"INSERT INTO sys_config(key,value) VALUES('migration_status','completed') "+
+		"INSERT INTO sys_config(key,value) VALUES('migration_status','completed') " +
 			"ON CONFLICT(key) DO UPDATE SET value='completed'",
 	)
 	return err
