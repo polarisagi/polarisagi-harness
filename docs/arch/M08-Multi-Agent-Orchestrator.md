@@ -235,10 +235,13 @@ count < Limits.Mesh 且 CurrentMode==Mesh → TopologyHierarchy（降回）
 
 AgentCard 声明 Agent 能力集（Skills/Tools/Models）、激活条件（TaskTypes/MaxLoad/RequiresTools）、信任级别与沙箱层级；AgentRegistry 以 RWMutex 保护 agentID→Handle 映射，支持本地 chan 与远程 A2A gRPC 两种 Handle 类型，心跳 60s 超时标记 unreachable 并从匹配池移除。
 
-FindBestAgent: Phase1 硬过滤(DeclaredCapabilities⊇RequiredCapabilities; 空→全体) → Phase2 加权降序
-`score = 0.6 * LaplaceSuccRate + 0.4 * LoadFactor`
-Laplace: `(SuccessCount+prior*priorStrength)/(AttemptCount+priorStrength)`, 通用 prior=0.5/str=2, specialist prior=0.3/str=6
-LoadFactor: `1.0/max(CurrentLoad,1)`
+FindBestAgent: Phase1 硬过滤（DeclaredCapabilities ⊇ RequiredCapabilities；空→全体）→ Phase2 加权降序评分：`score = 0.6 × LaplaceSuccRate + 0.4 × LoadFactor`。Laplace 成功率使用先验平滑，LoadFactor = `1/max(CurrentLoad, 1)`。
+
+**实时负载数据**：`Orchestrator.dispatchPendingTasks` 在每次调度前通过 `queryAgentLoads` 查询数据库，获取各 Agent 当前 claimed+running 任务数，作为 `currentLoads` 参数传入 FindBestAgent，确保负载均衡基于真实状态而非空映射。实现见 `pkg/swarm/orchestrator.go`。
+
+**SQLiteBlackboard.StartExecution**：`ClaimTask`（claimed）之后，Agent 开始实际执行前调用此方法将状态推进到 running，广播 task_running 事件，提供更细粒度的任务状态追踪。与内存版 Blackboard 保持接口对称；幂等，重复调用 already-running 不报错。
+
+**编排模式可配置超时**：`SequentialExecutor` 和 `MapReduceExecutor` 构造器接受超时参数（`perTaskTimeout` / `totalTimeout`），0 值使用默认值（5min / 10min），调用方可按任务复杂度定制，不再依赖固定兜底时间。实现见 `pkg/swarm/patterns/`。
 
 ---
 

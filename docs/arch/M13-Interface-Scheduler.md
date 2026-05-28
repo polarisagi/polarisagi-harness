@@ -57,7 +57,7 @@ AgentREPL: 逐行读 stdin，"/" 前缀→内置命令（/help /sessions /switch
 - 迁移后 `polaris memory process-staging` 触发去重→Salience重算→提升主线
 - 技能 SKILL.md 仅拷贝源码并标注"需人工编译为 Wasm"
 
-月度成本报告: cron 0 0 1 * * → 生成 monthly_cost_report.md，含 by_provider / by_task_type / by_session / by_call_type(llm|embedding) 四维度。`polaris config budget set <amount>` 配置 monthly_budget，写入 `kv_store`（键 `config:budget:monthly_usd`）。
+月度成本报告：cron `0 0 1 * *` → 生成 `monthly_cost_report.md`，含 by_provider / by_task_type / by_session / by_call_type 四维度。实现见 `pkg/edge/scheduler/cost_report.go`：查询 `events` 表上月 `inference.*` 事件，从 payload 提取 input_tokens + output_tokens，按内置 provider 成本系数（deepseek ¥0.27/1M、anthropic $3/1M 等）计算实际费用并聚合。DB 不可用时降级为空报告。`polaris config budget set <amount>` 配置 monthly_budget，写入 `kv_store`（键 `config:budget:monthly_usd`）。
 
 ### 1.2 HTTP REST API
 
