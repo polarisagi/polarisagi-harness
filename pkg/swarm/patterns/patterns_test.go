@@ -93,7 +93,7 @@ func TestParallelExecutor(t *testing.T) {
 
 func TestMapReduceExecutor(t *testing.T) {
 	bb := setupTestBlackboard(t)
-	executor := NewMapReduceExecutor(bb)
+	executor := NewMapReduceExecutor(bb, 0)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()

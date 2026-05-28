@@ -250,7 +250,7 @@ func run() error { //nolint:gocyclo
 	slog.Info("polaris: audit trail recovered and initialized")
 
 	// ─── 月度成本报告 (M13 §1.1) ──────────────────────────────────────────────────
-	scheduler.StartMonthlyCostReport(ctx, filepath.Join(dataDir, "reports"))
+	scheduler.StartMonthlyCostReport(ctx, filepath.Join(dataDir, "reports"), store.DB())
 
 	// ─── 3. 策略引擎 (L0 PolicyGate) ─────────────────────────────────────────
 	gate := policy.NewGate(func() {

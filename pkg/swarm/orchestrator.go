@@ -63,6 +63,29 @@ func (o *Orchestrator) ListenLoop(ctx context.Context) error {
 	}
 }
 
+// queryAgentLoads 查询数据库，返回每个 Agent 当前 claimed+running 任务数。
+// 用于 FindBestAgent 负载均衡评分，使调度决策基于真实负载而非空映射。
+func (o *Orchestrator) queryAgentLoads(ctx context.Context) map[string]int {
+	rows, err := o.bb.db.QueryContext(ctx, `
+		SELECT claimed_by, COUNT(*) FROM tasks
+		WHERE status IN ('claimed', 'running') AND claimed_by IS NOT NULL
+		GROUP BY claimed_by
+	`)
+	if err != nil {
+		return map[string]int{}
+	}
+	defer rows.Close()
+	loads := make(map[string]int)
+	for rows.Next() {
+		var agentID string
+		var count int
+		if rows.Scan(&agentID, &count) == nil {
+			loads[agentID] = count
+		}
+	}
+	return loads
+}
+
 // dispatchPendingTasks 提取 Pending 任务并尝试调度。
 func (o *Orchestrator) dispatchPendingTasks(ctx context.Context) {
 	o.mu.Lock()
@@ -103,14 +126,16 @@ func (o *Orchestrator) dispatchPendingTasks(ctx context.Context) {
 			break
 		}
 
-		// 这里简化 capabilities 检查，假设需要的 capabilities 存在于 task.Type
+		// capabilities 检查：task.Type 作为主能力标识，空则不限制
 		requiredCaps := []string{task.Type}
 		if task.Type == "" {
 			requiredCaps = nil
 		}
 
-		// 3. 寻找最优 Agent
-		agentHandle, err := o.registry.FindBestAgent(requiredCaps, map[string]int{}, map[string]AgentStats{})
+		// 3. 查询各 Agent 当前活跃任务数，作为负载权重传入 FindBestAgent
+		currentLoads := o.queryAgentLoads(ctx)
+
+		agentHandle, err := o.registry.FindBestAgent(requiredCaps, currentLoads, map[string]AgentStats{})
 		if err != nil {
 			// 找不到合适的 Agent (可能是全忙或能力不匹配)，继续看下一个任务
 			continue

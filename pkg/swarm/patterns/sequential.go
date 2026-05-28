@@ -14,11 +14,16 @@ import (
 // 架构文档: docs/arch/M08-Multi-Agent-Orchestrator.md §3
 // 行为: Task A 的输出将作为 Task B 的输入，依次串联执行。
 type SequentialExecutor struct {
-	bb *swarm.SQLiteBlackboard
+	bb              *swarm.SQLiteBlackboard
+	perTaskTimeout  time.Duration // 单任务等待超时，默认 5min
 }
 
-func NewSequentialExecutor(bb *swarm.SQLiteBlackboard) *SequentialExecutor {
-	return &SequentialExecutor{bb: bb}
+// NewSequentialExecutor 创建 SequentialExecutor，perTaskTimeout=0 使用默认值 5min。
+func NewSequentialExecutor(bb *swarm.SQLiteBlackboard, perTaskTimeout time.Duration) *SequentialExecutor {
+	if perTaskTimeout <= 0 {
+		perTaskTimeout = 5 * time.Minute
+	}
+	return &SequentialExecutor{bb: bb, perTaskTimeout: perTaskTimeout}
 }
 
 // Execute 依次投递任务，并等待上一个任务完成再投递下一个。
@@ -56,7 +61,7 @@ func (se *SequentialExecutor) Execute(ctx context.Context, parentTaskID string, 
 						return perrors.New(perrors.CodeInternal, fmt.Sprintf("sequential pipeline broken: task %s failed with: %s", task.ID, string(ev.Payload)))
 					}
 				}
-			case <-time.After(5 * time.Minute): // 容错超时兜底
+			case <-time.After(se.perTaskTimeout):
 				return perrors.New(perrors.CodeInternal, fmt.Sprintf("sequential pipeline timeout waiting for task %s", task.ID))
 			}
 		}

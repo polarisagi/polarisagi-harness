@@ -17,11 +17,16 @@ import (
 // Map: 将父任务按 Scope 拆分后投递至黑板
 // Reduce: 收集 Result，去重 Artifacts hash，聚合结果写回。
 type MapReduceExecutor struct {
-	bb *swarm.SQLiteBlackboard
+	bb             *swarm.SQLiteBlackboard
+	totalTimeout   time.Duration // 全局等待超时，默认 10min
 }
 
-func NewMapReduceExecutor(bb *swarm.SQLiteBlackboard) *MapReduceExecutor {
-	return &MapReduceExecutor{bb: bb}
+// NewMapReduceExecutor 创建 MapReduceExecutor，totalTimeout=0 使用默认值 10min。
+func NewMapReduceExecutor(bb *swarm.SQLiteBlackboard, totalTimeout time.Duration) *MapReduceExecutor {
+	if totalTimeout <= 0 {
+		totalTimeout = 10 * time.Minute
+	}
+	return &MapReduceExecutor{bb: bb, totalTimeout: totalTimeout}
 }
 
 // Execute 接收已经拆分好的子任务，并行执行后进行 Reduce 收集。
@@ -71,7 +76,7 @@ func (mre *MapReduceExecutor) Execute(ctx context.Context, parentTaskID string, 
 					return nil, perrors.New(perrors.CodeInternal, fmt.Sprintf("map task %s failed: %s", ev.TaskID, string(ev.Payload)))
 				}
 			}
-		case <-time.After(10 * time.Minute):
+		case <-time.After(mre.totalTimeout):
 			return nil, perrors.New(perrors.CodeInternal, "mapreduce execution timeout")
 		}
 	}

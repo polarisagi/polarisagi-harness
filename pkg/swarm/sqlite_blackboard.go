@@ -121,6 +121,35 @@ func (bb *SQLiteBlackboard) ClaimTask(ctx context.Context, taskID, agentID strin
 	return true, nil
 }
 
+// StartExecution 将任务从 claimed 推进到 running 状态，表示 Agent 已开始实际执行。
+// 需持有认领权（claimed_by == agentID）；幂等：already-running 不报错。
+func (bb *SQLiteBlackboard) StartExecution(ctx context.Context, taskID, agentID string) error {
+	res, err := bb.db.ExecContext(ctx, `
+		UPDATE tasks
+		SET status=?, version=version+1, updated_at=datetime('now')
+		WHERE task_id=? AND claimed_by=? AND status=?`,
+		statusRunning, taskID, agentID, statusClaimed,
+	)
+	if err != nil {
+		return perrors.Wrap(perrors.CodeInternal, "blackboard.StartExecution", err)
+	}
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		// 可能已是 running（幂等）或未认领（错误）
+		var status string
+		_ = bb.db.QueryRowContext(ctx, "SELECT status FROM tasks WHERE task_id=?", taskID).Scan(&status)
+		if status != statusRunning {
+			return ErrTaskNotOwned
+		}
+	}
+	bb.broadcast(protocol.BlackboardEvent{
+		Type:    "task_running",
+		TaskID:  taskID,
+		AgentID: agentID,
+	})
+	return nil
+}
+
 // CompleteTask 将任务标记为完成（须持有认领权）。
 func (bb *SQLiteBlackboard) CompleteTask(ctx context.Context, taskID, agentID string, result []byte) error {
 	bb.mu.Lock()
