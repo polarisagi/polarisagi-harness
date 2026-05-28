@@ -510,9 +510,16 @@ func (s *Server) downloadAndInstallExtension(ctx context.Context, extID, catalog
 		runtimeID = "pl_" + extID[4:]
 
 		// 解析 Bundle 清单（兼容 PluginBundleManifest 与旧 PluginJSON）
+		// Polaris 原生格式（.codex-plugin/plugin.json）优先于根目录 plugin.json
 		var bundle protocol.PluginBundleManifest
-		if raw, err2 := os.ReadFile(filepath.Join(destDir, "plugin.json")); err2 == nil {
-			_ = json.Unmarshal(raw, &bundle)
+		for _, manifestPath := range []string{
+			filepath.Join(destDir, ".codex-plugin", "plugin.json"),
+			filepath.Join(destDir, "plugin.json"),
+		} {
+			if raw, err2 := os.ReadFile(manifestPath); err2 == nil {
+				_ = json.Unmarshal(raw, &bundle)
+				break
+			}
 		}
 
 		// 安装 Bundle 内联 MCP 服务器
