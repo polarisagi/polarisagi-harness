@@ -541,9 +541,24 @@ func (s *Server) downloadAndInstallExtension(ctx context.Context, extID, catalog
 
 		// 安装 Bundle 内声明的 Skill
 		// 安全：同上，逐条校验 skillRef.Path 不得穿越出 destDir
+		declaredSkillPaths := make(map[string]bool, len(bundle.Skills))
 		for _, skillRef := range bundle.Skills {
+			declaredSkillPaths[skillRef.Path] = true
 			s.installBundleSkill(ctx, extID, destDir, skillRef.Path, skillRef.Name, entry.TrustTier, now)
 		}
+
+		// 自动发现 bundle 内未显式声明的 SKILL.md（处理 .claude-plugin 等第三方格式）
+		_ = filepath.Walk(destDir, func(path string, info os.FileInfo, err error) error {
+			if err != nil || info.IsDir() || info.Name() != "SKILL.md" {
+				return nil
+			}
+			rel, relErr := filepath.Rel(destDir, path)
+			if relErr != nil || declaredSkillPaths[rel] {
+				return nil
+			}
+			s.installBundleSkill(ctx, extID, destDir, rel, "", entry.TrustTier, now)
+			return nil
+		})
 
 		// 解析外部厂商格式（OpenAI ai-plugin.json / Anthropic plugin.toml 等）并安装 MCP 子组件
 		if subEntries, err2 := marketplace.ParseManifestDir(destDir, "", protocol.Marketplace{
