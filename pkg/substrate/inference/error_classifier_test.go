@@ -3,7 +3,7 @@ package inference
 import (
 	"testing"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 )
 
 func TestClassify(t *testing.T) {

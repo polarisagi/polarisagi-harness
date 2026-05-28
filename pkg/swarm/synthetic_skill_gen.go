@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/polarisagi/polaris-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
 )
 
 // SyntheticSkillGen 提供 M6 级别的逻辑坍缩，将任务轨迹生成 Wasm Skill。

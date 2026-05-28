@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/polarisagi/polaris-harness/internal/protocol"
-	"github.com/polarisagi/polaris-harness/pkg/cognition/memory"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/pkg/cognition/memory"
 )
 
 type SQLPreferencesRepo struct {

@@ -15,10 +15,10 @@ import (
 	"sync"
 	"time"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 
-	"github.com/polarisagi/polaris-harness/internal/protocol"
-	"github.com/polarisagi/polaris-harness/pkg/interface/channels"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/pkg/interface/channels"
 
 	"gopkg.in/yaml.v3"
 )

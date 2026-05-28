@@ -7,8 +7,8 @@ import (
 	"os"
 	"os/exec"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
-	"github.com/polarisagi/polaris-harness/internal/protocol"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
 )
 
 // NewEdgeTTS 返回 TTS 工具的 Schema。

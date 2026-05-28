@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 )
 
 // 推理预算管理 — 四层预算体系。

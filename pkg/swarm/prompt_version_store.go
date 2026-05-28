@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 )
 
 // PromptVersionStore prompt_versions 表的读写层。

@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/polarisagi/polaris-harness/pkg/extensions/mcp"
+	"github.com/polarisagi/polarisagi-harness/pkg/extensions/mcp"
 )
 
 // MCPServerConfig MCP Server REST API 数据结构。

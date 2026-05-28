@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 
-	"github.com/polarisagi/polaris-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
 )
 
 // EpisodicGraphIndexer 在 episodic_events 写入时同步建立 SurrealDB 图谱边，

@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
-	"github.com/polarisagi/polaris-harness/internal/protocol"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
 )
 
 // mockStore 实现了 protocol.Store，用于单元测试

@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
-	"github.com/polarisagi/polaris-harness/internal/protocol"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
 )
 
 // ─── Mock PolicyGate ─────────────────────────────────────────────────────────

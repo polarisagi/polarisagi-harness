@@ -7,7 +7,7 @@ import (
 	"sync"
 	"text/template"
 
-	"github.com/polarisagi/polaris-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
 )
 
 // ============================================================================

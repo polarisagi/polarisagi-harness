@@ -30,9 +30,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
-	"github.com/polarisagi/polaris-harness/internal/protocol"
-	"github.com/polarisagi/polaris-harness/pkg/substrate/observability"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/pkg/substrate/observability"
 )
 
 // ─── 常量与错误 ──────────────────────────────────────────────────────────────

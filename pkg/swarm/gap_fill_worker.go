@@ -11,8 +11,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/polarisagi/polaris-harness/internal/protocol"
-	"github.com/polarisagi/polaris-harness/pkg/substrate"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/pkg/substrate"
 )
 
 // GapFillWorker 监听 m9_capability_gap Outbox 事件，执行能力补全。

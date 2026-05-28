@@ -14,7 +14,7 @@ import (
 	"maps"
 	"time"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 )
 
 // ── 常量 ─────────────────────────────────────────────────────────────────────

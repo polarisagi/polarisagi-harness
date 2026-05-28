@@ -19,9 +19,9 @@ import (
 
 	"github.com/ebitengine/purego"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
-	"github.com/polarisagi/polaris-harness/internal/protocol"
-	sffi "github.com/polarisagi/polaris-harness/pkg/substrate/ffi"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
+	sffi "github.com/polarisagi/polarisagi-harness/pkg/substrate/ffi"
 )
 
 // ─── purego FFI 函数指针（懒绑定，sync.Once 幂等）─────────────────────────────

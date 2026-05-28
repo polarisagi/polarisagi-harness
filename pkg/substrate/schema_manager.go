@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"strconv"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 )
 
 // SchemaManager — 版本化数据库迁移。

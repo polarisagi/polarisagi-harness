@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/polarisagi/polaris-harness/internal/protocol"
-	"github.com/polarisagi/polaris-harness/pkg/substrate/policy"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/pkg/substrate/policy"
 )
 
 // TestTaintGate_SlotViolation 验证 D1 防线：data 槽高污点内容不得注入 instruction 槽。

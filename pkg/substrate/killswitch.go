@@ -8,7 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/polarisagi/polaris-harness/pkg/substrate/observability"
+	"github.com/polarisagi/polarisagi-harness/pkg/substrate/observability"
 )
 
 // 全局记录当前的 KillSwitch Stage，以满足 [HE-Rule-6] State-in-DB 强制持久化要求

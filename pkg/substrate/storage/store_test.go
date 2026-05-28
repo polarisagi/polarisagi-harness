@@ -5,8 +5,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/polarisagi/polaris-harness/internal/errors"
-	"github.com/polarisagi/polaris-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/internal/errors"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
 )
 
 func TestSQLiteStore_BasicOps(t *testing.T) {

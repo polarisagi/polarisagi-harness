@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/polarisagi/polaris-harness/pkg/cognition" //nolint:staticcheck
+	"github.com/polarisagi/polarisagi-harness/pkg/cognition" //nolint:staticcheck
 )
 
 // 谬误记忆池 (MEMF) + 成功启发式库 (HeuristicsMemory)。

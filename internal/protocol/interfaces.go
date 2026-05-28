@@ -15,7 +15,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/polarisagi/polaris-harness/internal/protocol/pb"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol/pb"
 )
 
 // ============================================================================

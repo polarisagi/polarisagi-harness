@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/polarisagi/polaris-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
 )
 
 // Message 平台消息标准化结构。

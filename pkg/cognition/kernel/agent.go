@@ -6,11 +6,11 @@ import (
 	"errors"
 	"fmt"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
-	"github.com/polarisagi/polaris-harness/internal/protocol"
-	"github.com/polarisagi/polaris-harness/pkg/cognition/prm"
-	"github.com/polarisagi/polaris-harness/pkg/substrate"
-	"github.com/polarisagi/polaris-harness/pkg/substrate/observability"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/pkg/cognition/prm"
+	"github.com/polarisagi/polarisagi-harness/pkg/substrate"
+	"github.com/polarisagi/polarisagi-harness/pkg/substrate/observability"
 )
 
 // ============================================================================

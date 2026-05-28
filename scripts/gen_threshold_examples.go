@@ -10,7 +10,7 @@ import (
 
 	"github.com/pelletier/go-toml/v2"
 
-	"github.com/polarisagi/polaris-harness/internal/config"
+	"github.com/polarisagi/polarisagi-harness/internal/config"
 )
 
 func main() {

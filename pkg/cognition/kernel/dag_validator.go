@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/polarisagi/polaris-harness/internal/protocol"
-	"github.com/polarisagi/polaris-harness/pkg/substrate"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/pkg/substrate"
 )
 
 // DAGValidationContext 承载 S_VALIDATE 四层校验所需的输入。

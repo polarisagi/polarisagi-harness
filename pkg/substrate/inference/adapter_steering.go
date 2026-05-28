@@ -9,7 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 )
 
 // SteeringAdapter 对接本地激活引导服务（FeatureActivationSteer 门控，Tier1+）。

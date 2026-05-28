@@ -5,7 +5,7 @@
 ## 1. 环境
 
 ```bash
-git clone https://github.com/polarisagi/polaris-harness.git
+git clone https://github.com/polarisagi/polarisagi-harness.git
 cd polaris-harness
 make build            # Rust FFI → Web UI → Go binary（≈ 2 min 首次）
 make test             # go test ./pkg/... ./internal/...

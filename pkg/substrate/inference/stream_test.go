@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/polarisagi/polaris-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
 )
 
 func TestSSEParser_DeepSeek(t *testing.T) {

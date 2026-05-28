@@ -21,7 +21,7 @@ linters:
 
 linters-settings:
   goimports:
-    local-prefixes: github.com/polarisagi/polaris-harness
+    local-prefixes: github.com/polarisagi/polarisagi-harness
 
   # ADR-0013: depguard 守护 04-Module-Boundary.md B1 单向依赖
   # 矩阵: L0 ← L1 ← L2 ← L3；internal/ 与同层（L3 内部）允许互引
@@ -31,34 +31,34 @@ linters-settings:
         files:
           - "**/pkg/substrate/**"
         deny:
-          - pkg: github.com/polarisagi/polaris-harness/pkg/cognition
+          - pkg: github.com/polarisagi/polarisagi-harness/pkg/cognition
             desc: "L0 不可引 L1 cognition (B1 + R1.7)"
-          - pkg: github.com/polarisagi/polaris-harness/pkg/action
+          - pkg: github.com/polarisagi/polarisagi-harness/pkg/action
             desc: "L0 不可引 L1 action (B1 + R1.7)"
-          - pkg: github.com/polarisagi/polaris-harness/pkg/swarm
+          - pkg: github.com/polarisagi/polarisagi-harness/pkg/swarm
             desc: "L0 不可引 L2 swarm (B1 + R1.7)"
-          - pkg: github.com/polarisagi/polaris-harness/pkg/governance
+          - pkg: github.com/polarisagi/polarisagi-harness/pkg/governance
             desc: "L0 不可引 L3 governance (B1 + R1.7)"
-          - pkg: github.com/polarisagi/polaris-harness/pkg/edge
+          - pkg: github.com/polarisagi/polarisagi-harness/pkg/edge
             desc: "L0 不可引 L3 edge (B1 + R1.7)"
       L1_cognition_action:
         files:
           - "**/pkg/cognition/**"
           - "**/pkg/action/**"
         deny:
-          - pkg: github.com/polarisagi/polaris-harness/pkg/swarm
+          - pkg: github.com/polarisagi/polarisagi-harness/pkg/swarm
             desc: "L1 不可引 L2 (B1 + R1.7)"
-          - pkg: github.com/polarisagi/polaris-harness/pkg/governance
+          - pkg: github.com/polarisagi/polarisagi-harness/pkg/governance
             desc: "L1 不可引 L3 (B1 + R1.7)"
-          - pkg: github.com/polarisagi/polaris-harness/pkg/edge
+          - pkg: github.com/polarisagi/polarisagi-harness/pkg/edge
             desc: "L1 不可引 L3 (B1 + R1.7)"
       L2_swarm:
         files:
           - "**/pkg/swarm/**"
         deny:
-          - pkg: github.com/polarisagi/polaris-harness/pkg/governance
+          - pkg: github.com/polarisagi/polarisagi-harness/pkg/governance
             desc: "L2 不可引 L3 (B1 + R1.7)"
-          - pkg: github.com/polarisagi/polaris-harness/pkg/edge
+          - pkg: github.com/polarisagi/polarisagi-harness/pkg/edge
             desc: "L2 不可引 L3 (B1 + R1.7)"
 
   errorlint:

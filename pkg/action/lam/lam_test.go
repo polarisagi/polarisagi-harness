@@ -7,7 +7,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/polarisagi/polaris-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
 )
 
 // mockProvider 顺序返回预设响应（线程安全）。

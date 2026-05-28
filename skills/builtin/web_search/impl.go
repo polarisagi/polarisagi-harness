@@ -5,7 +5,7 @@ package main
 import (
 	"encoding/json"
 
-	"github.com/polarisagi/polaris-harness/pkg/cognition/skill/sdk"
+	"github.com/polarisagi/polarisagi-harness/pkg/cognition/skill/sdk"
 )
 
 func init() {

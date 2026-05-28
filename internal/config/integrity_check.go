@@ -11,7 +11,7 @@ import (
 
 	_ "embed"
 
-	"github.com/polarisagi/polaris-harness/internal/errors"
+	"github.com/polarisagi/polarisagi-harness/internal/errors"
 )
 
 //go:embed kernel_manifest.json

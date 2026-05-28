@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 )
 
 // 编排模式实现。

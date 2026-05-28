@@ -1,7 +1,7 @@
 package action
 
 import (
-	"github.com/polarisagi/polaris-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
 )
 
 // AssignSandboxTier 根据工具的风险等级和来源自动分配沙箱等级。

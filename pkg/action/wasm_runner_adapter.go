@@ -3,7 +3,7 @@ package action
 import (
 	"context"
 
-	"github.com/polarisagi/polaris-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
 )
 
 // WasmRunnerAdapter 将 *WazeroRuntime 适配为 skill.WasmRunner 接口。

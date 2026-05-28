@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/polarisagi/polaris-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
 )
 
 // EvolutionLevel defines the scope of automated change. Higher = more gates, deeper rollback chain.

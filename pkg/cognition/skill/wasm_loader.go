@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 )
 
 // FilesystemWasmLoader 从本地文件系统加载 Wasm 字节码。

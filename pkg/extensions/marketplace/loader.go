@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 
-	"github.com/polarisagi/polaris-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
 )
 
 // SkillMetaFromSKILLmd 解析 agentskills.io 标准 SKILL.md 文件，

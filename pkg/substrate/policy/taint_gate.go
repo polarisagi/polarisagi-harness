@@ -1,8 +1,8 @@
 package policy
 
 import (
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
-	"github.com/polarisagi/polaris-harness/internal/protocol"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
 )
 
 // TaintGate — Prompt Slot 物理隔离检查（M11 §2.1 D1 防线）。

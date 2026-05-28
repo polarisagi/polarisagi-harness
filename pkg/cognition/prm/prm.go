@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 
-	"github.com/polarisagi/polaris-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
 )
 
 // ProcessRewardModel 在 S_PLAN 阶段对 N 个候选 DAG 方案并发打分，返回最优方案。

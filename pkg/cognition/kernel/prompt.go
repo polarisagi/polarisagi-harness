@@ -1,8 +1,8 @@
 package kernel
 
 import (
-	"github.com/polarisagi/polaris-harness/internal/protocol"
-	"github.com/polarisagi/polaris-harness/pkg/substrate"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/pkg/substrate"
 )
 
 // PromptBuilder 是系统内唯一合法的 LLM Prompt 组装构造器。

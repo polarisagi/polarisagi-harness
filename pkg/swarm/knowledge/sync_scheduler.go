@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/polarisagi/polaris-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
 )
 
 // KnowledgeConnector 知识连接器接口（对齐 ObsidianConnector 的实际实现）。

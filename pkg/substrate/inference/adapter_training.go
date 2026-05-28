@@ -9,7 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 )
 
 // TrainingSample 单条训练样本（QLoRA / PRM 共用）。

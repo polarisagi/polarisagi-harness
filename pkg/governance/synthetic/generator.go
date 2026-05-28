@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"strings"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 
-	"github.com/polarisagi/polaris-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
 )
 
 // QuestionType 问题类型分类（对齐 RAGAS / Giskard RAGET）。

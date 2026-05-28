@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/polarisagi/polaris-harness/pkg/cognition/memory"
+	"github.com/polarisagi/polarisagi-harness/pkg/cognition/memory"
 )
 
 // allowedUserPrompts 用户可通过 API 编辑的提示词文件名白名单。

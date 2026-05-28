@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/polarisagi/polaris-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
 )
 
 // mockStore 用于测试的 Store 实现。

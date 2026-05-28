@@ -10,7 +10,7 @@ import (
 
 	_ "modernc.org/sqlite"
 
-	"github.com/polarisagi/polaris-harness/pkg/substrate"
+	"github.com/polarisagi/polarisagi-harness/pkg/substrate"
 )
 
 type mockLeaseChecker struct{}

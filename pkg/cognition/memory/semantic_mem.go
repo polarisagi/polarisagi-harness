@@ -6,9 +6,9 @@ import (
 	"encoding/json"
 	"strconv"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
-	"github.com/polarisagi/polaris-harness/internal/protocol"
-	"github.com/polarisagi/polaris-harness/internal/protocol/pb"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol/pb"
 )
 
 // IntentSubmitter abstracts the MutationBus submission to avoid circular dependency.

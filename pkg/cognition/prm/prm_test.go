@@ -6,7 +6,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/polarisagi/polaris-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
 )
 
 // mockProvider 返回预设的 JSON 打分内容（线程安全）。

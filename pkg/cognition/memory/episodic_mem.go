@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/polarisagi/polaris-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
 )
 
 // EpisodicMem (L1) — 事件表 + 向量投影。

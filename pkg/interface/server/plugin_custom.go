@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/polarisagi/polaris-harness/internal/protocol"
-	"github.com/polarisagi/polaris-harness/pkg/extensions/marketplace"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/pkg/extensions/marketplace"
 )
 
 // handleCreateSkill 用户手动创建 Skill 扩展。

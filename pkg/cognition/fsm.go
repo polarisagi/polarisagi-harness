@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
-	"github.com/polarisagi/polaris-harness/internal/protocol"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
 )
 
 // FallbackFSM 是确定性状态机的一种实现变体——零外部依赖，适用于测试和降级路径。

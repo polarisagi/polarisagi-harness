@@ -5,7 +5,7 @@ import (
 	"math/rand/v2"
 	"sync"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 )
 
 // TopologyType 多 Agent 协作拓扑类型。

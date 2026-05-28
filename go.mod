@@ -1,4 +1,4 @@
-module github.com/polarisagi/polaris-harness
+module github.com/polarisagi/polarisagi-harness
 
 go 1.26.2
 

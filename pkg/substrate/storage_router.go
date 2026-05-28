@@ -3,7 +3,7 @@ package substrate
 import (
 	"context"
 
-	"github.com/polarisagi/polaris-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
 )
 
 // StorageRouter — 统一存储路由（引擎选择 + SQLite 兜底）。

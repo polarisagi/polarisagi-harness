@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/polarisagi/polaris-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
 )
 
 // ReflexionEngine — Reflexion 反思链（内环失败处理）。

@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
-	"github.com/polarisagi/polaris-harness/internal/protocol"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
 )
 
 // FactualityGuard D6 防线——LLM 输出真实性核验。

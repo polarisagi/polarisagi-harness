@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 )
 
 // ─── Cron Schedule Evaluator ───────────────────────────────────────────────────

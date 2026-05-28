@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 )
 
 func (m *Manager) startSignalPoller(channelID, apiURL, account string, cfg map[string]any) {

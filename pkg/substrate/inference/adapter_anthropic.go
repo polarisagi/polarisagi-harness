@@ -11,9 +11,9 @@ import (
 	"net/http"
 	"strings"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
-	"github.com/polarisagi/polaris-harness/internal/protocol"
-	"github.com/polarisagi/polaris-harness/pkg/substrate/observability"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/pkg/substrate/observability"
 )
 
 // AnthropicAdapter 实现 protocol.Provider，对接 Anthropic Messages API。

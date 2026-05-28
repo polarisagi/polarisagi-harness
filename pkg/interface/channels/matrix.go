@@ -12,7 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 )
 
 func (m *Manager) startMatrixPoller(channelID, homeserver, accessToken string, cfg map[string]any) {

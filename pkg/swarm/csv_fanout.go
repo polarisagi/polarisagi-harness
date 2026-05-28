@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 )
 
 // CSVFanoutJob CSV batch fan-out 任务描述（ADR-0015 §2.5）。

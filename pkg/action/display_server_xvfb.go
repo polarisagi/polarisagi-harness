@@ -7,7 +7,7 @@ import (
 	"os"
 	"os/exec"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 )
 
 // XvfbDisplayServer 实现了 DisplayServer 接口，用于 Linux 环境下的无头 GUI 交互（LAM）。

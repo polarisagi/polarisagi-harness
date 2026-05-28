@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 )
 
 // SICCleaner — Spotlighting + SIC Instruction Cleaner（M11 §2.2）。

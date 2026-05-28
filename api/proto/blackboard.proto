@@ -4,7 +4,7 @@ syntax = "proto3";
 
 package polaris.protocol;
 
-option go_package = "github.com/polarisagi/polaris-harness/internal/protocol/pb";
+option go_package = "github.com/polarisagi/polarisagi-harness/internal/protocol/pb";
 
 // BlackboardEvent 是黑板上发布的结构化事件。
 // 禁止 P2P 自然语言协调——自然语言仅作 payload content。

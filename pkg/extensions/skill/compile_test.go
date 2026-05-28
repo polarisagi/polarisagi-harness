@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/polarisagi/polaris-harness/pkg/substrate/observability"
+	"github.com/polarisagi/polarisagi-harness/pkg/substrate/observability"
 )
 
 // ─── TaintSanitizeForRemoteCompilation ───────────────────────────────────────

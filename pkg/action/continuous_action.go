@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 )
 
 // ContinuousAction 用于 LAM (Large Action Model) 和 Diffusion Policy 的连续动作表示。

@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/polarisagi/polaris-harness/internal/protocol"
-	"github.com/polarisagi/polaris-harness/pkg/substrate/observability"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/pkg/substrate/observability"
 )
 
 // OpenAIAdapter 实现 protocol.Provider，对接官方 OpenAI 或任何严格兼容 OpenAI API 的服务。

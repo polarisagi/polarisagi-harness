@@ -5,7 +5,7 @@ syntax = "proto3";
 
 package polaris.protocol;
 
-option go_package = "github.com/polarisagi/polaris-harness/internal/protocol/pb";
+option go_package = "github.com/polarisagi/polarisagi-harness/internal/protocol/pb";
 
 // Event 是写入 events 表的单一事件。
 // 各模块通过 EventLog.Subscribe 消费。

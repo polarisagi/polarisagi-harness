@@ -10,7 +10,7 @@ import (
 	"regexp"
 	"strings"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 )
 
 // PIIDetector 个人信息检测器。

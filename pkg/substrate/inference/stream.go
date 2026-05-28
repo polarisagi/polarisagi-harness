@@ -11,8 +11,8 @@ import (
 	"net/http"
 	"strings"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
-	"github.com/polarisagi/polaris-harness/internal/protocol"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
 )
 
 // OpenAIStreamDelta 流式响应中的 delta 字段（支持文本和 tool_call 两类）。

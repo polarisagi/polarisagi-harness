@@ -14,7 +14,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/polarisagi/polaris-harness/pkg/substrate/inference/stt"
+	"github.com/polarisagi/polarisagi-harness/pkg/substrate/inference/stt"
 )
 
 var globalSTTEngine *stt.Engine

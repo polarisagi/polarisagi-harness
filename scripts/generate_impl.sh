@@ -8,7 +8,7 @@ for dir in skills/builtin/*; do
 import (
 	\"encoding/json\"
 
-	\"github.com/polarisagi/polaris-harness/pkg/extensions/skill/sdk\"
+	\"github.com/polarisagi/polarisagi-harness/pkg/extensions/skill/sdk\"
 )
 
 func init() {

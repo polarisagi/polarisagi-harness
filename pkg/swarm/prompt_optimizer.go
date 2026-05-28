@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"time"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
-	"github.com/polarisagi/polaris-harness/internal/protocol"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
 )
 
 // PromptOptimizer 执行 GEPA + MemAPO + ContraPrompt 三融合优化周期。

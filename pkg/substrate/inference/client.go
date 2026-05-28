@@ -10,8 +10,8 @@ import (
 	"net/http"
 	"strings"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
-	"github.com/polarisagi/polaris-harness/internal/protocol"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
 )
 
 // OpenAICompatibleClient 是一个基于原生 net/http 的通用 OpenAI 兼容协议客户端。

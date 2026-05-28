@@ -6,7 +6,7 @@ import (
 	"math"
 	"sort"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 )
 
 // VectorEmbedder 向量嵌入接口（consumer-side，防止包循环）。

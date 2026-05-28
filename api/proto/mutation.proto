@@ -4,7 +4,7 @@ syntax = "proto3";
 
 package polaris.protocol;
 
-option go_package = "github.com/polarisagi/polaris-harness/internal/protocol/pb";
+option go_package = "github.com/polarisagi/polarisagi-harness/internal/protocol/pb";
 
 // MutationIntent 是单次状态变异请求。
 message MutationIntent {

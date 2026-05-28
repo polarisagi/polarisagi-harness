@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 )
 
 // SQLiteRolloutStore 实现 StagingPipeline 接口，State-in-DB。

@@ -6,10 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 
-	"github.com/polarisagi/polaris-harness/internal/protocol"
-	"github.com/polarisagi/polaris-harness/pkg/substrate/observability"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/pkg/substrate/observability"
 )
 
 // maxScreenshotBytesFull Tier 1+ vision 路径截图上限（超出则降级 DOM-only）。

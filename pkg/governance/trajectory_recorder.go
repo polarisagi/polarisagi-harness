@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 )
 
 // TrajectoryRecorder 记录运行时的 LLM 调用、Tool 执行、状态变更等事件，

@@ -3,7 +3,7 @@ package cognition
 import (
 	"math"
 
-	"github.com/polarisagi/polaris-harness/pkg/substrate"
+	"github.com/polarisagi/polarisagi-harness/pkg/substrate"
 )
 
 // DriftDetector — Embedding 空间漂移检测。

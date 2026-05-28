@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 )
 
 // HybridSearchEngine 提供统一接口: Search(ctx, query, scope, config) → []ScoredFragment

@@ -12,9 +12,9 @@ import (
 
 	_ "modernc.org/sqlite" // 纯 Go SQLite 驱动，无 CGO 依赖
 
-	"github.com/polarisagi/polaris-harness/internal/errors"
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
-	"github.com/polarisagi/polaris-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/internal/errors"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
 )
 
 // SQLiteStore 实现 protocol.Store，基于 modernc/sqlite（WAL 模式）。

@@ -5,7 +5,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/polarisagi/polaris-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
 )
 
 // ToolInfo 工具列表 API 响应条目。

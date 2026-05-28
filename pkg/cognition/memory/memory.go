@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/polarisagi/polaris-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
 )
 
 // Layer classifies memory into four levels per the 2026 consensus.

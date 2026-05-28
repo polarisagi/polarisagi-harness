@@ -8,7 +8,7 @@ import (
 	"io"
 	"net/http"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 )
 
 // Teams 通过 Microsoft Graph API 接入 Teams 聊天。

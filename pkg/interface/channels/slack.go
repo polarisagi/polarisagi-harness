@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"time"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 
 	"github.com/gorilla/websocket"
 )

@@ -8,7 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 )
 
 // SendReply 将 Agent 回复发回各聊天平台。

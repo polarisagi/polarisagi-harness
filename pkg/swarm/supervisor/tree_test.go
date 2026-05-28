@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 )
 
 func TestSupervisor_OneForOne_Restart(t *testing.T) {

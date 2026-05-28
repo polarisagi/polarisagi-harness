@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 )
 
 // LLMClient is a minimal interface for the PluginCreator to generate responses.

@@ -8,7 +8,7 @@ import (
 
 	_ "modernc.org/sqlite"
 
-	"github.com/polarisagi/polaris-harness/pkg/swarm"
+	"github.com/polarisagi/polarisagi-harness/pkg/swarm"
 )
 
 // ─── DynamicDifficultyCalibrator ─────────────────────────────────────────────

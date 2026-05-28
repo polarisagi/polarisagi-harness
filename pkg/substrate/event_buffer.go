@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/polarisagi/polaris-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
 )
 
 // EventWriteBuffer — MPSC 批量写入缓冲。

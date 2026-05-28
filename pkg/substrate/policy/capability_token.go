@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 )
 
 // CapabilityToken — 短寿命 Ed25519 能力令牌（M11 §3.1 + D2 防线）。

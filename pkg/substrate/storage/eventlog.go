@@ -5,10 +5,10 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
-	"github.com/polarisagi/polaris-harness/internal/protocol"
-	"github.com/polarisagi/polaris-harness/internal/protocol/pb"
-	"github.com/polarisagi/polaris-harness/pkg/substrate"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol/pb"
+	"github.com/polarisagi/polarisagi-harness/pkg/substrate"
 )
 
 // SQLiteEventLog 实现了 protocol.EventLogger。

@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/polarisagi/polaris-harness/internal/protocol"
-	"github.com/polarisagi/polaris-harness/pkg/substrate/policy"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/pkg/substrate/policy"
 )
 
 // Auto-Curriculum 自动课程生成器。

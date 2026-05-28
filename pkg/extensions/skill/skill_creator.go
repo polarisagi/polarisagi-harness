@@ -10,8 +10,8 @@ import (
 
 	"time"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
-	"github.com/polarisagi/polaris-harness/pkg/extensions/marketplace"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
+	"github.com/polarisagi/polarisagi-harness/pkg/extensions/marketplace"
 )
 
 // LLMClient is a minimal interface for the SkillCreator to generate responses.

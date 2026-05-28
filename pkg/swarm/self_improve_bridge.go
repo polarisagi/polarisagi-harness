@@ -4,9 +4,9 @@ import (
 	"context"
 	"log/slog"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
-	"github.com/polarisagi/polaris-harness/internal/protocol"
-	si "github.com/polarisagi/polaris-harness/pkg/swarm/self_improve"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
+	si "github.com/polarisagi/polarisagi-harness/pkg/swarm/self_improve"
 )
 
 // ReflexionBridge 将 *ReflexionEngine 适配为 self_improve.Reflector。

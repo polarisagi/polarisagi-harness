@@ -3,7 +3,7 @@ package action
 import (
 	"time"
 
-	"github.com/polarisagi/polaris-harness/pkg/substrate/policy"
+	"github.com/polarisagi/polarisagi-harness/pkg/substrate/policy"
 )
 
 // TokenOperation 单次授权操作。

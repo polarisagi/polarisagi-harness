@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 )
 
 // StreamingActionBus 是 LAM 连续动作流的速率限制和裁剪总线。

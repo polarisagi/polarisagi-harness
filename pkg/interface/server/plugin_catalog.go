@@ -15,9 +15,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/polarisagi/polaris-harness/pkg/extensions/marketplace"
+	"github.com/polarisagi/polarisagi-harness/pkg/extensions/marketplace"
 
-	"github.com/polarisagi/polaris-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol"
 )
 
 // getInstalledCatalogIDs 返回所有已安装的 catalog_id 集合。

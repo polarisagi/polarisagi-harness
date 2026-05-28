@@ -10,10 +10,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/polarisagi/polaris-harness/internal/config"
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
-	"github.com/polarisagi/polaris-harness/internal/protocol/schema"
-	"github.com/polarisagi/polaris-harness/pkg/substrate/storage"
+	"github.com/polarisagi/polarisagi-harness/internal/config"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
+	"github.com/polarisagi/polarisagi-harness/internal/protocol/schema"
+	"github.com/polarisagi/polarisagi-harness/pkg/substrate/storage"
 )
 
 // promptfooResult 对应 promptfoo --output results.json 的顶层结构。

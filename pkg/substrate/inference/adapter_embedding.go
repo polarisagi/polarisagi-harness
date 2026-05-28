@@ -8,7 +8,7 @@ import (
 	"io"
 	"net/http"
 
-	perrors "github.com/polarisagi/polaris-harness/internal/errors"
+	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 )
 
 // OllamaEmbeddingAdapter 对接 Ollama /api/embed，实现 substrate.Embedder。
