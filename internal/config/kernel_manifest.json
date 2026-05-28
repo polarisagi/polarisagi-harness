@@ -13,7 +13,7 @@
   "pkg/action/doc.go": "f15e0e8e082d2f941558ac138e877dd13defd26c1b60774bb5feff6ff7a418dd",
   "pkg/action/hook/hook.go": "653234d9265dcdeeffb4ceccb56b0d920f5cd98b160622a079166cb10908fe0e",
   "pkg/action/hook/hook_test.go": "49301fbc00656f9cacd7325ec355a76a11291bfecad40f4bd6fafb366391af43",
-  "pkg/action/hook/registry.go": "99e8d8168300cf7701dc8585e1beda25e0a8e7ad1735af0978976837adf8ca63",
+  "pkg/action/hook/registry.go": "f892b68e9ebfe50325207e8a280b58ac0e564c4fd42b2a1a729678987f4d9c5e",
   "pkg/action/hook/runner.go": "56e0442dc8261d4c71a3567e64b1b7f7d1290b92c7668e02b85a1be5e37e7a88",
   "pkg/action/lam/lam.go": "e64682dac5cc2b190161a7d31ad6bb23dd83fd84ba4922be070b317e3e4e85d2",
   "pkg/action/lam/lam_test.go": "c4899e3f375ac60ea86d6247cf2414ac776cfda39214f9c9c85e6efaee2a1b0e",
