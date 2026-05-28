@@ -2,6 +2,8 @@ package substrate
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"sync"
 	"time"
 
@@ -22,6 +24,10 @@ type EmbeddingBatcher struct {
 	mu           sync.Mutex
 	timer        *time.Timer
 	embedFn      EmbedFn // M1 Embedding API 注入点
+
+	// dedup: textHash → 等待该文本结果的 channel 列表（扇出）
+	// 同一文本重复入队时，只发出一次 API 调用，结果扇出至所有等待者。
+	dedupMap map[string][]chan EmbedResult
 }
 
 // Start 启动后台批处理定时器。
@@ -89,14 +95,27 @@ func (b *EmbeddingBatcher) flushQueue(ctx context.Context) {
 	if len(toProcess) > 0 {
 		model = toProcess[0].Model
 	}
-	results, _ := b.flushBatch(ctx, texts, model)
+	results, batchErr := b.flushBatch(ctx, texts, model)
+
+	// 扇出：将结果发送给所有等待同一文本的 channel（去重场景下可能有多个等待者）。
+	b.mu.Lock()
 	for i, req := range toProcess {
-		if i < len(results) {
-			req.ResultCh <- results[i]
+		key := textHash(req.Text)
+		var res EmbedResult
+		if batchErr != nil {
+			res = EmbedResult{Error: batchErr}
+		} else if i < len(results) {
+			res = results[i]
 		} else {
-			req.ResultCh <- EmbedResult{Error: perrors.New(perrors.CodeInternal, "missing result")}
+			res = EmbedResult{Error: perrors.New(perrors.CodeInternal, "missing result")}
 		}
+		// 扇出至所有等待者
+		for _, ch := range b.dedupMap[key] {
+			ch <- res
+		}
+		delete(b.dedupMap, key)
 	}
+	b.mu.Unlock()
 }
 
 // NewEmbeddingBatcher 创建 EmbeddingBatcher，embedFn 为 M1 Embedding API（nil 则 flushBatch 报错）。
@@ -111,7 +130,14 @@ func NewEmbeddingBatcher(batchWindow time.Duration, maxBatchSize int, embedFn Em
 		batchWindow:  batchWindow,
 		maxBatchSize: maxBatchSize,
 		embedFn:      embedFn,
+		dedupMap:     make(map[string][]chan EmbedResult),
 	}
+}
+
+// textHash 为文本生成去重键（SHA-256 前 16 字节，碰撞率可忽略）。
+func textHash(text string) string {
+	h := sha256.Sum256([]byte(text))
+	return hex.EncodeToString(h[:16])
 }
 
 // EmbedRequest 单次 embedding 请求。
@@ -159,7 +185,15 @@ func (b *EmbeddingBatcher) Embed(ctx context.Context, texts []string, model stri
 func (b *EmbeddingBatcher) enqueue(req EmbedRequest) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	// 简化: 直接入队 High/Low
+
+	// 去重：同 text 已在队列中 → 将 ResultCh 追加到扇出列表，不再占用队列槽位。
+	key := textHash(req.Text)
+	if _, exists := b.dedupMap[key]; exists {
+		b.dedupMap[key] = append(b.dedupMap[key], req.ResultCh)
+		return
+	}
+	b.dedupMap[key] = []chan EmbedResult{req.ResultCh}
+
 	if req.Priority == 0 {
 		for i := range b.pendingHigh {
 			if b.pendingHigh[i].Text == "" {

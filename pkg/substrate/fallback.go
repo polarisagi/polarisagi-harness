@@ -174,13 +174,33 @@ func NewFallbackExecutor(ctx context.Context, p []Provider, b *CircuitBreaker, s
 	}
 }
 
-// Execute 执行操作，带降级。
+// Execute 按降级链顺序尝试每个 Provider，直到成功或全部失败。
+// 流程: CircuitBreaker.Allow() → Provider.IsAvailable() → 执行（此处为可用性探测）
+//
+// 调用方通过注入 providers 列表控制降级顺序（Primary → Secondary → Tertiary）。
+// 所有 Provider 均不可用时返回 ErrAllProvidersFailed。
 func (fe *FallbackExecutor) Execute() error {
 	if !fe.breaker.Allow() {
-		return perrors.New(perrors.CodeInternal, "circuit breaker open")
+		return perrors.New(perrors.CodeInternal, "circuit breaker open — all providers throttled")
 	}
-	return nil
+
+	for i, p := range fe.providers {
+		if !p.IsAvailable() {
+			continue
+		}
+		// Provider 可用性探测成功，此处由调用方实现具体业务调用。
+		// Execute 作为基础框架只做 Provider 选择与 CircuitBreaker 状态更新。
+		fe.breaker.RecordResult(true)
+		_ = i
+		return nil
+	}
+
+	fe.breaker.RecordResult(false)
+	return ErrAllProvidersFailed
 }
+
+// ErrAllProvidersFailed 全部 Provider 不可用时返回的哨兵错误。
+var ErrAllProvidersFailed = perrors.New(perrors.CodeInternal, "fallback: all providers unavailable")
 
 // Provider 降级链中的 Provider 引用。
 type Provider interface {

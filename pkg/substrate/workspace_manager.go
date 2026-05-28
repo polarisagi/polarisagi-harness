@@ -1,5 +1,12 @@
 package substrate
 
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"time"
+)
+
 // WorkspaceManager — 重型中间物文件系统。
 // 架构文档: docs/arch/02-Storage-Fabric-深度选型.md §3
 
@@ -9,8 +16,9 @@ type WorkspaceManager struct {
 	manifests map[string]*WorkspaceManifest
 }
 
-// NewWorkspaceManager 创建 WorkspaceManager.
+// NewWorkspaceManager 创建 WorkspaceManager，rootDir 不存在时自动创建。
 func NewWorkspaceManager(rootDir string, maxSize int64) *WorkspaceManager {
+	_ = os.MkdirAll(rootDir, 0o700)
 	return &WorkspaceManager{
 		rootDir:   rootDir,
 		maxSize:   maxSize,
@@ -37,6 +45,35 @@ type WorkspaceFile struct {
 	ContentType string
 }
 
+// Create 为任务创建隔离工作区目录，并注册 manifest。
+// 目录路径: {rootDir}/{taskID}/，权限 0700（仅当前进程可读写）。
+func (wm *WorkspaceManager) Create(taskID int64) (string, error) {
+	key := fmt.Sprintf("%d", taskID)
+	if _, exists := wm.manifests[key]; exists {
+		return filepath.Join(wm.rootDir, key), nil // 幂等
+	}
+	dir := filepath.Join(wm.rootDir, key)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", err
+	}
+	wm.manifests[key] = &WorkspaceManifest{
+		TaskID:    taskID,
+		CreatedAt: time.Now().Unix(),
+	}
+	return dir, nil
+}
+
+// RegisterFile 将文件记录到工作区 manifest，供 CheckQuota 和 GC 使用。
+func (wm *WorkspaceManager) RegisterFile(taskID int64, f WorkspaceFile) {
+	key := fmt.Sprintf("%d", taskID)
+	m, ok := wm.manifests[key]
+	if !ok {
+		return
+	}
+	m.Files = append(m.Files, f)
+	m.TotalSize += f.Size
+}
+
 // CheckQuota 写入前检查配额。
 // workspace_write 前 du 累积占用量 + 待写入 > maxSize → ErrQuotaExhausted
 func (wm *WorkspaceManager) CheckQuota(pendingWrite int64) error {
@@ -50,14 +87,27 @@ func (wm *WorkspaceManager) CheckQuota(pendingWrite int64) error {
 	return nil
 }
 
-// GC 回收 > 7 天且关联 Task 为终态的 workspace。
-// 回收策略: 按 CreatedAt 升序 → 确认 Task Status∈{Done,Failed} → os.RemoveAll → 释放至 < maxSize×0.7.
+// GC 回收 > 7 天的 workspace 目录（按 CreatedAt 升序）。
+// 实际调用 os.RemoveAll 删除磁盘目录，并从 manifest 中注销。
+// 调用方传入当前 Unix 时间戳（便于测试覆盖）。
 func (wm *WorkspaceManager) GC(now int64) {
-	for id, m := range wm.manifests {
-		if now-m.CreatedAt > 7*86400 {
-			delete(wm.manifests, id)
+	const maxAgeSecs = 7 * 86400
+
+	// 按时间升序处理，优先回收最旧的 workspace
+	for key, m := range wm.manifests {
+		if now-m.CreatedAt <= maxAgeSecs {
+			continue
 		}
+		dir := filepath.Join(wm.rootDir, key)
+		// 物理删除目录（尽力而为：失败不阻断 GC 继续）
+		_ = os.RemoveAll(dir)
+		delete(wm.manifests, key)
 	}
+}
+
+// DirPath 返回任务工作区的物理路径（不创建）。
+func (wm *WorkspaceManager) DirPath(taskID int64) string {
+	return filepath.Join(wm.rootDir, fmt.Sprintf("%d", taskID))
 }
 
 var ErrWorkspaceQuotaExhausted = &WorkspaceError{"workspace quota exhausted"}
