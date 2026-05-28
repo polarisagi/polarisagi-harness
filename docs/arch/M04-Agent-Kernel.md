@@ -114,7 +114,7 @@ PolicyGate: `[Cedar-Gate]` {principal, action, resource, context} → FORBID 优
 
 HeuristicChecker (L2, RiskLevel>=RiskHigh): 批量检查(>100) / 受保护路径(`/etc/`,`/sys/`,`~/.ssh/`→拒绝) / 资源预估 vs Tier 阈值
 
-LLMWatchdog (L3, 仅 RiskPrivileged): Budget Pool 模型（M1 §4.2 `<flash-class>`）输出 `{reasonable, reason}`，频次上限见 `spec/state.yaml §m4_kernel.l3_watchdog_max_per_hour`，超限 → L3+HITL 双审批。L3 为咨询信号——L0/L1/L2 确定性校验未放行的动作不会因 L3 通过而放行。L3 仅可建议拒绝（补充确定性门控），不可建议放行。
+LLMWatchdog (L3, 仅 RiskPrivileged): Budget Pool 模型（M1 §4.2 `<flash-class>`）输出 ALLOW/DENY 判断，频次上限见 `spec/state.yaml §m4_kernel.l3_watchdog_max_per_hour`，超限 → L3+HITL 双审批。L3 为咨询信号——L0/L1/L2 确定性校验未放行的动作不会因 L3 通过而放行。L3 仅可建议拒绝（补充确定性门控），不可建议放行。**DENY 推进 FSM 至 S_VALIDATE_FAIL；ALLOW 或 LLM 不可用时推进至 S_VALIDATE_OK（fail-open）。** 实现见 `pkg/cognition/kernel/agent_execute.go`。
 
 ---
 
@@ -197,6 +197,8 @@ S_PLAN 阶段检测到 prm != nil && ShouldActivate(complexity):
 | ComplexityGate | 0.5 | 低于此值跳过 PRM，零额外开销 |
 
 **Agent 集成接口**: `Agent.InjectPRM(p *prm.DefaultPRM)` 运行时注入，nil 表示禁用多候选路径，单候选走原始 LLMFillEffect 路径。
+
+**DAG 执行结果聚合**：S_EXECUTE 完成后，所有节点的输出通过 `aggregateDAGResults` 统一收集。单节点时直接取其 output（向后兼容）；多节点时序列化为 `{"results":[{id, output}, ...]}` 结构，确保 S_REFLECT 阶段可访问完整 DAG 执行上下文。实现见 `pkg/cognition/kernel/agent_execute.go`。
 
 ---
 
