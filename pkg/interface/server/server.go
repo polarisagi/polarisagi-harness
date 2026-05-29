@@ -119,15 +119,20 @@ func (s *Server) buildToolSchemas() []protocol.ToolSchema { //nolint:nestif
 	if s.mcpMgr != nil {
 		schemas = append(schemas, s.mcpMgr.ListToolSchemas()...)
 	}
-	// script runtime 技能：以 "skill:{name}" 工具形式暴露给 LLM
+	// script runtime 技能：以 "skill__{slug}" 工具形式暴露给 LLM。
+	// DB 存储格式为 "skill:{slug}"（内部名称），此处剥离前缀后加 skill__ 前缀生成合法的 LLM 工具名。
 	if s.db != nil { //nolint:nestif
 		rows, err := s.db.QueryContext(context.Background(),
 			`SELECT name, capabilities FROM skills WHERE runtime='script' AND exec_mode='tool' AND deprecated=0`)
 		if err == nil {
 			defer rows.Close()
 			for rows.Next() {
-				var name, capsRaw string
-				if rows.Scan(&name, &capsRaw) != nil {
+				var dbName, capsRaw string
+				if rows.Scan(&dbName, &capsRaw) != nil {
+					continue
+				}
+				slug, ok := strings.CutPrefix(dbName, "skill:")
+				if !ok || slug == "" {
 					continue
 				}
 				var caps []string
@@ -140,7 +145,7 @@ func (s *Server) buildToolSchemas() []protocol.ToolSchema { //nolint:nestif
 					}
 				}
 				schemas = append(schemas, protocol.ToolSchema{
-					Name:        "skill:" + name,
+					Name:        "skill__" + slug,
 					Description: desc,
 					Parameters: map[string]any{
 						"type": "object",

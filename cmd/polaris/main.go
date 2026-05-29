@@ -649,11 +649,11 @@ func run() error { //nolint:gocyclo
 	httpServer.SetToolRegistry(toolReg)
 	httpServer.SetSkillRegistry(skillRegistry)
 	httpServer.SetToolExecutor(func(ctx context.Context, name string, args []byte) (*protocol.ToolResult, error) {
-		// script runtime 技能：读取 instructions 返回给 LLM，由 LLM 按指令处理输入
-		if skillName, ok := strings.CutPrefix(name, "skill:"); ok {
+		// script runtime 技能：LLM 工具名格式为 "skill__{slug}"，内部 DB 名为 "skill:{slug}"
+		if slug, ok := strings.CutPrefix(name, "skill__"); ok {
 			var instructions string
 			_ = store.DB().QueryRowContext(ctx,
-				`SELECT instructions FROM skills WHERE name=? AND deprecated=0`, skillName).Scan(&instructions)
+				`SELECT instructions FROM skills WHERE name=? AND deprecated=0`, "skill:"+slug).Scan(&instructions)
 			var req struct {
 				Input string `json:"input"`
 			}

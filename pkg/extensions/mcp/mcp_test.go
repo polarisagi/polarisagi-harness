@@ -51,6 +51,30 @@ func TestMCPToolName_EmptyParts(t *testing.T) {
 	}
 }
 
+func TestMCPToolName_SanitizesDots(t *testing.T) {
+	name := mcpToolName("brave", "brave.web.search")
+	expected := "mcp__brave__brave_web_search"
+	if name != expected {
+		t.Errorf("expected %q, got %q", expected, name)
+	}
+}
+
+func TestValidateLLMNamePart_Valid(t *testing.T) {
+	for _, s := range []string{"brave", "my-server", "server_1", "S3"} {
+		if err := validateLLMNamePart(s); err != nil {
+			t.Errorf("expected %q to be valid, got error: %v", s, err)
+		}
+	}
+}
+
+func TestValidateLLMNamePart_Invalid(t *testing.T) {
+	for _, s := range []string{"", "my:server", "my server", "brave.search", "a/b"} {
+		if err := validateLLMNamePart(s); err == nil {
+			t.Errorf("expected %q to be invalid, but got no error", s)
+		}
+	}
+}
+
 // ── MCPManager (no-network paths) ────────────────────────────────────────────
 
 func TestMCPManager_ListServers_Empty(t *testing.T) {

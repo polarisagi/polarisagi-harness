@@ -55,7 +55,12 @@ func NewMCPManager(sandbox *action.InProcessSandbox, httpClient *http.Client, po
 
 // Add 连接一个 MCP Server，发现工具并注册到 sandbox。
 // 连接失败时仍写入 tombstone entry（errMsg 非空），使 ListServers 能向 UI 暴露失败原因。
+// name 必须满足 ^[a-zA-Z0-9_-]+$，否则拒绝安装。
 func (m *MCPManager) Add(ctx context.Context, serverID, name string, cfg MCPClientConfig) error {
+	if err := validateLLMNamePart(name); err != nil {
+		return perrors.Wrap(perrors.CodeInvalidInput, fmt.Sprintf("mcp: server name %q invalid (must match ^[a-zA-Z0-9_-]+$)", name), err)
+	}
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -88,12 +93,12 @@ func (m *MCPManager) Add(ctx context.Context, serverID, name string, cfg MCPClie
 		return storeFailed(wrapped)
 	}
 
-	m.registerTools(name, client, tools)
+	validTools := m.registerTools(name, client, tools)
 	m.entries[serverID] = &mcpEntry{
 		client: client,
 		name:   name,
 		cfg:    cfg,
-		tools:  tools,
+		tools:  validTools,
 	}
 	slog.Info("mcp_manager: server connected", "id", serverID, "tools", len(tools))
 	return nil
@@ -237,19 +242,34 @@ func (m *MCPManager) LoadFromDB(ctx context.Context, db *sql.DB, dataDir string)
 	}
 }
 
-func (m *MCPManager) registerTools(serverName string, client *MCPClient, tools []MCPTool) {
+// maxLLMToolNameLen 是 OpenAI 兼容接口对 function.name 的最大长度限制。
+const maxLLMToolNameLen = 64
+
+// registerTools 注册合法的 MCP 工具到 sandbox，返回实际注册成功的工具子集。
+// 服务器名（serverName）在 Add() 中已经过 validateLLMNamePart 校验，此处信任。
+// 工具名来自外部 MCP 服务器，不可控：非法字符静默替换并记录警告；超长则跳过。
+func (m *MCPManager) registerTools(serverName string, client *MCPClient, tools []MCPTool) []MCPTool {
 	// 确定此 server 的污点等级：白名单 → TaintMedium；其余 → TaintHigh
 	taint := protocol.TaintHigh
 	if client.cfg.Trusted {
 		taint = protocol.TaintMedium
 	}
+	var valid []MCPTool
 	for _, t := range tools {
-		toolName := mcpToolName(serverName, t.Name)
-		mcpName := t.Name
-		fn := makeMCPToolFn(client, mcpName)
+		llmName := mcpToolName(serverName, t.Name)
+		if llmName != mcpToolName(serverName, sanitizeToolNamePart(t.Name)) || t.Name != sanitizeToolNamePart(t.Name) {
+			slog.Warn("mcp: tool name sanitized", "server", serverName, "original", t.Name, "llm_name", llmName)
+		}
+		if len(llmName) > maxLLMToolNameLen {
+			slog.Warn("mcp: tool LLM name too long, skipped", "server", serverName, "tool", t.Name, "llm_name", llmName, "max", maxLLMToolNameLen)
+			continue
+		}
+		fn := makeMCPToolFn(client, t.Name)
 		// RegisterWithTaint 将污点等级附加到工具注册，供 InProcessSandbox.Run 写入 ToolResult
-		m.sandbox.RegisterWithTaint(toolName, fn, taint)
+		m.sandbox.RegisterWithTaint(llmName, fn, taint)
+		valid = append(valid, t)
 	}
+	return valid
 }
 
 // makeMCPToolFn 创建调用 MCP 工具的执行函数。
@@ -275,12 +295,14 @@ func (m *MCPManager) unregisterTools(serverName string, tools []MCPTool) {
 	}
 }
 
-// mcpToolName 生成 LLM 工具名：使用 __ 分隔，避免冒号违反 OpenAI ^[a-zA-Z0-9_-]+$ 约束。
-func mcpToolName(serverID, toolName string) string {
-	return "mcp__" + sanitizeToolNamePart(serverID) + "__" + sanitizeToolNamePart(toolName)
+// mcpToolName 生成 LLM 工具名，格式：mcp__<serverName>__<toolName>。
+// serverName 由调用方（Add）保证合法；toolName 来自外部，经 sanitizeToolNamePart 处理。
+func mcpToolName(serverName, toolName string) string {
+	return "mcp__" + serverName + "__" + sanitizeToolNamePart(toolName)
 }
 
-// sanitizeToolNamePart 将工具名组件中不合规字符替换为下划线。
+// sanitizeToolNamePart 将外部工具名中不符合 ^[a-zA-Z0-9_-]+$ 的字符替换为下划线。
+// 仅用于来自外部 MCP 服务器的工具名；用户配置的服务器名走 validateLLMNamePart 硬校验。
 func sanitizeToolNamePart(s string) string {
 	return strings.Map(func(r rune) rune {
 		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' || r == '-' {
@@ -288,4 +310,18 @@ func sanitizeToolNamePart(s string) string {
 		}
 		return '_'
 	}, s)
+}
+
+// validateLLMNamePart 校验字符串是否满足 OpenAI 工具名规范 ^[a-zA-Z0-9_-]+$。
+// 用于用户可控的名称（MCP server name、skill name），非法则快速失败。
+func validateLLMNamePart(s string) error {
+	if s == "" {
+		return perrors.New(perrors.CodeInvalidInput, "name must not be empty")
+	}
+	for _, r := range s {
+		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' || r == '-') {
+			return perrors.New(perrors.CodeInvalidInput, fmt.Sprintf("char %q not in ^[a-zA-Z0-9_-]+$", r))
+		}
+	}
+	return nil
 }
