@@ -298,15 +298,14 @@ executePause: 200ms timeout → toolRegistry.StopAllPending
 
 ### 4.2 .fullstop 防守护进程重启循环
 
-Sealed 模式启动检查 (main 最早执行):
-  步骤1: 检查 ~/.polarisagi-harness/.fullstop 存在
-  步骤2: 存在 → Sealed 态: 仅 HTTP 管理界面 + 基础 CLI, 挂起所有 Agent/LLM/定时任务
-  步骤3: POST /_admin/unseal → 管理员认证 → WAL 一致性校验 (VerifyM2EventLogIntegrity + VerifyM5MemoryLayerContinuity + VerifyM8BlackboardNoOrphanClaim)
-         VerifyM8BlackboardNoOrphanClaim 排除 Status==Suspended 的任务（KillSwitch 阶段有意保留 ClaimedBy 供 forensics）——仅检查 Claimed/Executing 状态的孤儿认领
-         通过: 删除 .fullstop, 重新加载模块
-         失败: 423 Locked 含诊断 {"status":"locked","failed_checks":[...],"recommended_action":"manual_forensics_or_force_unseal"}
-         POST /_admin/unseal?force_unseal=true (Administrator + 双因素认证) → 跳过孤儿校验, 写入 ComplianceEvent
-  步骤4: 不存在 → 正常启动
+`substrate.IsFullStopFilePresent(dataDir)` 在 `main.go` 数据目录初始化完成后、任何服务启动前被调用。检测到 `dataDir/.fullstop` 存在时立即以错误退出，阻止系统以封印态重启并继续执行。
+
+要从 FullStop 恢复：
+1. 人工审查 `.fullstop` 文件内记录的触发原因和时间戳
+2. 确认安全后手动删除 `dataDir/.fullstop`
+3. 重新启动进程
+
+封印态持久文件的内容为 JSON：`{"timestamp": <unix>, "reason": "...", "actor": "..."}`
 
 ### 4.3 物理触发路径
 

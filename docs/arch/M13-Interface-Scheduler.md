@@ -183,23 +183,20 @@ AuthMiddleware:
 
 HTTP 层出站适配器，委托 M11 SafeDialer（M11 §6 统一安全 Dialer）执行完整 SSRF 防护。本层仅维护 Provider 域名白名单作为预检（api.deepseek.com, api.anthropic.com, api.openai.com, api.github.com, localhost）——不在白名单的域名提前拒绝，减少 SafeDialer DNS 查询开销。实际连接（DNS 解析、CIDR 校验、TOCTOU 消除、IP 锁定）全部由 M11 SafeDialer.DialContext 统一执行。扩展: /config network allow example.com:443（追加白名单，仍需经 SafeDialer 完整校验）。
 
-#### 1.2.3 Sealed/Unsealed
+#### 1.2.3 Sealed 状态
 
-ServerState: ServerSealed(0) / ServerUnsealed(1)
-Sealed 态: 仅 /v1/admin/unseal + /healthz; 业务 503; 定时器冻结; worker 挂起
-Unseal: 1.密码/[CredentialVault]解锁 2.KMS 解密主密钥→凭证注入 M1 3.健康检查→开放端点→启动 worker pool
-SealedMiddleware: ServerState==Unsealed→next; 否则非 unseal/healthz→503
+`/v1/status` 响应中的 `sealed` 字段由 `observability.GlobalKillswitchStage` 原子量驱动（`>= KillFullStop(3)` 时为 `true`）。KillSwitch 状态变迁通过 `StateChangeCallback` 同步写入该原子量。
+
+KillFullStop 触发后，系统写入 `dataDir/.fullstop` 文件，下次重启时 `main.go` 检测到该文件并拒绝启动（见 M11 §4.2）。
 
 #### 1.2.4 优雅关闭
 
-Server.Shutdown:
-  1. 禁用 Keep-Alive, 停止新连接
-  2. 等待进行中请求，超时见 `spec/state.yaml §m13_scheduler.graceful_shutdown_timeout_seconds`
-  3. http.Server.Shutdown(ctx)
-  4. SSE 客户端连接随 context 取消自然断开
-  5. scheduler.Drain()
-  6. reaper.RunNow()
-WaitForShutdown: SIGINT/SIGTERM→Shutdown→失败 os.Exit(1)
+`Server.Shutdown(ctx)` 执行顺序：
+1. `cronCancel()` — 停止 Cron runner goroutine（拒绝新触发，已运行的 automation goroutine 持有自身超时 ctx 自然结束）
+2. `channelMgr.StopAll()` — 停止所有聊天平台 poller
+3. `srv.Shutdown(ctx)` — 等待进行中的 HTTP 请求排空，超时 30s
+
+`main.go` 在 Shutdown 完成后等待 DatabaseWriter flush 残余批次（dbWriterDone channel），确保 AI 核心数据不丢失。
 
 #### 1.2.5 `[UserInterrupt]` 端点（inv_global_08，<200ms）
 
@@ -619,23 +616,9 @@ trigger_type=manual  → POST /v1/automations/{id}/trigger → executeAutomation
 
 ### 业务流：Cron 后台运行器
 
-```
-startCronRunner (goroutine, 60s ticker):
-  cronTick():
-    SELECT ... FROM automations
-    WHERE enabled=1 AND trigger_type IN ('cron','both')
-      AND (next_run_at='' OR next_run_at <= NOW())
-    → 对每条到期任务：go executeAutomation(ctx, &a, "cron")
+`startCronRunner(ctx)` 接收一个可取消 context，由 `Server.Start()` 创建并将取消函数存入 `Server.cronCancel`。`Server.Shutdown()` 首先调用 `cronCancel()` 停止 Cron runner，拒绝新任务触发。
 
-executeAutomation(ctx, a, trigger):
-  1. INSERT automation_runs (status='running')
-  2. UPDATE automations SET last_run_status='running', next_run_at=calcNextRun(cron_schedule)
-  3. go:
-       agent.SetTaskIntent([]byte(a.Prompt))
-       agent.SendIntent(TriggerIntentReceived)
-       UPDATE automation_runs SET status=ok/error, finished_at=NOW()
-       UPDATE automations SET last_run_status, run_count+1
-```
+`cronTick()` 每 60s 扫描 `automations` 表中 `next_run_at <= NOW()` 的到期任务，对每条记录启动独立 goroutine 调用 `executeAutomation()`。每次执行写入 `automation_runs` 记录（含 prompt_snapshot）并在结束时更新 `automations.last_run_status` 和 `run_count`。
 
 ### 与聊天的关系
 

@@ -95,6 +95,20 @@ func run() error { //nolint:gocyclo
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
+	// KillSwitch 提前声明，供 TripleCtrlCGuard goroutine 捕获（nil 安全）
+	var ks *substrate.KillSwitch
+
+	// TripleCtrlCGuard：独立信道监听 SIGINT，实现三击触发 KillSwitch FullStop
+	sigintCh := make(chan os.Signal, 8)
+	signal.Notify(sigintCh, syscall.SIGINT)
+	go func() {
+		for range sigintCh {
+			if ks != nil {
+				ks.OnSIGINT()
+			}
+		}
+	}()
+
 	// ─── 0.5 内核完整性校验 (L4) ────────────────────────────────────────────
 	if err := config.VerifyKernelIntegrity(); err != nil {
 		return errors.Wrap(errors.CodeInternal, "CRITICAL: kernel integrity compromised", err)
@@ -102,7 +116,13 @@ func run() error { //nolint:gocyclo
 
 	// ─── 1. 配置加载 ────────────────────────────────────────────────────────
 	cfgPath := os.Getenv("POLARIS_CONFIG")
-	if cfgPath == "" {
+	if cfgPath != "" {
+		// 显式配置路径缺失 → fail-fast，避免掩盖运维挂载问题
+		if _, statErr := os.Stat(cfgPath); os.IsNotExist(statErr) {
+			return errors.New(errors.CodeInternal,
+				"POLARIS_CONFIG file not found: "+cfgPath)
+		}
+	} else {
 		home, _ := os.UserHomeDir()
 		cfgPath = filepath.Join(home, ".polarisagi-harness", "config.yaml")
 	}
@@ -113,7 +133,10 @@ func run() error { //nolint:gocyclo
 	slog.Info("polaris: config loaded", "tier", cfg.System.Tier, "max_agents", cfg.System.MaxAgents)
 
 	// ─── 0.3 数据目录解析与初始化 ─────────────────────────────────────────────
-	dataDir := resolveDataDirBase(cfg)
+	dataDir, err := resolveDataDirBase(cfg)
+	if err != nil {
+		return err
+	}
 	initDirectories(dataDir)
 
 	// ─── 0.3.5 Thresholds 覆盖加载 ────────────────────────────────────────────
@@ -122,6 +145,18 @@ func run() error { //nolint:gocyclo
 		return errors.Wrap(errors.CodeInternal, "config.LoadThresholds", err)
 	}
 	cfg.Thresholds = *thresholds
+
+	// ─── 0.35 KillSwitch 初始化 ────────────────────────────────────────────────
+	// 启动前先检查封印文件：若存在则拒绝启动（FullStop 状态跨重启持久化）
+	if substrate.IsFullStopFilePresent(dataDir) {
+		return errors.New(errors.CodeInternal,
+			"system is sealed (.fullstop exists in "+dataDir+"); remove the file to restart")
+	}
+	ks = substrate.NewKillSwitch(dataDir)
+	// 同步到 observability 全局原子量（供 M13 handleStatus 读取）
+	ks.StateChangeCallback = func(newState substrate.KillState, _ string) {
+		observability.GlobalKillswitchStage.Store(int32(newState))
+	}
 
 	// ─── 0.4 日志初始化（stdout + ~/.polarisagi-harness/polaris.log）─────────────
 	if logFile := observability.SetupLogger(dataDir); logFile != nil {
@@ -680,16 +715,20 @@ func run() error { //nolint:gocyclo
 	return nil
 }
 
-func resolveDataDirBase(cfg *config.Config) string {
+func resolveDataDirBase(cfg *config.Config) (string, error) {
 	dir := os.Getenv("POLARIS_DATA_DIR")
 	if dir == "" && cfg != nil && cfg.System.DataDir != "" {
 		dir = cfg.System.DataDir
 	}
 	if dir == "" {
-		home, _ := os.UserHomeDir()
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", errors.Wrap(errors.CodeInternal,
+				"cannot determine home directory; set POLARIS_DATA_DIR explicitly", err)
+		}
 		dir = filepath.Join(home, ".polarisagi-harness")
 	}
-	return dir
+	return dir, nil
 }
 
 func initDirectories(dataDir string) {

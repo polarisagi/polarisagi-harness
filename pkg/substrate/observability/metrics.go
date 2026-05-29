@@ -13,6 +13,10 @@ import (
 var (
 	GlobalTokenBurnRate = NewTokenBurnRate()
 	GlobalSurpriseIndex = NewSurpriseIndex()
+
+	// GlobalKillswitchStage 全局 KillSwitch 阶段原子量（0=Normal…3=FullStop）。
+	// killswitch.go 的 StateChangeCallback 写入；M13 handleStatus 读取。
+	GlobalKillswitchStage atomic.Int32
 )
 
 // TokenBurnRate tracks token consumption rate for circuit breaking.

@@ -155,7 +155,7 @@ Idempotency Key 格式: `{target_engine}:{entity_type}:{entity_id}:{operation}:{
 - 列: `target_engine` | 类型: TEXT | 语义: 目标消费 handler，如 `m4_provider_recovery`/`m10_graph_build`
 - 列: `payload` | 类型: TEXT | 语义: JSON/msgpack 业务负载
 - 列: `idempotency_key` | 类型: TEXT UNIQUE | 语义: 防重复投递
-- 列: `status` | 类型: TEXT | 语义: pending/processing/done/dead
+- 列: `status` | 类型: TEXT | 语义: pending/processing/done/failed(指数退避待重试)/dead(毒丸)
 - 列: `attempt_count` | 类型: INTEGER DEFAULT 0 | 语义: 已尝试次数，`>= max_attempts` 置 dead
 - 列: `crash_recovery_count` | 类型: INTEGER DEFAULT 0 | 语义: Poison Pill 计数，`>= 3` 直接置 dead
 - 列: `next_retry_at` | 类型: TEXT（nullable） | 语义: **业务级最早可处理时间**（UTC ISO 8601）。业务 handler 显式设置，独立于指数退避。例: GraphRAG LLM 日预算耗尽时设次日 00:00:00 UTC。fetchBatch 主查询和迟提交补偿均检查（`next_retry_at IS NULL OR next_retry_at <= now`），防预算恢复前无效扫描

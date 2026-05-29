@@ -20,9 +20,14 @@ CREATE TABLE IF NOT EXISTS tasks (
     suspend_reason           TEXT,
     pii_vault_blob           TEXT,
     provider_suspended_count INTEGER NOT NULL DEFAULT 0,
-    -- TaintLevel 0=TaintNone…4=TaintHigh，随 Intent/Result 跨 Agent 边界传递（inv_M8_05）
+    -- TaintLevel: 0=TaintNone, 1=TaintLow, 2=TaintMedium, 3=TaintHigh, 4=TaintUserReviewed
+    -- 随 Intent/Result 跨 Agent 边界传递（inv_M8_05），只升不降
     intent_taint             INTEGER NOT NULL DEFAULT 0,
     result_taint             INTEGER NOT NULL DEFAULT 0,
     created_at               TEXT    NOT NULL,
     updated_at               TEXT    NOT NULL
 );
+
+-- Reaper 轮询超时过期任务（status + expires_at 复合过滤）
+CREATE INDEX IF NOT EXISTS idx_tasks_reaper
+    ON tasks(status, expires_at) WHERE expires_at IS NOT NULL;

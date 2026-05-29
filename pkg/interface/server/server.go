@@ -66,6 +66,9 @@ type Server struct {
 	// M9 激活的系统提示词（从 DB prompt_versions 表读取，Activate 回调热更新）
 	activatedSystemPromptMu sync.RWMutex
 	activatedSystemPrompt   string // task_type='general' 的激活版本
+
+	// Cron runner 生命周期控制
+	cronCancel context.CancelFunc
 }
 
 func (s *Server) SetInstallManager(m *marketplace.Manager) { s.installMgr = m }
@@ -538,8 +541,13 @@ func (s *Server) Start() error {
 			slog.Error("polaris-server: serve error", "err", err)
 		}
 	}()
-	go s.channelMgr.LoadFromDB(s.db)        // 启动所有已配置平台的 poller
-	s.startCronRunner(context.Background()) // 启动 Cron 定时任务后台 runner
+	go s.channelMgr.LoadFromDB(s.db) // 启动所有已配置平台的 poller
+
+	// Cron runner 使用可取消 context，Shutdown 时能优雅停止
+	cronCtx, cronCancel := context.WithCancel(context.Background())
+	s.cronCancel = cronCancel
+	s.startCronRunner(cronCtx)
+
 	go s.bootMarketplaceInit(context.Background())
 
 	// gateway.startup hook：服务完全启动后触发，fire-and-forget
@@ -559,6 +567,10 @@ func (s *Server) Start() error {
 
 // Shutdown 优雅关闭服务器。
 func (s *Server) Shutdown(ctx context.Context) error {
+	// 停止 Cron runner（释放已排队任务 goroutine，拒绝新触发）
+	if s.cronCancel != nil {
+		s.cronCancel()
+	}
 	s.channelMgr.StopAll()
 	return s.srv.Shutdown(ctx)
 }
@@ -792,9 +804,12 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// KillFullStop = 3；PolarisKillswitchStage 由 main.go KillSwitch 回调写入
+	sealed := observability.GlobalKillswitchStage.Load() >= 3
+
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
-		"sealed":          false,
+		"sealed":          sealed,
 		"model_id":        modelID,
 		"token_used":      0,
 		"token_limit":     0,

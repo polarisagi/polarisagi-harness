@@ -5,14 +5,14 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/polarisagi/polarisagi-harness/pkg/substrate/observability"
 )
 
-// 全局记录当前的 KillSwitch Stage，以满足 [HE-Rule-6] State-in-DB 强制持久化要求
-var PolarisKillswitchStage atomic.Int32
+// PolarisKillswitchStage 保留向后兼容的包级别引用，指向 observability 的全局原子量。
+// 新代码使用 observability.GlobalKillswitchStage 直接读写。
+var PolarisKillswitchStage = &observability.GlobalKillswitchStage
 
 // KillSwitch — 三阶段紧急停止协议。
 // 架构文档: docs/arch/M11-Policy-Safety.md §4
@@ -66,11 +66,20 @@ func (ks *KillSwitch) GetState() KillState {
 	return ks.state
 }
 
-func NewKillSwitch() *KillSwitch {
+func NewKillSwitch(dataDir string) *KillSwitch {
 	return &KillSwitch{
 		state:          KillNormal,
 		stateEnteredAt: time.Now(),
+		dataDir:        dataDir,
 	}
+}
+
+// IsFullStopFilePresent 检查 dataDir/.fullstop 文件是否存在。
+// 供 main.go 在启动时调用：若文件存在，拒绝启动（封印态持久化）。
+func IsFullStopFilePresent(dataDir string) bool {
+	path := filepath.Join(dataDir, ".fullstop")
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 // CheckAndAct 按优先级检查触发条件并执行状态转移。

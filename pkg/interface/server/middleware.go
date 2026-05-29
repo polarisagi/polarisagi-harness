@@ -211,7 +211,7 @@ func (s *Server) withMiddleware(next http.Handler) http.Handler {
 
 		// 速率限制隔离
 		if !limiter.Allow(clientIP) {
-			w.Header().Set("Retry-After", "5")
+			w.Header().Set("Retry-After", "30")
 			http.Error(w, "429 Too Many Requests", http.StatusTooManyRequests)
 			return
 		}

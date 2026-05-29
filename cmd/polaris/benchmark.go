@@ -185,7 +185,8 @@ func runBenchmarkRouting(args []string) error { //nolint:gocyclo
 		return nil
 	}
 
-	dbPath := filepath.Join(resolveDataDirBase(nil), "polaris.db")
+	dataDir, _ := resolveDataDirBase(nil)
+	dbPath := filepath.Join(dataDir, "polaris.db")
 	store, err := storage.OpenSQLite(dbPath, schema.FS)
 	if err != nil {
 		fmt.Printf("polaris benchmark: skip persistence (db open: %v)\n", err)

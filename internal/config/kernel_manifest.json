@@ -60,7 +60,7 @@
   "pkg/substrate/observability/memory_probe.go": "2e6960364793095fab6768f1a04948b60c1bde0e522290486deecaeb913fdc43",
   "pkg/substrate/observability/memory_probe_darwin.go": "3cf1a6b84bd9ac436ce86afbd943e3a71224e013bc1e83f5549ff18665e8b0c8",
   "pkg/substrate/observability/memory_probe_linux.go": "6c9ef3052ca004ddffb4df28846e62ff7b3ab3dd0ca1599647f312123f3b472e",
-  "pkg/substrate/observability/metrics.go": "57a0dc4adbf8f72eae587f23752d3b58618c9173e1bef4325a50e4208fca2299",
+  "pkg/substrate/observability/metrics.go": "637f8130f9f7cb2ac9d885e6ba8695bf1bf73fec122b2b19e4bf2f9f0ccf8a32",
   "pkg/substrate/observability/performance_drift.go": "f6cae6b025954d28d00f4bb2aa5fadefbbc4b34d3063ec2170e164050d88f8b5",
   "pkg/substrate/observability/tier_parameters.go": "713b72001e89e4e93ac49c89548a5f2c5338fdadd5a26569aa538c043fdadb51",
   "pkg/substrate/observability/tracer.go": "07b1f03850b22e8f6910a05f1a97f0243b502ab9a2b2e0d3e976817a664617e6",

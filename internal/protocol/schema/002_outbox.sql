@@ -48,7 +48,9 @@ CREATE TABLE IF NOT EXISTS outbox (
     --   全局定义见 00-Global-Dictionary.md [Idempotency-Key]。
 
     status          TEXT NOT NULL DEFAULT 'pending',
-    -- ↑ 生命周期: 'pending'(等待处理) → 'processing'(处理中) → 'done'(完成) | 'dead'(毒丸)。
+    -- ↑ 生命周期: 'pending'(等待处理) → 'processing'(处理中) → 'done'(完成)
+    --            | 'failed'(待重试，配合 next_retry_at 指数退避)
+    --            | 'dead'(毒丸，attempts >= max 或 crash_recovery_count >= 3)。
     --   Worker 启动时将所有 'processing' 重置为 'pending'（崩溃恢复）。
 
     attempts        INTEGER NOT NULL DEFAULT 0,

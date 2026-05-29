@@ -81,6 +81,11 @@ CREATE TABLE IF NOT EXISTS semantic_relations (
     -- ↑ 同一对实体间同一关系类型唯一 —— 重复提取时 UPDATE weight/updated_at。
 );
 
+-- 出边索引（source → target，BFS 正向遍历）
+CREATE INDEX IF NOT EXISTS idx_semantic_rel_source ON semantic_relations(source_id);
+-- 入边反向索引（target → source，BFS 反向遍历 + 双向路径检索）
+CREATE INDEX IF NOT EXISTS idx_semantic_rel_target ON semantic_relations(target_id);
+
 -- ----------------------------------------------------------------------------
 -- semantic_connectivity_cache: Effective Connectivity 派生缓存
 -- ----------------------------------------------------------------------------
