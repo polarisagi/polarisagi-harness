@@ -46,7 +46,7 @@ type PluginJSON struct {
 	Name        string `json:"name"`
 	Version     string `json:"version"`
 	Description string `json:"description"`
-	MCPServers  string `json:"mcp_servers,omitempty"`
+	MCPServers  string `json:"mcpServers,omitempty"`
 }
 
 // MCPServerDef 定义单个 MCP Server 配置。
@@ -75,7 +75,7 @@ type PluginBundleManifest struct {
 	Version     string                  `json:"version"`
 	Description string                  `json:"description"`
 	Entrypoint  string                  `json:"entrypoint,omitempty"`
-	MCPFile     string                  `json:"mcp_servers,omitempty"` // 指向 .mcp.json 的相对路径
+	MCPFile     string                  `json:"mcpServers,omitempty"` // 指向 .mcp.json 的相对路径
 	MCPInline   map[string]MCPServerDef `json:"mcp_inline,omitempty"`  // 内联 MCP 服务器映射
 	Skills      []BundleSkillRef        `json:"skills,omitempty"`
 	Hooks       map[string]string       `json:"hooks,omitempty"` // 事件 → 脚本路径
