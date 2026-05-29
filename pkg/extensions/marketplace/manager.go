@@ -99,23 +99,6 @@ func (m *Manager) InstallExtension(ctx context.Context, req InstallRequest) erro
 	}
 
 	if result.Allowed {
-		// 写入 extension_instances：必须提供所有 NOT NULL 字段，否则 SQLite 报约束错误
-		_, err = m.db.ExecContext(ctx,
-			`INSERT OR IGNORE INTO extension_instances
-			 (id, ext_type, origin, catalog_id, name, publisher, trust_tier, status)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-			req.ExtensionID,
-			req.ExtType,
-			"marketplace",
-			req.ExtensionID, // catalog_id 与 id 相同（市场安装）
-			req.ExtensionID, // name 临时使用 id，安装完成后由调用方 UPDATE
-			req.Publisher,
-			req.TrustTier,
-			"installing",
-		)
-		if err != nil {
-			return perrors.Wrap(perrors.CodeInternal, "install: db insert failed", err)
-		}
 		return nil
 	}
 
