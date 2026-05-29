@@ -124,17 +124,19 @@ func parsePluginEntry(path string, mpDir string, mp protocol.Marketplace) (*prot
 		return nil, err
 	}
 
-	var pJSON struct {
-		Name        string   `json:"name"`
-		Description string   `json:"description"`
-		Keywords    []string `json:"keywords"`
-	}
+	var pJSON protocol.PluginJSON
 	var name, desc string
 	var tags []string
+	var displayName, shortDesc, icon string
 	if err := json.Unmarshal(contentBytes, &pJSON); err == nil {
 		name = pJSON.Name
 		desc = pJSON.Description
 		tags = pJSON.Keywords
+		if pJSON.Interface != nil {
+			displayName = pJSON.Interface.DisplayName
+			shortDesc = pJSON.Interface.ShortDescription
+			icon = pJSON.Interface.IconSmall
+		}
 	}
 
 	if name == "" {
@@ -151,15 +153,19 @@ func parsePluginEntry(path string, mpDir string, mp protocol.Marketplace) (*prot
 	}
 
 	return &protocol.RegistryEntry{
-		ID:          mp.ID + "/" + relPath,
-		Publisher:   mp.Publisher,
-		Type:        "plugin",
-		TrustTier:   mp.TrustTier,
-		Name:        name,
-		Description: desc,
-		URL:         url,
-		Tags:        tags,
-		Timeout:     60,
+		ID:               mp.ID + "/" + relPath,
+		Publisher:        mp.Publisher,
+		Type:             "plugin",
+		TrustTier:        mp.TrustTier,
+		Name:             name,
+		Description:      desc,
+		URL:              url,
+		Tags:             tags,
+		Homepage:         pJSON.Homepage,
+		DisplayName:      displayName,
+		ShortDescription: shortDesc,
+		Icon:             icon,
+		Timeout:          60,
 	}, nil
 }
 

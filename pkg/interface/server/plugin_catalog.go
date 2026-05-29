@@ -542,12 +542,30 @@ func (s *Server) downloadAndInstallExtension(ctx context.Context, extID, catalog
 			}
 		}
 
-		// 安装 Bundle 内声明的 Skill
+		// 安装 Bundle 内声明的 Skill（数组形式，Polaris 扩展）
 		// 安全：同上，逐条校验 skillRef.Path 不得穿越出 destDir
 		declaredSkillPaths := make(map[string]bool, len(bundle.Skills))
 		for _, skillRef := range bundle.Skills {
 			declaredSkillPaths[skillRef.Path] = true
 			s.installBundleSkill(ctx, extID, destDir, skillRef.Path, skillRef.Name, entry.TrustTier, now)
+		}
+
+		// 安装 SkillsDir（字符串路径形式，Codex 标准："skills": "./skills/"）
+		// 安全：确认 SkillsDir 不得穿越出 destDir
+		if bundle.SkillsDir != "" {
+			if safeSkillsDir, ok := safeJoin(destDir, bundle.SkillsDir); ok {
+				_ = filepath.Walk(safeSkillsDir, func(path string, info os.FileInfo, err error) error {
+					if err != nil || info.IsDir() || info.Name() != "SKILL.md" {
+						return nil //nolint:nilerr
+					}
+					rel, _ := filepath.Rel(destDir, path)
+					if !declaredSkillPaths[rel] {
+						declaredSkillPaths[rel] = true
+						s.installBundleSkill(ctx, extID, destDir, rel, "", entry.TrustTier, now)
+					}
+					return nil
+				})
+			}
 		}
 
 		// 自动发现 bundle 内未显式声明的 SKILL.md（处理 .claude-plugin 等第三方格式）

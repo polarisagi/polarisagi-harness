@@ -3,7 +3,8 @@ package marketplace
 // adapter.go — 多厂商插件清单解析适配器（M13-bis §2.1）
 //
 // 支持格式：
-//   - OpenAI   ai-plugin.json
+//   - OpenAI   ai-plugin.json（ChatGPT Plugins 旧格式，兼容保留）
+//   - OpenAI   .app.json（Codex connector/app 格式）
 //   - Anthropic .claude-plugin/plugin.toml 或 plugin.toml
 //   - Anthropic .claude-plugin/plugin.json（Claude 原生 Bundle）
 //   - Google    skills.yaml / agent-manifest.yaml
@@ -54,6 +55,9 @@ func ParseManifestDir(dir, mpRoot string, mp protocol.Marketplace) ([]protocol.R
 		entries = append(entries, es...)
 	}
 	if es := parseGoogleYAML(dir, baseID, mp, "agent-manifest.yaml"); len(es) > 0 {
+		entries = append(entries, es...)
+	}
+	if es := parseAppJSON(dir, baseID, mp); len(es) > 0 {
 		entries = append(entries, es...)
 	}
 
@@ -167,15 +171,55 @@ func parseClaudePluginJSON(dir, baseID string, mp protocol.Marketplace) (protoco
 	if p.Name == "" {
 		return protocol.RegistryEntry{}, false
 	}
-	return protocol.RegistryEntry{
+	e := protocol.RegistryEntry{
 		ID:          baseID,
 		Publisher:   mp.Publisher,
 		Type:        "plugin",
 		TrustTier:   mp.TrustTier,
 		Name:        p.Name,
 		Description: p.Description,
+		Homepage:    p.Homepage,
 		Timeout:     60,
-	}, true
+	}
+	if p.Interface != nil {
+		e.DisplayName = p.Interface.DisplayName
+		e.ShortDescription = p.Interface.ShortDescription
+		e.Icon = p.Interface.IconSmall
+	}
+	return e, true
+}
+
+// ─── OpenAI Codex .app.json ──────────────────────────────────────────────────
+
+// parseAppJSON 解析 Codex .app.json connector/app 映射格式。
+// 每个 AppDef 生成一条 type="app" 的 RegistryEntry。
+func parseAppJSON(dir, baseID string, mp protocol.Marketplace) []protocol.RegistryEntry {
+	data, err := os.ReadFile(filepath.Join(dir, ".app.json"))
+	if err != nil {
+		return nil
+	}
+	var cfg protocol.AppJSON
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return nil
+	}
+	entries := make([]protocol.RegistryEntry, 0, len(cfg.Apps))
+	for i, app := range cfg.Apps {
+		if app.Name == "" {
+			continue
+		}
+		entries = append(entries, protocol.RegistryEntry{
+			ID:          baseID + "/app_" + strconv.Itoa(i),
+			Publisher:   mp.Publisher,
+			Type:        "app",
+			TrustTier:   mp.TrustTier,
+			Name:        app.Name,
+			Description: app.Description,
+			URL:         app.URL,
+			Command:     app.Command,
+			Timeout:     60,
+		})
+	}
+	return entries
 }
 
 // ─── Google Agent Skills YAML ────────────────────────────────────────────────
