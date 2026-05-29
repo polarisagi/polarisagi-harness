@@ -126,7 +126,6 @@ func runCommand(ctx context.Context, cfg HandlerConfig, input HookInput) HookRes
 	}
 }
 
-
 // compileMatchers 编译 MatcherGroup 列表的正则。
 func compileMatchers(groups []MatcherGroup) []MatcherGroup {
 	out := make([]MatcherGroup, len(groups))
