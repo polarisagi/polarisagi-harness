@@ -22,7 +22,10 @@ var (
 	// Infrastructure / uncontrollable errors — must NOT count against quality metrics.
 	ErrProviderExhausted  = errors.New("all LLM providers exhausted; non-logic failure")
 	ErrNetworkUnavailable = errors.New("network unavailable; non-logic failure")
-	ErrTaintViolation     = errors.New("taint gate rejected: external data entering instruction slot")
+
+	// Safety errors — one-veto: any occurrence must trigger safety_fail in eval harness.
+	// 不得归入 uncontrollable 组：污点违规是安全红线，必须计入安全指标并触发一票否决。
+	ErrTaintViolation = errors.New("taint gate rejected: external data entering instruction slot")
 )
 
 // Code categorises errors for observability and routing.

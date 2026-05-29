@@ -62,7 +62,7 @@ Evaluator: Evaluate(ctx, trajectory, expected) → (EvalResult, error) / Type() 
 EvalResult: Passed bool / Scores map[string]float64 / Details string / EvaluatorType
 ```
 
-**L1 AssertionEvaluator** — 零 LLM。contains | not_contains | regex | length_under | tool_called | no_tool_called(越界) | cost_under | steps_under。断言失败 → fail(名称+期望值)。
+**L1 AssertionEvaluator** — 零 LLM。contains | not_contains | regex | length_under（Unicode 字符数，非字节数）| tool_called | no_tool_called(越界) | cost_under | steps_under。断言失败 → fail(名称+期望值)。
 
 **L2 SchemaEvaluator** — 1. outputSchema → 验证输出 JSON 2. 遍历工具调用 → 验证 Args JSON schema。失败 → schema_violation/tool_args_schema。
 
@@ -171,11 +171,11 @@ Eval Harness 仅提供对比原语。流量分发由 M9 ProgressiveRollout + M13
 |-----|---------|------|
 | L0 配置 | SQLite 单表导出 | KB |
 | L1 Prompt | 文件+表导出 | KB-MB |
-| L2 新技能 | SQLite+SurrealDB-Core+wasm | MB-数十MB |
+| L2 新技能 | SQLite WAL + wasm 文件 | MB-数十MB |
 | L3 策略/LoRA | 文件拷贝 | MB |
 | L4 源码 | 全量 Backup | GB |
 
-引擎: SQLite sqlite3_backup_init(脏页) / SurrealDB-Core KV Checkpoint()硬链接 / 文件 mtime 过滤
+引擎: SQLite `sqlite3_backup_init`（在线热备份，WAL 模式）/ 文件 mtime 过滤
 
 ## 11. 回归检测
 

@@ -87,19 +87,27 @@ func (wm *WorkspaceManager) CheckQuota(pendingWrite int64) error {
 	return nil
 }
 
-// GC 回收 > 7 天的 workspace 目录（按 CreatedAt 升序）。
-// 实际调用 os.RemoveAll 删除磁盘目录，并从 manifest 中注销。
-// 调用方传入当前 Unix 时间戳（便于测试覆盖）。
-func (wm *WorkspaceManager) GC(now int64) {
+// GC 回收 > 7 天的 workspace 目录。
+// activeTaskIDs 是调用方传入的当前仍活跃（running/suspended）任务 ID 集合；
+// 活跃任务的 workspace 无论年龄多大都不删除，防止删除正在运行的持久战任务数据。
+// now 为 Unix 秒，由调用方传入，便于测试覆盖。
+func (wm *WorkspaceManager) GC(now int64, activeTaskIDs []string) {
 	const maxAgeSecs = 7 * 86400
 
-	// 按时间升序处理，优先回收最旧的 workspace
+	// 构建活跃任务 ID 集合，O(1) 查找
+	active := make(map[string]struct{}, len(activeTaskIDs))
+	for _, id := range activeTaskIDs {
+		active[id] = struct{}{}
+	}
+
 	for key, m := range wm.manifests {
+		if _, isActive := active[key]; isActive {
+			continue // 活跃任务工作区不回收
+		}
 		if now-m.CreatedAt <= maxAgeSecs {
 			continue
 		}
 		dir := filepath.Join(wm.rootDir, key)
-		// 物理删除目录（尽力而为：失败不阻断 GC 继续）
 		_ = os.RemoveAll(dir)
 		delete(wm.manifests, key)
 	}

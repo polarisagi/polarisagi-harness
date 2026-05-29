@@ -42,5 +42,32 @@ func determineComplexity(req *protocol.InferRequest) int {
 	return 1
 }
 
-func estimateOutputTokens(req *protocol.InferRequest) int  { return 1024 }
-func matchProviderTier(p protocol.Provider, tier int) bool { return false }
+// estimateOutputTokens 基于消息长度估算输出 tokens（近似：输入长度的 1/3，最小 512）。
+func estimateOutputTokens(req *protocol.InferRequest) int {
+	inputLen := 0
+	for _, m := range req.Messages {
+		inputLen += len(m.Content)
+	}
+	// 简单比例估算：每 4 字节约 1 token，输出 ≈ 输入 token 的 1/3
+	estimated := inputLen / 12
+	if estimated < 512 {
+		return 512
+	}
+	return estimated
+}
+
+// matchProviderTier 按复杂度层级选择 Provider：
+// tier 3 → 要求支持工具调用且上下文 ≥ 32K；
+// tier 2 → 要求支持工具调用；
+// tier 1 → 无特殊要求，首个可用 Provider。
+func matchProviderTier(p protocol.Provider, tier int) bool {
+	caps := p.Capabilities()
+	switch tier {
+	case 3:
+		return caps.SupportsTools && caps.MaxContextTokens >= 32000
+	case 2:
+		return caps.SupportsTools
+	default:
+		return true
+	}
+}

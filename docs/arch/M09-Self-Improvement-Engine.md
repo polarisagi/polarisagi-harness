@@ -176,7 +176,7 @@ SKILL.md → 收集轨迹 → LLM 编译 Wasm → System1 执行
 **Auto-Curriculum Generator** 类型和生成流程见 `pkg/swarm/curriculum.go`。
 
 生成流程:
-1. IdleDetector.Poll(60s) → 非空闲跳过
+1. IdleDetector.IsIdle() → 非空闲跳过（OS 可用内存 < 512MB 或 Goroutine 数 ≥ 200 视为繁忙）
 2. SkillGapAnalysis: >90% 成功率 → 更难变体; 50-90% → 相似难度不同场景; <30% → 跳过
 3. **MaxCurriculumDifficulty 硬上限**: SurpriseIndex ≤ 0.85（超过不生成），防持续生成不可完成任务
 4. 同一 SourceSkill 连续 3 次生成的课程任务全部失败 → 临时冻结该技能的课程生成 60 分钟

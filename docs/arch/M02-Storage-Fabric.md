@@ -287,15 +287,13 @@ BEFORE DELETE trigger 自动递减引用计数，引用归零入队 GC。4KB 硬
 
 ---
 
-## 5. SchemaManager — 版本迁移
+## 5. Schema 迁移策略
 
-实现见 `pkg/substrate/schema_manager.go`（`NewSchemaManager(db, migrations)`）。
+**当前阶段（上线前）**：Schema 变更直接修改 `internal/protocol/schema/NNN_*.sql` 原始 DDL 文件，删库重建（`rm ~/.polarisagi-harness/polaris.db`）。禁止以 ALTER TABLE/ADD COLUMN 补丁文件打补丁。
 
-按版本升序执行未应用迁移，每次迁移前后通过 `BeginMigration`/`CompleteMigration` 在 `sys_config` 表写入状态标记（idle / in_progress / completed）。
+**上线后**：新增编号迁移文件（ALTER TABLE / 数据迁移），实现由 `pkg/substrate/schema_manager.go` 的 `SchemaManager` 负责：按版本升序执行，每次迁移前后通过 `BeginMigration`/`CompleteMigration` 向 `sys_config` 写入状态标记（idle / in_progress / completed）。崩溃恢复：`Recover()` 启动时检查 `migration_status`，检测到 `in_progress` 则拒绝启动，要求操作员重置后重启。
 
-**崩溃恢复**：`Recover()` 在启动时检查 `sys_config.migration_status`；检测到 `in_progress`（迁移途中进程崩溃）时返回错误阻止启动，要求操作员检查并将状态重置为 idle 后再重启。首次启动或无记录时视为正常。迁移前自动 VACUUM INTO 回滚点保留 7 天。
-
-**兼容策略**：新字段一律 NULLABLE 或有 DEFAULT（前向兼容）；降级不执行 Down，旧代码忽略新列（后向兼容）。开发环境支持 `polaris db migrate --down <version>`。
+**兼容策略**：新字段一律 NULLABLE 或有 DEFAULT；降级不执行 Down，旧代码忽略新列。
 
 冷存储 EventLog 重放: >30 天记录归档 Parquet。重放优先 M4 FSM Snapshot → Snapshot 不可用则 DuckDB 从 Parquet 回读。
 
@@ -303,33 +301,12 @@ BEFORE DELETE trigger 自动递减引用计数，引用归零入队 GC。4KB 硬
 
 ## 6. OnlineReindexer — 零停机向量索引重建
 
-对抗 embedding 空间漂移 (3-6 月周期)。SurrealDB-Core 原生支持索引版本化，无需 SQLite 影子表技巧。
+对抗 embedding 空间漂移（3-6 月周期）。基于 SQLite 影子表实现双版本并行，通过原子指针切换完成无停机迁移。
 
-```
-步骤0 崩溃恢复 (启动时):
-  扫描 reindex_progress 元数据:
-    backfilling → 清除进度，回收残留索引版本
-    swapping → 检查新旧索引版本，未完成则完成 swap
-
-步骤1 新版本索引构建:
-  SurrealDB-Core.create_index(name="{index_name}_v{N+1}", dim=Embedder.Dimension())
-
-步骤2 后台回填:
-  WebDataset 批量写入新索引，throttle <=100 rows/s
-  SurrealDB-Core 原生支持并发读（旧索引）写（新索引）
-
-步骤3 增量追赶:
-  写入新索引期间，新到达数据通过 M2 Outbox 双写（旧索引 + 新索引）
-  Outbox idempotency_key 保证幂等
-
-步骤4 原子切换:
-  SurrealDB-Core 索引版本指针原子更新 → 查询自动路由至新索引 (<1ms)
-  旧索引保留 7 天供回退
-
-步骤5 降级:
-  新索引 Recall@5 ≤ 旧索引 90% → ABORT + 保留旧索引 + WARN
-  构建失败 (磁盘满/内存不足) → 保留旧索引, 下次重试
-```
+- **回填**：新版本索引在后台构建，throttle ≤100 rows/s，同时 Outbox 双写保证增量数据一致
+- **切换**：新旧索引版本指针原子更新，旧索引保留 7 天供回退
+- **降级**：新索引 Recall@5 ≤ 旧索引 90% → ABORT，保留旧索引，写 WARN 日志
+- **崩溃恢复**：启动时扫描 `reindex_progress` 元数据，按状态（backfilling/swapping）恢复或回滚
 
 监控: polaris_reindex_progress (0.0-1.0 gauge) | polaris_reindex_rows_per_second (gauge) | polaris_surreal_index_versions (gauge, 活跃索引版本数)
 

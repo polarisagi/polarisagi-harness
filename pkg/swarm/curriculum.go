@@ -3,11 +3,13 @@ package swarm
 import (
 	"context"
 	"fmt"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/polarisagi/polarisagi-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/pkg/substrate/observability"
 	"github.com/polarisagi/polarisagi-harness/pkg/substrate/policy"
 )
 
@@ -65,27 +67,31 @@ func (ag *AutoCurriculumGenerator) InjectLLMProvider(p protocol.Provider) {
 	ag.llmProvider = p
 }
 
-// IdleDetector 空闲检测器（CPU<5%持续>30s + 无任务 + AC电源）。
+// IdleDetector 空闲检测器（可用内存 > 阈值 + Goroutine 数量适中）。
 type IdleDetector struct {
-	cpuThreshold  float64 // 0.05
-	idleDuration  int64   // 30s
-	checkInterval int64   // 60s
+	// minFreeMB 可用内存低水位线：低于此值视为非空闲，拒绝启动课程生成。
+	// Tier-0 floor = 512MB（硬件门控，8GB 机器的安全边际）。
+	minFreeMB uint64
+	// maxGoroutines Goroutine 数量硬上限；超过则认为系统繁忙。
+	maxGoroutines int
 }
 
 // NewIdleDetector 创建空闲检测器。
 func NewIdleDetector() *IdleDetector {
 	return &IdleDetector{
-		cpuThreshold:  0.05,
-		idleDuration:  30,
-		checkInterval: 60,
+		minFreeMB:     512,
+		maxGoroutines: 200,
 	}
 }
 
-// IsIdle 判断系统是否空闲。
-// MVP：轮询间隔近似，真实实现通过 runtime.ReadMemStats + sys 采样。
+// IsIdle 判断系统是否满足课程生成的空闲条件：
+//  1. OS 可用内存 > minFreeMB（调用 observability.ProbeAvailableMemoryMB）
+//  2. Goroutine 数量 < maxGoroutines（近似 CPU 压力）
 func (d *IdleDetector) IsIdle() bool {
-	// Tier 0 MVP：始终允许课程生成（真实系统应读取 /proc/stat 或 runtime 指标）
-	return true
+	if observability.ProbeAvailableMemoryMB() < d.minFreeMB {
+		return false
+	}
+	return runtime.NumGoroutine() < d.maxGoroutines
 }
 
 // CurriculumSample 课程任务样本。

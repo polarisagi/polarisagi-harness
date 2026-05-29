@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 	"github.com/polarisagi/polarisagi-harness/internal/protocol"
@@ -59,7 +60,7 @@ func (e *L1AssertionEvaluator) check(a Assertion, t *AgentTrajectory) bool { //n
 	case "length_under":
 		var maxLen int
 		fmt.Sscanf(a.Value, "%d", &maxLen) //nolint:errcheck
-		return len(fullOutput) <= maxLen
+		return utf8.RuneCountInString(fullOutput) <= maxLen
 	case "tool_called":
 		return slices.Contains(toolCalls, a.Value)
 	case "no_tool_called":
