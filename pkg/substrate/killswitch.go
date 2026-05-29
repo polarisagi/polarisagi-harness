@@ -96,32 +96,10 @@ func (ks *KillSwitch) CheckAndAct() KillState {
 	return ks.state
 }
 
-// executeFullStop 实装 FullStop 三步骤。
-// 1. 写入 ~/.polarisagi-harness/.fullstop（防守护进程重启循环）
-// 2. 向所有 Notifier 发出 CRITICAL 告警
-// 3. 状态机切换到 KillFullStop
-func (ks *KillSwitch) executeFullStop() error {
-	ks.state = KillFullStop
-	ks.stateEnteredAt = time.Now()
-
-	// 1. 写入 .fullstop 密封文件，防止守护进程在 FullStop 后自动重启
-	dataDir := ks.dataDir
-	if dataDir == "" {
-		if home, err := os.UserHomeDir(); err == nil {
-			dataDir = filepath.Join(home, ".polarisagi-harness")
-		}
-	}
-	if dataDir != "" {
-		_ = os.MkdirAll(dataDir, 0o700)
-		content := fmt.Sprintf("{\"timestamp\":%d,\"reason\":%q,\"actor\":%q}\n",
-			time.Now().Unix(), ks.reason, ks.actor)
-		_ = os.WriteFile(filepath.Join(dataDir, ".fullstop"), []byte(content), 0o600)
-	}
-
-	// 2. 通知所有渠道
-	for _, n := range ks.notifiers {
-		_ = n.Send("CRITICAL", "KillSwitch FULLSTOP", ks.reason)
-	}
+// triggerFullStop 触发 FullStop，调用 transition
+func (ks *KillSwitch) triggerFullStop(actor, reason string) error {
+	ks.actor = actor
+	ks.transition(KillFullStop, reason)
 	return nil
 }
 
@@ -159,11 +137,35 @@ func (ks *KillSwitch) transition(s KillState, reason string) {
 	ks.state = s
 	ks.reason = reason
 	ks.stateEnteredAt = time.Now()
+
+	if s == KillFullStop {
+		ks.writeFullStopFile(reason)
+	}
+
 	if ks.StateChangeCallback != nil {
 		ks.StateChangeCallback(s, reason)
 	}
 	for _, n := range ks.notifiers {
 		_ = n.Send("CRITICAL", "KillSwitch Transition", reason)
+	}
+}
+
+func (ks *KillSwitch) writeFullStopFile(reason string) {
+	dataDir := ks.dataDir
+	if dataDir == "" {
+		if home, err := os.UserHomeDir(); err == nil {
+			dataDir = filepath.Join(home, ".polarisagi-harness")
+		}
+	}
+	if dataDir != "" {
+		_ = os.MkdirAll(dataDir, 0o700)
+		actor := ks.actor
+		if actor == "" {
+			actor = "system"
+		}
+		content := fmt.Sprintf("{\"timestamp\":%d,\"reason\":%q,\"actor\":%q}\n",
+			time.Now().Unix(), reason, actor)
+		_ = os.WriteFile(filepath.Join(dataDir, ".fullstop"), []byte(content), 0o600)
 	}
 }
 
@@ -219,7 +221,7 @@ func (ks *KillSwitch) OnSIGINT() {
 	if len(ks.sigintTimes) >= 3 {
 		ks.reason = "triple SIGINT within 3s window"
 		ks.actor = "user"
-		_ = ks.executeFullStop()
+		_ = ks.triggerFullStop("user", "triple SIGINT within 3s window")
 	}
 }
 
@@ -242,7 +244,7 @@ func (ks *KillSwitch) CheckKILLSWITCHFile() {
 		// 文件存在 → 触发 FullStop
 		ks.reason = "KILLSWITCH file detected at " + killFile
 		ks.actor = "operator"
-		_ = ks.executeFullStop()
+		_ = ks.triggerFullStop("operator", "KILLSWITCH file detected at "+killFile)
 	}
 }
 

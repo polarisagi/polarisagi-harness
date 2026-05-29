@@ -215,6 +215,9 @@ func (fg *FactualityGuard) numericalCheck(content, contextDoc string) (Factualit
 		for _, kw := range probabilityKeywords {
 			if strings.Contains(context50, kw) {
 				val := parseSimpleInt(num)
+				if val < 0 {
+					return FactualityUncertain, "suspicious negative percentage: " + num + "%"
+				}
 				if val > 100 {
 					return FactualityFail, "invalid " + kw + " value: " + num + "% (exceeds 100%)"
 				}
@@ -236,8 +239,16 @@ func (fg *FactualityGuard) numericalCheck(content, contextDoc string) (Factualit
 	return FactualityPass, ""
 }
 
-// parseSimpleInt 轻量整数解析（无 strconv 依赖）。
+// parseSimpleInt 轻量整数解析（支持负数，无 strconv 依赖）。
 func parseSimpleInt(s string) int {
+	if len(s) == 0 {
+		return 0
+	}
+	sign := 1
+	if s[0] == '-' {
+		sign = -1
+		s = s[1:]
+	}
 	n := 0
 	for _, c := range s {
 		if c < '0' || c > '9' {
@@ -245,7 +256,7 @@ func parseSimpleInt(s string) int {
 		}
 		n = n*10 + int(c-'0')
 	}
-	return n
+	return n * sign
 }
 
 func max(a, b int) int {
@@ -300,22 +311,36 @@ func truncate(s string, maxRunes int) string {
 	return string(runes[:maxRunes]) + "..."
 }
 
-// extractNumbers 从文本中提取连续数字序列（用于引用核验）。
+// extractNumbers 从文本中提取连续数字序列（支持负号前缀，用于引用和数值核验）。
 func extractNumbers(text string) []string {
 	var nums []string
 	var cur strings.Builder
-	for _, c := range text {
-		if c >= '0' && c <= '9' {
-			cur.WriteRune(c)
-		} else {
-			if cur.Len() >= 3 {
-				nums = append(nums, cur.String())
+
+	flush := func() {
+		if cur.Len() > 0 {
+			s := cur.String()
+			// 提取条件：非单独负号，且（长度 >= 3，或有负号且长度 >= 2）
+			if s != "-" && (len(s) >= 3 || (len(s) >= 2 && s[0] == '-')) {
+				nums = append(nums, s)
 			}
 			cur.Reset()
 		}
 	}
-	if cur.Len() >= 3 {
-		nums = append(nums, cur.String())
+
+	for _, c := range text {
+		if c >= '0' && c <= '9' {
+			cur.WriteRune(c)
+			continue
+		}
+		if c == '-' && cur.Len() == 0 {
+			cur.WriteRune(c)
+			continue
+		}
+		flush()
+		if c == '-' {
+			cur.WriteRune(c)
+		}
 	}
+	flush()
 	return nums
 }

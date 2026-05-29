@@ -159,6 +159,16 @@ func (at *AuditTrail) RotateIfNeeded(currentSizeMB int) error {
 	data := serializeRecord(epochEnd)
 	hash := sha256.Sum256(data)
 	epochEnd.RecordHash = hex.EncodeToString(hash[:])
+
+	// 持久化到数据库
+	if at.db != nil {
+		payload := mustJSON(epochEnd)
+		_, _ = at.db.Exec(`
+			INSERT INTO events (id, topic, actor, type, payload, created_at)
+			VALUES (?, ?, ?, ?, ?, ?)
+		`, epochEnd.EventID, "audit.policy", "system", "system", payload, epochEnd.Timestamp)
+	}
+
 	at.records = append(at.records, epochEnd)
 	at.lastHash = epochEnd.RecordHash
 
@@ -184,6 +194,16 @@ func (at *AuditTrail) RotateIfNeeded(currentSizeMB int) error {
 	startData := serializeRecord(epochStart)
 	startHash := sha256.Sum256(startData)
 	epochStart.RecordHash = hex.EncodeToString(startHash[:])
+
+	// 持久化到数据库
+	if at.db != nil {
+		payload := mustJSON(epochStart)
+		_, _ = at.db.Exec(`
+			INSERT INTO events (id, topic, actor, type, payload, created_at)
+			VALUES (?, ?, ?, ?, ?, ?)
+		`, epochStart.EventID, "audit.policy", "system", "system", payload, epochStart.Timestamp)
+	}
+
 	at.records = []*AuditRecord{epochStart}
 	at.lastHash = epochStart.RecordHash
 

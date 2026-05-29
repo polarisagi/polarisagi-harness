@@ -144,13 +144,24 @@ func (sd *SafeDialer) DialContext(ctx context.Context, network, address string) 
 		return nil, &ErrDNSResponseTooLarge{Host: host, Count: len(ips2)}
 	}
 
-	// Phase 4: 锁定验证后的 IP 建立连接
-	target := net.JoinHostPort(ips2[0].String(), port)
+	// Phase 4: 依次尝试 ips2 中的 IP，实现类似标准库的 Happy Eyeballs 故障回退
 	dialer := &net.Dialer{
 		Timeout: 10 * time.Second,
 		Control: sd.dialerControl, // 注入 Control 回调（local_only 时拒绝非 loopback）
 	}
-	return dialer.DialContext(ctx, network, target)
+	var lastErr error
+	for _, ip := range ips2 {
+		target := net.JoinHostPort(ip.String(), port)
+		conn, err := dialer.DialContext(ctx, network, target)
+		if err == nil {
+			return conn, nil
+		}
+		lastErr = err
+	}
+	if lastErr != nil {
+		return nil, perrors.Wrap(perrors.CodeInternal, "safe_dialer: all ips failed", lastErr)
+	}
+	return nil, perrors.New(perrors.CodeInternal, "safe_dialer: no ips to dial")
 }
 
 // dialerControl 在底层 socket 创建时调用。

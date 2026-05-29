@@ -95,11 +95,10 @@ TaintLevel/TaintedString/SafeString/TaintSource/PropagateTaint 类型定义见 `
   SafeString:    content(string, 未导出), 仅 Sanitize() 可构造
   PromptBuilder.WriteInstruction 仅接受 SafeString
 
-第二重: CI 静态分析 (go-vet taint_enforcement analyzer)
-  SafeString 复合字面量在 taint 包外构造 → ERROR
-  TaintedString.content 包外访问 → ERROR
-  string 直传 WriteInstruction(非 SafeString) → ERROR
-  CI: go vet -vettool=taint_enforcement ./...
+**第二重: CI 静态分析 (go-vet taint_enforcement analyzer)**
+- `SafeString` 复合字面量在 taint 包外构造 → ERROR
+- `TaintedString.content` 包外访问 → ERROR
+- `string` 直传 `WriteInstruction` (非 `SafeString`) → ERROR
 
 第三重: 持久化边界密码学来源验证 (防 reflect 逃逸)
   sql.Scanner + driver.Valuer: 写入 "value:HMAC-SHA256(value, persistent_key)"; 读出验证
@@ -116,11 +115,9 @@ TaintLevel/TaintedString/SafeString/TaintSource/PropagateTaint 类型定义见 `
   CI go-vet: 扫描裸 json.Unmarshal(data, &SafeString{}) / sql.Scan(&SafeString{}) → ERROR
   启动顺序: CredentialVault.Init() → StorageFabric.Open(), 超时 30s → 进程退出
 
-第四重: 泛型反序列化防污点剥离
-  禁止: json.Unmarshal → map[string]interface{} / interface{} / any / []interface{}
-  外部 JSON 须 TaintedJSONNode 递归树类型 (每节点含 value + taint_level + hmac) 或显式 TaintedString struct
-  CI go-vet: 扫描目标类型为上述泛型的 json.Unmarshal → ERROR (_test.go 对非 const 字面量 WARN)
-```
+**第四重: 泛型反序列化防污点剥离**
+- 禁止 `json.Unmarshal` 到弱类型集合（如 `map[string]interface{}` / `any`）。
+- 外部 JSON 须反序列化为显式声明的带污点结构体。
 
 ### 2.2 辅助防线 (OWASP LLM Top 10 2025 防护)
 
@@ -258,14 +255,8 @@ Agent 能力策略 (permit + conditions):
 
 ### 3.2 形式化验证
 
-CedarVerifier 启动时验证 (fail-closed):
-  步骤1: policyStore.LoadAll
-  步骤2: validateSchema — entity type/action/attribute 在 schema 中已定义
-  步骤3: isOverriddenByPermit — 遍历 forbid, 检查条件重叠 (禁止任何 permit 覆盖 forbid)
-  步骤4: verifyBudgetCap — 预算硬上限 for all conditions
-  步骤5: verifyPrivilegeEscalation — trust_level < N 无法执行高权限操作
-  输出: VerificationReport{ParsedPolicies, SchemaValid, ForbidPriority, BudgetCapEnforced, NoPrivilegeEscalation, AllPassed}
-  失败 → 禁止启动
+**CedarVerifier 启动时验证 (fail-closed)**:
+启动期间执行策略检查。任何验证失败（如条件覆盖、预算配置冲突或越权规则）都会拒绝进程启动。
 
 PolicyChaosTest (CI 门控):
   参数: numIterations=1000, 随机 (principal, action, resource, context)
@@ -300,15 +291,8 @@ KillSwitch/KillState 三阶段 FSM 实现见 `pkg/substrate/killswitch.go`。
 | Stage 2 PAUSE | Stage 1 持续 > 10min, 安全违规 | 停止所有新任务, 保留状态, 通知 | 人工审批 |
 | Stage 3 FULLSTOP | Stage 2 未在 15min 内审批, 致命违规, 管理员手动 | 停止所有 goroutine + LLM 调用, 写入 .fullstop | 管理员手动 unseal |
 
-executeFullStop:
-  步骤1: 写入 ~/.polarisagi-harness/.fullstop (timestamp + reason + actor, 0600)
-  步骤2: orchestrator.StopAll → 所有 Executing 任务原子转为 Suspended（非 Failed），保留 ClaimedBy + ClaimedVersion 元数据
-  步骤3: inferenceRuntime.CancelAll → 取消所有 LLM 调用
-  步骤4: auditLog.Record → 不可变 kill event
-  步骤5: 通知所有渠道 AlertCritical
-  步骤6: signal channel 阻塞等待 SIGTERM/SIGINT (保持进程存活供 forensics)
-  约束: 200ms 内停止所有 tool call
-unseal 恢复决策: 操作员选择对每个 Suspended 任务（保持 Suspended / 强制 Failed / 重新 Pending）
+- **触发操作**: 生成 `.fullstop` 封存文件（含时间戳、原因、触发者）、所有 `Executing` 任务流转为 `Suspended` 挂起状态以供取证、立即中止所有 LLM 推理并在不可变日志中产生 `kill_event`。
+- **约束要求**: 系统必须在 200ms 内部署完中止信号，通知所有可用告警渠道。
 
 executePause: 200ms timeout → toolRegistry.StopAllPending
 
