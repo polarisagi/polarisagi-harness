@@ -54,27 +54,38 @@ func NewMCPManager(sandbox *action.InProcessSandbox, httpClient *http.Client, po
 }
 
 // Add 连接一个 MCP Server，发现工具并注册到 sandbox。
+// 连接失败时仍写入 tombstone entry（errMsg 非空），使 ListServers 能向 UI 暴露失败原因。
 func (m *MCPManager) Add(ctx context.Context, serverID, name string, cfg MCPClientConfig) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	if old, ok := m.entries[serverID]; ok {
-		old.client.Close()
+		if old.client != nil {
+			old.client.Close()
+		}
 		m.unregisterTools(serverID, old.tools)
+	}
+
+	storeFailed := func(err error) error {
+		m.entries[serverID] = &mcpEntry{name: name, cfg: cfg, errMsg: err.Error()}
+		return err
 	}
 
 	client := NewMCPClient(cfg, m.httpClient)
 	if err := client.Connect(ctx); err != nil {
-		return perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("mcp_manager: connect %q: %v", serverID, err), err)
+		wrapped := perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("mcp_manager: connect %q", serverID), err)
+		return storeFailed(wrapped)
 	}
 	if err := client.Initialize(ctx); err != nil {
 		client.Close()
-		return perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("mcp_manager: initialize %q: %v", serverID, err), err)
+		wrapped := perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("mcp_manager: initialize %q", serverID), err)
+		return storeFailed(wrapped)
 	}
 	tools, err := client.ListTools(ctx)
 	if err != nil {
 		client.Close()
-		return perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("mcp_manager: list tools %q: %v", serverID, err), err)
+		wrapped := perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("mcp_manager: list tools %q", serverID), err)
+		return storeFailed(wrapped)
 	}
 
 	m.registerTools(serverID, client, tools)
@@ -93,7 +104,9 @@ func (m *MCPManager) Remove(serverID string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if e, ok := m.entries[serverID]; ok {
-		e.client.Close()
+		if e.client != nil {
+			e.client.Close()
+		}
 		m.unregisterTools(serverID, e.tools)
 		delete(m.entries, serverID)
 	}
@@ -203,12 +216,13 @@ func (m *MCPManager) LoadFromDB(ctx context.Context, db *sql.DB, dataDir string)
 			transport = string(MCPStreamableHTTP)
 		}
 		cfg := MCPClientConfig{
-			Transport: MCPTransport(transport),
-			Command:   command,
-			Args:      args,
-			Env:       env,
-			URL:       resolvedURL,
-			Timeout:   time.Duration(timeout) * time.Second,
+			Transport:  MCPTransport(transport),
+			Command:    command,
+			Args:       args,
+			Env:        env,
+			URL:        resolvedURL,
+			Timeout:    time.Duration(timeout) * time.Second,
+			ServerName: name,
 			// trust_tier >= 3 (Official/System) → TaintMedium；其余保持 TaintHigh
 			Trusted: trustTier >= 3,
 		}

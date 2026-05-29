@@ -250,12 +250,13 @@ func (s *Server) startMCPServerCtx(ctx context.Context, c MCPServerConfig) error
 		args[i] = strings.ReplaceAll(a, "{DATA_DIR}", s.dataDir)
 	}
 	cfg := mcp.MCPClientConfig{
-		Transport: mcp.MCPTransport(c.Transport),
-		Command:   c.Command,
-		Args:      args,
-		Env:       c.Env,
-		URL:       strings.ReplaceAll(c.URL, "{DATA_DIR}", s.dataDir),
-		Timeout:   time.Duration(c.Timeout) * time.Second,
+		Transport:  mcp.MCPTransport(c.Transport),
+		Command:    c.Command,
+		Args:       args,
+		Env:        c.Env,
+		URL:        strings.ReplaceAll(c.URL, "{DATA_DIR}", s.dataDir),
+		Timeout:    time.Duration(c.Timeout) * time.Second,
+		ServerName: c.Name,
 	}
 	return s.mcpMgr.Add(ctx, c.ID, c.Name, cfg)
 }

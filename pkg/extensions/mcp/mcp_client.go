@@ -188,7 +188,7 @@ func (c *MCPClient) connectSSE(ctx context.Context) error {
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("mcp: SSE connect: %v", err), err)
+		return perrors.Wrap(perrors.CodeInternal, "mcp: SSE connect", err)
 	}
 	if resp.StatusCode != http.StatusOK {
 		resp.Body.Close()
@@ -442,7 +442,7 @@ func (c *MCPClient) Initialize(ctx context.Context) error {
 		"clientInfo": map[string]any{"name": "polaris", "version": "1.0"},
 	})
 	if err != nil {
-		return perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("mcp: initialize: %v", err), err)
+		return perrors.Wrap(perrors.CodeInternal, "mcp: initialize", err)
 	}
 	// 校验服务器返回的协议版本（规范要求：不支持则应断连）
 	var initResp struct {
@@ -462,7 +462,7 @@ func (c *MCPClient) Initialize(ctx context.Context) error {
 func (c *MCPClient) ListTools(ctx context.Context) ([]MCPTool, error) {
 	result, err := c.call(ctx, "tools/list", nil)
 	if err != nil {
-		return nil, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("mcp: tools/list: %v", err), err)
+		return nil, perrors.Wrap(perrors.CodeInternal, "mcp: tools/list", err)
 	}
 	var resp struct {
 		Tools []MCPTool `json:"tools"`
@@ -480,7 +480,7 @@ func (c *MCPClient) CallTool(ctx context.Context, name string, arguments map[str
 		"arguments": arguments,
 	})
 	if err != nil {
-		return "", perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("mcp: tools/call %q: %v", name, err), err)
+		return "", perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("mcp: tools/call %q", name), err)
 	}
 	var resp struct {
 		Content []struct {
@@ -515,7 +515,7 @@ func (c *MCPClient) CallToolTainted(ctx context.Context, name string, arguments 
 		"arguments": arguments,
 	})
 	if err != nil {
-		return "", protocol.TaintHigh, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("mcp: tools/call %q: %v", name, err), err)
+		return "", protocol.TaintHigh, perrors.Wrap(perrors.CodeInternal, fmt.Sprintf("mcp: tools/call %q", name), err)
 	}
 
 	// 污点保护反序列化：遍历 JSON 树，对所有 string 叶子打标
