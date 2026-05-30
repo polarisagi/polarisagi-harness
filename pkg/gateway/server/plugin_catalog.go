@@ -97,7 +97,26 @@ func (s *Server) appendCachedCatalogs(ctx context.Context, result []protocol.Reg
 	return result
 }
 
+// publisherPriority 将 publisher 映射为目录列表排序权重（值越小越靠前）。
+// 与 configs/marketplaces.yaml 的 sort_order 保持一致。
+func publisherPriority(publisher string) int {
+	switch publisher {
+	case "polarisagi":
+		return 0
+	case "anthropic":
+		return 10
+	case "openai":
+		return 20
+	case "google":
+		return 30
+	default:
+		return 999
+	}
+}
+
 // handleListPluginCatalog 返回扩展目录列表（用户自建 + 市场缓存）。
+// 排序规则：已安装优先 → 市场优先级（polaris<anthropic<openai<google<其他）→ 名字字母序。
+// 已安装的条目只出现一次（installed=true），不在未安装区重复展示。
 // GET /v1/plugins/catalog
 func (s *Server) handleListPluginCatalog(w http.ResponseWriter, r *http.Request) {
 	installed := s.getInstalledCatalogIDs(r.Context())
@@ -105,7 +124,7 @@ func (s *Server) handleListPluginCatalog(w http.ResponseWriter, r *http.Request)
 	result = s.appendCustomCatalogs(r.Context(), result, installed)
 	result = s.appendCachedCatalogs(r.Context(), result, installed)
 
-	// Deduplicate by ID
+	// 去重：同一 ID 只保留第一次出现的条目（已安装版本优先）
 	seen := make(map[string]bool)
 	uniqueResult := make([]protocol.RegistryEntry, 0, len(result))
 	for _, entry := range result {
@@ -117,15 +136,23 @@ func (s *Server) handleListPluginCatalog(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	// Sort: installed first, then alphabetically by Name
+	// 排序键：(installed_rank=0/1, publisher_priority, name_lower)
 	sort.Slice(uniqueResult, func(i, j int) bool {
-		if uniqueResult[i].Installed && !uniqueResult[j].Installed {
-			return true
+		ei, ej := uniqueResult[i], uniqueResult[j]
+
+		// 已安装的排最前
+		if ei.Installed != ej.Installed {
+			return ei.Installed
 		}
-		if !uniqueResult[i].Installed && uniqueResult[j].Installed {
-			return false
+
+		// 同安装状态按市场优先级排
+		pi, pj := publisherPriority(ei.Publisher), publisherPriority(ej.Publisher)
+		if pi != pj {
+			return pi < pj
 		}
-		return strings.Compare(strings.ToLower(uniqueResult[i].Name), strings.ToLower(uniqueResult[j].Name)) < 0
+
+		// 同市场按名字排
+		return strings.ToLower(ei.Name) < strings.ToLower(ej.Name)
 	})
 
 	w.Header().Set("Content-Type", "application/json")
@@ -412,13 +439,14 @@ func (s *Server) handleUninstallPlugin(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleListMarketplaces(w http.ResponseWriter, r *http.Request) {
 	var mps []protocol.Marketplace
 	rows, err := s.db.QueryContext(r.Context(),
-		`SELECT id, name, type, publisher, repo_url, description, is_builtin, trust_tier, enabled, created_at
-		 FROM plugin_marketplaces`)
+		`SELECT id, name, type, publisher, repo_url, description, is_builtin, trust_tier, enabled, sort_order, created_at
+		 FROM plugin_marketplaces
+		 ORDER BY sort_order ASC, created_at ASC`)
 	if err == nil {
 		for rows.Next() {
 			var m protocol.Marketplace
 			if rows.Scan(&m.ID, &m.Name, &m.Type, &m.Publisher, &m.RepoURL,
-				&m.Description, &m.IsBuiltin, &m.TrustTier, &m.Enabled, &m.CreatedAt) == nil {
+				&m.Description, &m.IsBuiltin, &m.TrustTier, &m.Enabled, &m.SortOrder, &m.CreatedAt) == nil {
 				mps = append(mps, m)
 			}
 		}
@@ -444,12 +472,17 @@ func (s *Server) handleAddMarketplace(w http.ResponseWriter, r *http.Request) {
 	req.Enabled = 1
 	req.CreatedAt = now
 
+	// 新增市场排在所有现有市场之后：取当前最大 sort_order + 10，留出调整空间
+	var maxOrder int
+	_ = s.db.QueryRowContext(r.Context(), `SELECT COALESCE(MAX(sort_order), 90) FROM plugin_marketplaces`).Scan(&maxOrder)
+	req.SortOrder = maxOrder + 10
+
 	_, err := s.db.ExecContext(r.Context(),
 		`INSERT INTO plugin_marketplaces
-		 (id, name, type, publisher, repo_url, description, is_builtin, trust_tier, enabled, created_at)
-		 VALUES(?,?,?,?,?,?,?,?,?,?)`,
+		 (id, name, type, publisher, repo_url, description, is_builtin, trust_tier, enabled, sort_order, created_at)
+		 VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
 		req.ID, req.Name, req.Type, req.Publisher, req.RepoURL,
-		req.Description, req.IsBuiltin, req.TrustTier, req.Enabled, req.CreatedAt)
+		req.Description, req.IsBuiltin, req.TrustTier, req.Enabled, req.SortOrder, req.CreatedAt)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

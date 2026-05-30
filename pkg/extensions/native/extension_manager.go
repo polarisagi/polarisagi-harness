@@ -2,10 +2,12 @@ package native
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 	"github.com/polarisagi/polarisagi-harness/internal/protocol"
@@ -21,21 +23,54 @@ type installExtensionArgs struct {
 	ID string `json:"id"`
 }
 
-// MakeExtensionSearchFn creates an InProcessFn for searching official extensions.
-func MakeExtensionSearchFn(client *marketplace.MCPMarketplaceClient) action.InProcessFn {
+// MakeExtensionSearchFn 创建 search_extension 工具函数。
+// 搜索策略：本地 extension_catalog 优先（5个内置市场同步缓存），再补充查询线上 MCP 注册表，合并去重。
+// db 为 nil 时降级为纯网络搜索；client 为 nil 时降级为纯本地搜索。
+func MakeExtensionSearchFn(db *sql.DB, client *marketplace.MCPMarketplaceClient) action.InProcessFn {
 	return func(ctx context.Context, input []byte) ([]byte, error) {
-		if client == nil {
-			return nil, perrors.New(perrors.CodeInternal, "search_extension: marketplace client is not initialized")
-		}
 		var args searchExtensionArgs
 		if err := json.Unmarshal(input, &args); err != nil {
 			return nil, perrors.Wrap(perrors.CodeInternal, "search_extension: invalid args", err)
 		}
+		if strings.TrimSpace(args.Query) == "" {
+			return nil, perrors.New(perrors.CodeInternal, "search_extension: query must not be empty")
+		}
 
 		slog.Info("native: search_extension invoked", "query", args.Query)
-		results, err := client.Search(ctx, args.Query)
-		if err != nil {
-			return nil, perrors.Wrap(perrors.CodeInternal, "search_extension: search failed", err)
+
+		seen := make(map[string]bool)
+		var results []protocol.RegistryEntry
+
+		// 1. 本地 extension_catalog（5个内置市场同步缓存）
+		if db != nil {
+			localResults, err := searchLocalCatalog(ctx, db, args.Query)
+			if err != nil {
+				slog.Warn("search_extension: local catalog search failed", "err", err)
+			}
+			for _, e := range localResults {
+				seen[e.ID] = true
+				results = append(results, e)
+			}
+			slog.Info("native: search_extension local hits", "count", len(localResults))
+		}
+
+		// 2. 线上 MCP 注册表补充（去重已出现的 ID）
+		if client != nil {
+			netResults, err := client.Search(ctx, args.Query)
+			if err != nil {
+				slog.Warn("search_extension: online registry search failed", "err", err)
+			}
+			for _, e := range netResults {
+				if !seen[e.ID] {
+					seen[e.ID] = true
+					results = append(results, e)
+				}
+			}
+			slog.Info("native: search_extension online hits (after dedup)", "total", len(results))
+		}
+
+		if len(results) == 0 && db == nil && client == nil {
+			return nil, perrors.New(perrors.CodeInternal, "search_extension: no search backend available")
 		}
 
 		data, err := json.Marshal(results)
@@ -44,6 +79,33 @@ func MakeExtensionSearchFn(client *marketplace.MCPMarketplaceClient) action.InPr
 		}
 		return data, nil
 	}
+}
+
+// searchLocalCatalog 在 extension_catalog 中做关键词子串匹配（name / description）。
+func searchLocalCatalog(ctx context.Context, db *sql.DB, query string) ([]protocol.RegistryEntry, error) {
+	like := "%" + strings.ToLower(query) + "%"
+	rows, err := db.QueryContext(ctx,
+		`SELECT payload FROM extension_catalog
+		 WHERE LOWER(name) LIKE ? OR LOWER(description) LIKE ?`,
+		like, like)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []protocol.RegistryEntry
+	for rows.Next() {
+		var payload string
+		if err := rows.Scan(&payload); err != nil {
+			continue
+		}
+		var e protocol.RegistryEntry
+		if err := json.Unmarshal([]byte(payload), &e); err != nil {
+			continue
+		}
+		results = append(results, e)
+	}
+	return results, rows.Err()
 }
 
 // MakeExtensionInstallFn creates an InProcessFn for installing official extensions.

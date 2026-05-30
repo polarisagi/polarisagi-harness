@@ -15,5 +15,6 @@ CREATE TABLE IF NOT EXISTS plugin_marketplaces (
     is_builtin  INTEGER NOT NULL DEFAULT 0,  -- 1=内置，不可删除
     trust_tier  INTEGER NOT NULL DEFAULT 2,  -- 3=Official, 2=Community
     enabled     INTEGER NOT NULL DEFAULT 1,
+    sort_order  INTEGER NOT NULL DEFAULT 999, -- 展示排序权重：值越小越靠前；内置市场 0~99，用户新增从 100 起
     created_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
 );

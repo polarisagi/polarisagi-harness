@@ -8,17 +8,18 @@ import (
 
 // ── MakeExtensionSearchFn ─────────────────────────────────────────────────────
 
-func TestMakeExtensionSearchFn_NilClient(t *testing.T) {
-	fn := MakeExtensionSearchFn(nil)
+func TestMakeExtensionSearchFn_NilBackends(t *testing.T) {
+	// db=nil, client=nil → 两个后端都不可用，应报错
+	fn := MakeExtensionSearchFn(nil, nil)
 	input, _ := json.Marshal(map[string]string{"query": "git"})
 	_, err := fn(context.Background(), input)
 	if err == nil {
-		t.Fatal("nil client should return error")
+		t.Fatal("no backend available should return error")
 	}
 }
 
 func TestMakeExtensionSearchFn_InvalidJSON(t *testing.T) {
-	fn := MakeExtensionSearchFn(nil)
+	fn := MakeExtensionSearchFn(nil, nil)
 	_, err := fn(context.Background(), []byte("not-json"))
 	if err == nil {
 		t.Fatal("invalid JSON input should return error")

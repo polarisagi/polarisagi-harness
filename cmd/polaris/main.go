@@ -391,7 +391,7 @@ func run() error { //nolint:gocyclo
 	if err := tool.RegisterBuiltinTools(inProcSandbox, toolReg, allowedPaths, dialer); err != nil {
 		slog.Warn("polaris: builtin OS tool registration partial failure", "err", err)
 	}
-	if err := native.RegisterExtensionTools(inProcSandbox, toolReg, mcpMgr, mktClient, installMgr, hitlGateway); err != nil {
+	if err := native.RegisterExtensionTools(inProcSandbox, toolReg, mcpMgr, store.DB(), mktClient, installMgr, hitlGateway); err != nil {
 		slog.Warn("polaris: native extension tool registration partial failure", "err", err)
 	}
 	slog.Info("polaris: builtin tools registered, MCP manager initialized")

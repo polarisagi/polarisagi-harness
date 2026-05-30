@@ -44,6 +44,7 @@ type Marketplace struct {
 	IsBuiltin   int    `json:"is_builtin" yaml:"is_builtin"`
 	TrustTier   int    `json:"trust_tier" yaml:"trust_tier"`
 	Enabled     int    `json:"enabled" yaml:"enabled"`
+	SortOrder   int    `json:"sort_order" yaml:"sort_order"` // 展示排序权重，值越小越靠前
 	CreatedAt   string `json:"created_at" yaml:"created_at"`
 }
 

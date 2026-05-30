@@ -1,6 +1,7 @@
 package native
 
 import (
+	"database/sql"
 	"fmt"
 
 	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
@@ -16,6 +17,7 @@ func RegisterExtensionTools(
 	sandbox *action.InProcessSandbox,
 	toolReg *tool.InMemoryToolRegistry,
 	mcpManager *mcp.MCPManager,
+	db *sql.DB,
 	marketplaceClient *marketplace.MCPMarketplaceClient,
 	installMgr *marketplace.Manager,
 	hitlGateway protocol.HITL,
@@ -43,7 +45,7 @@ func RegisterExtensionTools(
 					"required": []string{"query"},
 				},
 			},
-			fn: MakeExtensionSearchFn(marketplaceClient),
+			fn: MakeExtensionSearchFn(db, marketplaceClient),
 		},
 		{
 			meta: protocol.Tool{

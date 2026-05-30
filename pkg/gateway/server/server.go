@@ -395,9 +395,9 @@ func seedBuiltinConfig(db *sql.DB) {
 		if err := yaml.Unmarshal(b, &mps); err == nil {
 			now := time.Now().UTC().Format(time.RFC3339)
 			for _, mp := range mps {
-				_, _ = db.Exec(`INSERT OR IGNORE INTO plugin_marketplaces(id, name, type, publisher, repo_url, description, is_builtin, trust_tier, enabled, created_at)
-				                VALUES(?,?,?,?,?,?,1,?,1,?)`,
-					mp.ID, mp.Name, mp.Type, mp.Publisher, mp.RepoURL, mp.Description, mp.TrustTier, now)
+				_, _ = db.Exec(`INSERT OR IGNORE INTO plugin_marketplaces(id, name, type, publisher, repo_url, description, is_builtin, trust_tier, enabled, sort_order, created_at)
+				                VALUES(?,?,?,?,?,?,1,?,1,?,?)`,
+					mp.ID, mp.Name, mp.Type, mp.Publisher, mp.RepoURL, mp.Description, mp.TrustTier, mp.SortOrder, now)
 			}
 		}
 	} else {
