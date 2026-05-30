@@ -144,6 +144,7 @@ fi
 # ── 5. 启动 ───────────────────────────────────────────────
 echo "→ 启动 Polaris..."
 # Polaris 遵循配置层规范，默认使用 ~/.polarisagi/harness/config.toml
+mkdir -p "$(dirname "$LOG_FILE")"
 nohup ./bin/polaris >> "$LOG_FILE" 2>&1 &
 
 # 等待最多 5s 确认端口监听
