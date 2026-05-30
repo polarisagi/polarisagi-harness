@@ -319,7 +319,7 @@ func resolvePolarisDir() string {
 		return dir
 	}
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".polarisagi-harness")
+	return filepath.Join(home, ".polarisagi/harness")
 }
 
 func applyUserData(rep *migrateReport, polarisDir string, overwrite bool) error { //nolint:gocyclo

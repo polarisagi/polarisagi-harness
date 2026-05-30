@@ -552,7 +552,7 @@ func (ql *QLearner) Update(state string, reward float64) {
 // store 通过协议抽象访问持久化层。
 type ColdArchiver struct {
 	store         protocol.Store
-	archivePath   string // ~/.polarisagi-harness/archive/
+	archivePath   string // ~/.polarisagi/harness/archive/
 	retentionDays int    // 热库 30d, 冷库无限
 }
 

@@ -401,7 +401,7 @@ BuildContext 5 Zone 布局和 SessionCompressor 实现见 `pkg/cognition/context
 | context | 项目上下文（由 M13 Interface 层注入 ambient skills / 全局目标等） | 会话内不变 | `pkg/gateway/server/sse.go` |
 | volatile | 当前日期（精确到天，不到分钟，避免逐分钟破坏 prefix cache） | 每天变一次 | `ImmutableCore.VolatileBlock` |
 
-**用户自定义身份**：`~/.polarisagi-harness/config/SOUL.md` 存在时覆盖 `DefaultPolarisIdentity`，服务启动时一次性读取并缓存到 `Server.soulMDContent`。
+**用户自定义身份**：`~/.polarisagi/harness/config/SOUL.md` 存在时覆盖 `DefaultPolarisIdentity`，服务启动时一次性读取并缓存到 `Server.soulMDContent`。
 
 **模型感知引导**：`memory.NeedsToolUseEnforcement(modelID)` 判断模型族（deepseek/qwen/gpt/gemini 等），对应注入 `memory.ModelSpecificGuidance(modelID)` 的专属工具调用约束文本，防止模型仅描述意图而不实际调用工具。
 
@@ -416,7 +416,7 @@ BuildContext 5 Zone 布局和 SessionCompressor 实现见 `pkg/cognition/context
 | 层 | 存储位置 | Owner | 变更方式 | DB 重置（re-init）行为 | Factory Reset 行为 |
 |----|---------|-------|---------|---------------------|------------------|
 | **Layer 0** 内置默认 | `configs/prompts/*.md`（go:embed，随二进制） | Polaris 项目 | PR + 重新编译 | 不受影响（embedded） | 不受影响 |
-| **Layer 1** 用户自定义 | `~/.polarisagi-harness/config/prompts/*.md` | 用户 | 直接编辑文件 或 `PUT /v1/config/prompts/{name}` | **存活**（文件不在 DB 中） | `DELETE /v1/config/prompts/{name}` 显式删除 |
+| **Layer 1** 用户自定义 | `~/.polarisagi/harness/config/prompts/*.md` | 用户 | 直接编辑文件 或 `PUT /v1/config/prompts/{name}` | **存活**（文件不在 DB 中） | `DELETE /v1/config/prompts/{name}` 显式删除 |
 | **Layer 2** M9 优化 | DB `prompt_versions` 表 | 自进化引擎 | M9 自动生成 + Staging 审批 | **重置**（随 DB 删除，正确） | 随 DB 删除 |
 
 **用户可通过 API 编辑的提示词**（Layer 1，白名单控制）：

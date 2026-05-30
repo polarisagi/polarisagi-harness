@@ -434,7 +434,7 @@ func (s *Server) SyncAllMarketplaces(ctx context.Context) (int, error) {
 	rows.Close()
 
 	home, _ := os.UserHomeDir()
-	tmpDir := filepath.Join(home, ".polarisagi-harness", "tmp", "marketplaces")
+	tmpDir := filepath.Join(home, ".polarisagi/harness", "tmp", "marketplaces")
 	_ = os.MkdirAll(tmpDir, 0755)
 
 	// 首先清理已经从活跃列表中移除的孤儿市场缓存

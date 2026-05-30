@@ -11,7 +11,7 @@ import (
 )
 
 // AgentProfile 用户定义的自定义 Agent 配置（ADR-0015 §2.4）。
-// 从 .polaris/agents/*.yaml 或 ~/.polarisagi-harness/agents/*.yaml 加载。
+// 从 .polaris/agents/*.yaml 或 ~/.polarisagi/harness/agents/*.yaml 加载。
 // 映射到 AgentCard，在 Blackboard 中注册。
 //
 // 对应 Codex .codex/agents/*.toml，Polaris 使用 YAML 与整体配置惯例一致。
@@ -76,7 +76,7 @@ func DefaultAgentProfilePaths() []string {
 	home, _ := os.UserHomeDir()
 	cwd, _ := os.Getwd()
 	return []string{
-		filepath.Join(home, ".polarisagi-harness", "agents"),
+		filepath.Join(home, ".polarisagi/harness", "agents"),
 		filepath.Join(cwd, ".polaris", "agents"),
 	}
 }

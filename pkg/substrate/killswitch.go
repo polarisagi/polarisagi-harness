@@ -55,7 +55,7 @@ type KillSwitch struct {
 	mu          sync.Mutex
 	sigintTimes []time.Time // 3s 窗口内的 SIGINT 时间戳
 
-	// dataDir 用于写入 .fullstop 文件（默认 ~/.polarisagi-harness）
+	// dataDir 用于写入 .fullstop 文件（默认 ~/.polarisagi/harness）
 	dataDir string
 }
 
@@ -163,7 +163,7 @@ func (ks *KillSwitch) writeFullStopFile(reason string) {
 	dataDir := ks.dataDir
 	if dataDir == "" {
 		if home, err := os.UserHomeDir(); err == nil {
-			dataDir = filepath.Join(home, ".polarisagi-harness")
+			dataDir = filepath.Join(home, ".polarisagi/harness")
 		}
 	}
 	if dataDir != "" {
@@ -234,7 +234,7 @@ func (ks *KillSwitch) OnSIGINT() {
 	}
 }
 
-// CheckKILLSWITCHFile 轮询检查 ~/.polarisagi-harness/KILLSWITCH 文件是否存在。
+// CheckKILLSWITCHFile 轮询检查 ~/.polarisagi/harness/KILLSWITCH 文件是否存在。
 // 如果存在则立即触发 FullStop。
 // 调用方：在 goroutine 中以 500ms 间隔定期调用，
 // 或替换为 fsnotify watcher（Tier 1+ 优化）。
@@ -242,7 +242,7 @@ func (ks *KillSwitch) CheckKILLSWITCHFile() {
 	dataDir := ks.dataDir
 	if dataDir == "" {
 		if home, err := os.UserHomeDir(); err == nil {
-			dataDir = filepath.Join(home, ".polarisagi-harness")
+			dataDir = filepath.Join(home, ".polarisagi/harness")
 		}
 	}
 	if dataDir == "" {

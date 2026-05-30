@@ -13,7 +13,7 @@
 | 默认 Provider 商业窗口变更 | Provider 发布折扣到期 / 价格调整 / 模型 EOL 公告 | M1 + M12 | 触发标准化路由 benchmark 重评（见 §1.1） |
 | 默认 Provider Adapter 模型名升级 | Provider 公告新模型且旧名进入弃用期 | M1 | 短名→新名映射；旧名称 90 天过渡期 fallback；具体映射见 `pkg/substrate/inference/adapter_*.go` |
 
-> **当前默认 Provider**：`configs/defaults.yaml` 选 DeepSeek V4 系列。商业窗口与模型名变更跟随上游 Provider 官方公告。
+> **当前默认 Provider**：`configs/defaults.toml` 选 DeepSeek V4 系列。商业窗口与模型名变更跟随上游 Provider 官方公告。
 
 ### 1.1 标准化路由 Benchmark
 
@@ -53,7 +53,7 @@
 - **L2 swarm**: Blackboard（SQLite）+ CAS 协调 + Reaper + Supervisor Tree；SurpriseIndex Calculator + MEMF + GraphRAG（Tier0: Mini-Batch K-Means / Tier1+: DBSCAN）+ Reflexion + Rollout + PromptOptimizer；QLoRA Adapter（FeatureQLoRA 门控）+ PRM + Swarm Topology
 - **L3 governance/edge**: EvalCase + 五层 Evaluator + TrajectoryRecorder/Replayer + ShadowExecutor + 合成数据生成；HTTP/SSE + HITL Gateway + TaskQueue + ResourceGovernor + CLI
 
-HT0 基线（`configs/defaults.yaml`，tier=0, max_agents=3）已对齐，FeatureGate 自动化覆盖 L3 microVM / QLoRA / LogicCollapse / GraphRAGFull / PresidioPII / WebUI 六项能力的硬件门控（详见 M03 §5）。
+HT0 基线（`configs/defaults.toml`，tier=0, max_agents=3）已对齐，FeatureGate 自动化覆盖 L3 microVM / QLoRA / LogicCollapse / GraphRAGFull / PresidioPII / WebUI 六项能力的硬件门控（详见 M03 §5）。
 
 ---
 

@@ -101,16 +101,16 @@ DataSplitter: SourceIncident→Holdout | SourceSynthetic→Training | SourceManu
 M9 §1.1 PromptOptimizer 早停依据: Training Set 充分性 + Validation Set 泛化性双指标。M9 §3 L0/L1/L2+ 各自的"日常反馈数据源"显式列出。
 约束: Training Set ≥200 用例方可 M9 优化
 物理存储路径与版本控制（强制约束）:
-  Training Set / Validation Set: `~/.polarisagi-harness/eval/training/` 和 `~/.polarisagi-harness/eval/validation/`
-  Holdout Set: `~/.polarisagi-harness/eval/holdout/`（主进程副本，仅 CI/Canary 在独立进程内访问）
-  禁止将任何 Eval 数据集放入任何 `~/.polarisagi-harness/workspaces/` 子目录。上述 eval 目录必须作为独立的 Git 仓库进行版本控制，与主代码工作区完全隔离。所有的数据集拉取与提交操作统一通过 `polaris eval sync` 专用命令完成。DataSplitter 写入路径由 M11 Immutable Kernel 在启动期 SHA-256 校验，路径错误 → fail-closed。
+  Training Set / Validation Set: `~/.polarisagi/harness/eval/training/` 和 `~/.polarisagi/harness/eval/validation/`
+  Holdout Set: `~/.polarisagi/harness/eval/holdout/`（主进程副本，仅 CI/Canary 在独立进程内访问）
+  禁止将任何 Eval 数据集放入任何 `~/.polarisagi/harness/workspaces/` 子目录。上述 eval 目录必须作为独立的 Git 仓库进行版本控制，与主代码工作区完全隔离。所有的数据集拉取与提交操作统一通过 `polaris eval sync` 专用命令完成。DataSplitter 写入路径由 M11 Immutable Kernel 在启动期 SHA-256 校验，路径错误 → fail-closed。
 
 隔离: 三层防护
   L1 (API 层): Ed25519 签名 X-Eval-Source header
     M9(agent_role=m9_optimizer) → Training Set + Validation Set
     CI/Canary(agent_role=ci_gate) → Holdout Set
   L2 (进程边界, 强制执行): L4 代码修改生成的 PR 必须通过 process-external CI pipeline 验证——不得在运行进程内执行 Holdout Set 评估。CI runner 为独立进程，使用独立密钥签名的 Holdout Set 副本，M9 不可访问 CI runner 的文件系统。
-  L3 (文件系统层): M7 workspace_read 显式拒绝 `~/.polarisagi-harness/eval/holdout/`（与 `~/.polarisagi-harness/config/` 等并列，见 M7 §4.5）；M11 Cedar Layer 2 forbid 规则阻止 Agent role 读取 `context.polarisagi-harness_eval_holdout_path`（见 M11 §3）；`bash_restricted` 硬编码禁止 `~/.polarisagi-harness` 全路径（已有，兜底）。
+  L3 (文件系统层): M7 workspace_read 显式拒绝 `~/.polarisagi/harness/eval/holdout/`（与 `~/.polarisagi/harness/config/` 等并列，见 M7 §4.5）；M11 Cedar Layer 2 forbid 规则阻止 Agent role 读取 `context.polarisagi/harness_eval_holdout_path`（见 M11 §3）；`bash_restricted` 硬编码禁止 `~/.polarisagi/harness` 全路径（已有，兜底）。
   Holdout Set 完整性和 CI 配置受 M11 Immutable Kernel (`ci/safety/`) 保护，L4 白名单不含此路径。
 ```
 

@@ -463,7 +463,7 @@ func (s *Server) injectSystemPrompt(history []protocol.Message) []protocol.Messa
 	// 用户身份（三层优先级已在 LoadSoulMD 中处理，此处注入结果）
 	ic.SoulMDContent = s.soulMDContent
 
-	// 用户自定义追加指令（~/.polarisagi-harness/config/prompts/custom_instructions.md）
+	// 用户自定义追加指令（~/.polarisagi/harness/config/prompts/custom_instructions.md）
 	ic.CustomInstructions = memory.ReadPrompt("custom_instructions.md", "")
 
 	// M9 激活的系统提示词优先覆盖（general taskType）

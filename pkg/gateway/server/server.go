@@ -61,7 +61,7 @@ type Server struct {
 	toolSchemaMu    sync.RWMutex
 
 	// 系统提示词组装缓存（启动时一次性加载，运行期不变）
-	soulMDContent  string // ~/.polarisagi-harness/config/SOUL.md 内容
+	soulMDContent  string // ~/.polarisagi/harness/config/SOUL.md 内容
 	serverPlatform string // 接入平台标识，决定平台感知提示词（cli/webui/api/cron）
 
 	// M9 激活的系统提示词（从 DB prompt_versions 表读取，Activate 回调热更新）
@@ -281,7 +281,7 @@ func NewServer(addr string, dataDir string, agent *kernel.Agent, bb protocol.Bla
 	mux.HandleFunc("GET /v1/preferences", s.handleGetPreferences)
 	mux.HandleFunc("PUT /v1/preferences/{key}", s.handleSetPreference)
 
-	// 提示词管理 API（三层所有权：Layer 1 用户自定义层，读写 ~/.polarisagi-harness/config/prompts/）
+	// 提示词管理 API（三层所有权：Layer 1 用户自定义层，读写 ~/.polarisagi/harness/config/prompts/）
 	// Layer 0（embedded 内置默认）和 Layer 2（M9 优化）不通过此 API 暴露
 	mux.HandleFunc("GET /v1/config/prompts", s.handleListPrompts)
 	mux.HandleFunc("GET /v1/config/prompts/{name}", s.handleGetPrompt)
@@ -561,7 +561,7 @@ func (s *Server) Start() error {
 	workspace := os.Getenv("POLARIS_DATA_DIR")
 	if workspace == "" {
 		if home, err := os.UserHomeDir(); err == nil {
-			workspace = filepath.Join(home, ".polarisagi-harness")
+			workspace = filepath.Join(home, ".polarisagi/harness")
 		}
 	}
 	s.hooks.Fire("gateway.startup", map[string]string{
@@ -593,7 +593,7 @@ func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
 	cfgPath := os.Getenv("POLARIS_CONFIG")
 	if cfgPath == "" {
-		cfgPath = "configs/defaults.yaml"
+		cfgPath = "configs/defaults.toml"
 	}
 	raw, err := os.ReadFile(cfgPath)
 	if err != nil {

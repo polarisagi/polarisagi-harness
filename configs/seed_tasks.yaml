@@ -15,7 +15,7 @@ tasks:
 
   - id: seed-003
     type: file_operation
-    query: "Read configs/defaults.yaml and summarize the storage configuration"
+    query: "Read configs/defaults.toml and summarize the storage configuration"
     expected_tools: [file_read, text_summarize]
 
   - id: seed-004

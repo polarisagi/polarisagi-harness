@@ -8,7 +8,7 @@ import (
 
 func TestLoad_FallbackToDefaults(t *testing.T) {
 	dir := t.TempDir()
-	fallbackPath := filepath.Join(dir, "nonexistent", "config.yaml")
+	fallbackPath := filepath.Join(dir, "nonexistent", "config.toml")
 	cfg, err := Load(fallbackPath)
 	if err != nil {
 		t.Fatalf("expected successful fallback, got error: %v", err)
@@ -22,30 +22,31 @@ func TestLoad_FallbackToDefaults(t *testing.T) {
 	}
 }
 
-func TestLoad_InvalidYAML(t *testing.T) {
-	f, err := os.CreateTemp(t.TempDir(), "cfg*.yaml")
+func TestLoad_InvalidTOML(t *testing.T) {
+	f, err := os.CreateTemp(t.TempDir(), "cfg*.toml")
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.WriteString("not: valid: yaml: :")
+	f.WriteString("not valid toml")
 	f.Close()
 	_, err = Load(f.Name())
 	if err == nil {
-		t.Fatal("expected error for invalid YAML")
+		t.Fatal("expected error for invalid TOML")
 	}
 }
 
 func TestLoad_ValidMinimalConfig(t *testing.T) {
 	dir := t.TempDir()
-	cfgPath := filepath.Join(dir, "config.yaml")
-	yaml := `
-system:
-  tier: 0
-  max_agents: 4
-inference:
-  default_provider: deepseek
+	cfgPath := filepath.Join(dir, "config.toml")
+	tomlContent := `
+[system]
+tier = 0
+max_agents = 4
+
+[inference]
+default_provider = "deepseek"
 `
-	if err := os.WriteFile(cfgPath, []byte(yaml), 0o600); err != nil {
+	if err := os.WriteFile(cfgPath, []byte(tomlContent), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	cfg, err := Load(cfgPath)
@@ -65,8 +66,8 @@ inference:
 
 func TestLoad_DefaultThresholdsApplied(t *testing.T) {
 	dir := t.TempDir()
-	cfgPath := filepath.Join(dir, "config.yaml")
-	if err := os.WriteFile(cfgPath, []byte("system:\n  tier: 0\n"), 0o600); err != nil {
+	cfgPath := filepath.Join(dir, "config.toml")
+	if err := os.WriteFile(cfgPath, []byte("[system]\ntier = 0\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	cfg, err := Load(cfgPath)

@@ -177,7 +177,7 @@ func runBenchmarkRouting(args []string) error { //nolint:gocyclo
 	// ─── 4. 持久化到 EvalStore (仅在数据库可用时) ────────────────────────────
 	cfgPath := os.Getenv("POLARIS_CONFIG")
 	if cfgPath == "" {
-		cfgPath = "configs/defaults.yaml"
+		cfgPath = "configs/defaults.toml"
 	}
 	_, err = config.Load(cfgPath)
 	if err != nil {

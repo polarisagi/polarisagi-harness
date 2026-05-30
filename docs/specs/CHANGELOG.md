@@ -8,9 +8,9 @@
 
 **BUG 修复**:
 - `cmd/polaris/main.go` | schema 加载从相对路径 OpenSQLiteFromDir 改为 embed.FS OpenSQLite，消灭已安装二进制启动失败
-- `internal/config/config.go` | Threshold 加载从 config.Load() 内剥离为独立 LoadThresholds(dataDir)，解决 chicken-and-egg；TOML 默认路径改为 ~/.polarisagi-harness/config/
+- `internal/config/config.go` | Threshold 加载从 config.Load() 内剥离为独立 LoadThresholds(dataDir)，解决 chicken-and-egg；TOML 默认路径改为 ~/.polarisagi/harness/config/
 - `skills/builtin` | Wasm 加载从 FilesystemWasmLoader 改为 EmbedWasmLoader，impl.wasm embed 进二进制
-- `configs/defaults.yaml` | interface.host 从 0.0.0.0 修正为 127.0.0.1，符合 ARCHITECTURE.md §1 硬约束
+- `configs/defaults.toml` | interface.host 从 0.0.0.0 修正为 127.0.0.1，符合 ARCHITECTURE.md §1 硬约束
 - `pkg/substrate/observability/` | SurrealDB Core 启动条件改为 autoConf != nil &&，防止硬件未知时 OOM
 
 **安全**:

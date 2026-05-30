@@ -1,8 +1,8 @@
 # Shell Script Hooks 使用指南
 
-Hooks 目录：`~/.polarisagi-harness/hooks/`（或 `POLARIS_HOOKS_DIR` 环境变量覆盖）
+Hooks 目录：`~/.polarisagi/harness/hooks/`（或 `POLARIS_HOOKS_DIR` 环境变量覆盖）
 
-脚本需要**可执行权限**：`chmod +x ~/.polarisagi-harness/hooks/<event>`
+脚本需要**可执行权限**：`chmod +x ~/.polarisagi/harness/hooks/<event>`
 
 ## 事件点与环境变量
 

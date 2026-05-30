@@ -11,7 +11,7 @@ import (
 // 架构文档: docs/arch/02-Storage-Fabric-深度选型.md §3
 
 type WorkspaceManager struct {
-	rootDir   string // ~/.polarisagi-harness/workspaces
+	rootDir   string // ~/.polarisagi/harness/workspaces
 	maxSize   int64  // Tier 0 = 500MB
 	manifests map[string]*WorkspaceManifest
 }

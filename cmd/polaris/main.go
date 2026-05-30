@@ -123,7 +123,7 @@ func run() error { //nolint:gocyclo
 		}
 	} else {
 		home, _ := os.UserHomeDir()
-		cfgPath = filepath.Join(home, ".polarisagi-harness", "config.yaml")
+		cfgPath = filepath.Join(home, ".polarisagi/harness", "config.toml")
 	}
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
@@ -157,7 +157,7 @@ func run() error { //nolint:gocyclo
 		observability.GlobalKillswitchStage.Store(int32(newState))
 	}
 
-	// ─── 0.4 日志初始化（stdout + ~/.polarisagi-harness/polaris.log）─────────────
+	// ─── 0.4 日志初始化（stdout + ~/.polarisagi/harness/polaris.log）─────────────
 	if logFile := observability.SetupLogger(dataDir); logFile != nil {
 		defer logFile.Close()
 	}
@@ -739,7 +739,14 @@ func resolveDataDirBase(cfg *config.Config) (string, error) {
 			return "", errors.Wrap(errors.CodeInternal,
 				"cannot determine home directory; set POLARIS_DATA_DIR explicitly", err)
 		}
-		dir = filepath.Join(home, ".polarisagi-harness")
+		dir = filepath.Join(home, ".polarisagi/harness")
+	} else if strings.HasPrefix(dir, "~/") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", errors.Wrap(errors.CodeInternal,
+				"cannot determine home directory for ~ expansion", err)
+		}
+		dir = filepath.Join(home, dir[2:])
 	}
 	return dir, nil
 }

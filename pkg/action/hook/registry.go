@@ -13,7 +13,7 @@ import (
 )
 
 // Registry 加载并持有 Hook 配置。
-// 从 ~/.polarisagi-harness/hooks/hooks.yaml（用户级）和
+// 从 ~/.polarisagi/harness/hooks/hooks.yaml（用户级）和
 // .polaris/hooks/hooks.yaml（项目级）合并加载。
 // 高优先级（项目）不覆盖低优先级（用户）——两者均执行（与 Codex 语义一致）。
 type Registry struct {
@@ -56,7 +56,7 @@ func LoadDefault() (*Registry, error) {
 	cwd, _ := os.Getwd()
 
 	paths := []string{
-		filepath.Join(home, ".polarisagi-harness", "hooks", "hooks.yaml"),
+		filepath.Join(home, ".polarisagi/harness", "hooks", "hooks.yaml"),
 		filepath.Join(cwd, ".polaris", "hooks", "hooks.yaml"),
 	}
 	return Load(paths...)

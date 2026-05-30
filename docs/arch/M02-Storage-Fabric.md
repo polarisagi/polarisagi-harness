@@ -245,7 +245,7 @@ Tier 0 默认禁用自动归档（HT0 无磁盘压力），仅在磁盘水位触
 
 ## 4. WorkspaceManager — 重型中间物文件系统
 
-大规模爬取结果、AST dump、diff patch、二进制文件不入 SQLite（Blob 膨胀），不入 Working Memory（[Tier-0-Limit]）。Working Memory 仅持有路径+摘要。物理路径：`~/.polarisagi-harness/workspaces/<task_id>/`，权限 0700。
+大规模爬取结果、AST dump、diff patch、二进制文件不入 SQLite（Blob 膨胀），不入 Working Memory（[Tier-0-Limit]）。Working Memory 仅持有路径+摘要。物理路径：`~/.polarisagi/harness/workspaces/<task_id>/`，权限 0700。
 
 实现见 `pkg/substrate/workspace_manager.go`：
 
@@ -265,7 +265,7 @@ Tier 0 默认禁用自动归档（HT0 无磁盘压力），仅在磁盘水位触
     - 提前 5 天: ResourceReaper 写 `hitl_suspension_expiry_warning` WARN 审计 + 操作员通知
     - 到期: (a) `SessionPIIVault.SecureZero(ctx, taskID)` 清零 pii_vault_blob (**先于一切删除**) → (b) MutationBus 置 S_FAILED + 写 `suspended_hitl_timeout_expired` → (c) HITL 通知（M13）→ (d) 之后 7 天走正常 GC
 
-  _KillSwitch-Suspended_: 无 TTL（等 unseal 自动恢复）。但磁盘 <100MB CRITICAL 且 workspace UpdatedAt >7 天 → 打包 `~/.polarisagi-harness/archive/<task_id>_<timestamp>.tar.zst` 删原目录，保留 Blackboard 元数据。unseal 时 M13 检查 archive 存在 → 先解压再恢复任务。归档上限 10GB（LRU 删最老 + WARN）。
+  _KillSwitch-Suspended_: 无 TTL（等 unseal 自动恢复）。但磁盘 <100MB CRITICAL 且 workspace UpdatedAt >7 天 → 打包 `~/.polarisagi/harness/archive/<task_id>_<timestamp>.tar.zst` 删原目录，保留 Blackboard 元数据。unseal 时 M13 检查 archive 存在 → 先解压再恢复任务。归档上限 10GB（LRU 删最老 + WARN）。
 
   _Dead-letter Pending_: `status=Pending` 且 Outbox max_attempts 耗尽 (`dead_letter=true`) 且 UpdatedAt+7d>now → 直接 S_FAILED + GC workspace。
 
@@ -277,7 +277,7 @@ Tier 0 默认禁用自动归档（HT0 无磁盘压力），仅在磁盘水位触
 
 **Workspace 静态加密**: 外部 Connector (M10) 拉取的原始文件落盘前 AES-256-GCM 加密（key 由 M11 CredentialVault.persistent_key 派生）。强制加密: `[TaintLevel]` ≥ `[Taint-Medium]`；可选跳过: `[Taint-Low]`/`[Taint-None]`（系统自生成 / 用户本地代码，省 CPU）。密钥与 M11 SafeString HMAC 共享同一 persistent_key。
 
-VFS 引用计数 + SQLite Trigger 自动回收: 热表大型载荷 (>4KB) 不存入 B-Tree 页，写入 VFS 文件 (`~/.polarisagi-harness/vfs/{sha256_prefix}/{uuid}.blob`)，热表仅存 `vfs_ref` 指针。4KB 热行硬限防 B-Tree 页缓存血崩。
+VFS 引用计数 + SQLite Trigger 自动回收: 热表大型载荷 (>4KB) 不存入 B-Tree 页，写入 VFS 文件 (`~/.polarisagi/harness/vfs/{sha256_prefix}/{uuid}.blob`)，热表仅存 `vfs_ref` 指针。4KB 热行硬限防 B-Tree 页缓存血崩。
 
 ```sql
 sys_vfs_references: vfs_ref TEXT PK, ref_count INTEGER
@@ -289,7 +289,7 @@ BEFORE DELETE trigger 自动递减引用计数，引用归零入队 GC。4KB 硬
 
 ## 5. Schema 迁移策略
 
-**当前阶段（上线前）**：Schema 变更直接修改 `internal/protocol/schema/NNN_*.sql` 原始 DDL 文件，删库重建（`rm ~/.polarisagi-harness/polaris.db`）。禁止以 ALTER TABLE/ADD COLUMN 补丁文件打补丁。
+**当前阶段（上线前）**：Schema 变更直接修改 `internal/protocol/schema/NNN_*.sql` 原始 DDL 文件，删库重建（`rm ~/.polarisagi/harness/polaris.db`）。禁止以 ALTER TABLE/ADD COLUMN 补丁文件打补丁。
 
 **上线后**：新增编号迁移文件（ALTER TABLE / 数据迁移），实现由 `pkg/substrate/schema_manager.go` 的 `SchemaManager` 负责：按版本升序执行，每次迁移前后通过 `BeginMigration`/`CompleteMigration` 向 `sys_config` 写入状态标记（idle / in_progress / completed）。崩溃恢复：`Recover()` 启动时检查 `migration_status`，检测到 `in_progress` 则拒绝启动，要求操作员重置后重启。
 
@@ -365,7 +365,7 @@ Outbox Worker 消费事件走写连接（保证读己写）。Agent 查询 Episo
   - > [!IMPORTANT]
     > **Tier 分级存储策略 (纯内存 vs 磁盘持久化)**
     > - **Tier 0 (≤8GB)**: 项目自建兼容内存实现（`BTreeMap` + 暴力扫描），**不引入 surrealdb crate**，保持 Tier-0 依赖最小化；进程重启后认知数据丢失，完全依赖 SQLite Outbox 投影在启动时重建。
-    > - **Tier 1+ (≥16GB)**: 启用真正的 `surrealdb` crate（嵌入模式 + `kv-rocksdb` 后端），数据持久化写入 `~/.polarisagi-harness/surreal_rust.db`，HNSW 索引自动激活，实现高性能本地存储落盘。
+    > - **Tier 1+ (≥16GB)**: 启用真正的 `surrealdb` crate（嵌入模式 + `kv-rocksdb` 后端），数据持久化写入 `~/.polarisagi/harness/surreal_rust.db`，HNSW 索引自动激活，实现高性能本地存储落盘。
 - 引擎: **[Storage-Ristretto]** (纯 Go)
   - 用途: 热缓存轴。纯内存态的 L0 Working Memory。
 

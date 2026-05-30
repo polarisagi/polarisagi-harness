@@ -144,7 +144,7 @@ Tier 0 L3 不可用: 全平台 Tier 0 内存不足启动 microVM (每 L3 ≥256M
 3. SideProcessSpawn→MicroVM(L3)
 4. Tier0 越权拦截: 步骤 3 判定为 MicroVM(L3) 且当前环境为 Tier0 (maxSandboxTier()==L2) → 直接返回 ErrTier0SandboxLimit 拒绝执行，禁止越权降级到原生子进程（防止突破安全底线）
 
-Auto-Curriculum: M9 `bash_restricted` 强制 L2 Wasm，字符集 `[A-Za-z0-9 ./\-_=:,]`，禁止管道/重定向/命令替换/`~/.polarisagi-harness`。`bash` 永久禁止。
+Auto-Curriculum: M9 `bash_restricted` 强制 L2 Wasm，字符集 `[A-Za-z0-9 ./\-_=:,]`，禁止管道/重定向/命令替换/`~/.polarisagi/harness`。`bash` 永久禁止。
 
 ### 4.3 wazero 实现（CANONICAL SOURCE）
 
@@ -200,18 +200,18 @@ Syscall 防逃逸: Go 堆缓冲区（严禁线性内存切片）→ 独立 gorou
 `workspace_read(artifactID,offset,length)->([]byte,error)`:
 - 0 路径校验: filepath.Clean→分量级`..`检测+IsAbs拦截。Linux 5.6+: `Openat2(workspaceRootFd, path, RESOLVE_NO_SYMLINKS|RESOLVE_IN_ROOT)`。非Linux: component-by-component walk→逐级openat+Fstat校验dev/inode
 - 0.1 读取禁止路径（eval 数据隔离）: 目标路径前缀匹配以下任一 → 立即返回 ErrEvalDataAccessForbidden + CRITICAL 审计，不触发 Capability Token 校验（快速拒绝，防止绕过）:
-    `~/.polarisagi-harness/eval/holdout/`（Holdout Set，防 M9 过拟合，M12 §5）
-    `~/.polarisagi-harness/eval/training/`（Training Set，仅 Eval API 层允许 M9 通过 Ed25519 签名访问，不走 Workspace Bridge）
-  注: `~` 展开为运行时 polaris_home 变量（与 M11 Cedar Layer 2 的 context.polarisagi-harness_eval_holdout_path 同源）。物理层 Openat2(RESOLVE_IN_ROOT) 已阻止路径逃逸，此检查为防御纵深。
+    `~/.polarisagi/harness/eval/holdout/`（Holdout Set，防 M9 过拟合，M12 §5）
+    `~/.polarisagi/harness/eval/training/`（Training Set，仅 Eval API 层允许 M9 通过 Ed25519 签名访问，不走 Workspace Bridge）
+  注: `~` 展开为运行时 polaris_home 变量（与 M11 Cedar Layer 2 的 context.polarisagi/harness_eval_holdout_path 同源）。物理层 Openat2(RESOLVE_IN_ROOT) 已阻止路径逃逸，此检查为防御纵深。
 - 1 验证Capability Token读权限→2 `Pread(fd,buf,offset)`→3 每次<=64KB→4 Audit Trail
 
 `workspace_write(artifactID,data)->(int,error)`:
 - 0 路径白名单校验: 仅允许写入以下三类路径:
-  (a) `~/.polarisagi-harness/workspaces/<task_id>/`（M2 WorkspaceManager 托管目录）
+  (a) `~/.polarisagi/harness/workspaces/<task_id>/`（M2 WorkspaceManager 托管目录）
   (b) 经 [Sandbox-L2] 显式挂载的临时目录 `/tmp/sandbox/{skill_id}/`
   (c) 启动时传入的 Workspace Root（用户项目根目录），需经 [Cedar-Gate] 显式授权——Cedar 策略 `permit write_local when resource.path in WorkspaceRoot` 控制可写子路径范围
   默认拒绝所有其他绝对和相对路径。白名单外路径 → ErrWorkspacePathNotAllowed + WARN + 审计
-- 0.1 禁止覆盖保护: 即使白名单内，仍禁止覆盖 `~/.polarisagi-harness/config/`、`~/.polarisagi-harness/secrets/`、`~/.polarisagi-harness/data/`（含 SQLite/SurrealDB-Core 数据库文件）、`~/.polarisagi-harness/audit/`——此四目录为系统关键数据区，独立于 Workspace 白名单做第二层拒绝
+- 0.1 禁止覆盖保护: 即使白名单内，仍禁止覆盖 `~/.polarisagi/harness/config/`、`~/.polarisagi/harness/secrets/`、`~/.polarisagi/harness/data/`（含 SQLite/SurrealDB-Core 数据库文件）、`~/.polarisagi/harness/audit/`——此四目录为系统关键数据区，独立于 Workspace 白名单做第二层拒绝
 - 前置: CapabilityLevel>=write_local
 - 0.5 Taint Gate（路径 × TaintLevel 决策表）:
 
@@ -561,7 +561,7 @@ Logic Collapse (M6) 创建新技能，本机制提升已有工具使用策略—
 
 同一 bundle 目录下还可同时包含外部厂商格式（`ai-plugin.json` / `plugin.toml` / `skills.yaml`），由 `adapter.ParseManifestDir()` 解析后各自安装对应的运行时组件。
 
-**安装路径**：`~/.polarisagi-harness/extensions/plugin/{ext_id}/`（HTTP tar.gz 下载解压）
+**安装路径**：`~/.polarisagi/harness/extensions/plugin/{ext_id}/`（HTTP tar.gz 下载解压）
 
 **加载流程**:
 ```
@@ -597,7 +597,7 @@ POST /v1/plugins/install → plugin_catalog.go.downloadAndInstallPlugin()
 | `UserPromptSubmit` | M13 消息入队 | 携带原始 prompt |
 | `Stop` | M4 FSM S_IDLE | Agent 回到空闲 |
 
-**配置格式** (`~/.polarisagi-harness/hooks/hooks.yaml`):
+**配置格式** (`~/.polarisagi/harness/hooks/hooks.yaml`):
 ```yaml
 hooks:
   PreToolUse:

@@ -501,8 +501,8 @@ func (s *Server) downloadAndInstallExtension(ctx context.Context, extID, catalog
 	relPath := filepath.FromSlash(strings.TrimPrefix(catalogID, mpID+"/"))
 
 	safeMpID := strings.ReplaceAll(mpID, "/", "_")
-	srcDir := filepath.Join(home, ".polarisagi-harness", "tmp", "marketplaces", safeMpID, relPath)
-	destDir := filepath.Join(home, ".polarisagi-harness", "extensions", extID)
+	srcDir := filepath.Join(home, ".polarisagi/harness", "tmp", "marketplaces", safeMpID, relPath)
+	destDir := filepath.Join(home, ".polarisagi/harness", "extensions", extID)
 
 	// 2. 拷贝目录
 	if err := os.MkdirAll(filepath.Dir(destDir), 0755); err != nil {

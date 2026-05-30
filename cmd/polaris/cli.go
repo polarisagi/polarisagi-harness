@@ -563,8 +563,15 @@ func cliPrintSessions() {
 // ── 会话持久化 ────────────────────────────────────────────────────────────────
 
 func cliSessionFile() string {
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".polarisagi-harness", "last_cli_session")
+	dir := os.Getenv("POLARIS_DATA_DIR")
+	if dir == "" {
+		home, _ := os.UserHomeDir()
+		dir = filepath.Join(home, ".polarisagi/harness")
+	} else if strings.HasPrefix(dir, "~/") {
+		home, _ := os.UserHomeDir()
+		dir = filepath.Join(home, dir[2:])
+	}
+	return filepath.Join(dir, "last_cli_session")
 }
 
 func cliSaveSession(id string) {

@@ -14,7 +14,7 @@
 | 核心能力 | 自学习 / 自进化 / 自增强（无梯度主线 + 条件梯度训练） |
 | LLM 池 | Provider-agnostic：`<flash-class>` Provider 模型用于 Budget 池（Tier 0-1），`<reasoning-class>` 模型用于 Reasoning 池（Tier 2-3 复杂推理）。Adapter 已实现 OpenAI / Anthropic / DeepSeek 等主流协议 |
 
-> **默认推荐**：开箱即用配置（`configs/defaults.yaml`）使用 DeepSeek V4 系列（Flash + Pro），已在 Tier-0 基线长程测试。任何兼容上述协议的 Provider 可平替——参见 `docs/arch/M01-Inference-Runtime.md §3 Provider Adapter`。
+> **默认推荐**：开箱即用配置（`configs/defaults.toml`）使用 DeepSeek V4 系列（Flash + Pro），已在 Tier-0 基线长程测试。任何兼容上述协议的 Provider 可平替——参见 `docs/arch/M01-Inference-Runtime.md §3 Provider Adapter`。
 
 ## Harness Engineering 六条不变量
 
@@ -93,7 +93,7 @@ polarisagi-harness/
 
 ## 数据目录 (Data Directory)
 
-项目的全局工作目录位于用户根目录下的 `~/.polarisagi-harness/`。系统运行时的所有状态数据（包括数据库 `polaris.db`）、日志文件、运行时缓存等均持久化保存在该目录下。
+项目的全局工作目录位于用户根目录下的 `~/.polarisagi/harness/`。系统运行时的所有状态数据（包括数据库 `polaris.db`）、日志文件、运行时缓存等均持久化保存在该目录下。
 
 ```bash
 # 构建

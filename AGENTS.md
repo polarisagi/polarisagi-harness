@@ -1,6 +1,6 @@
 # polarisagi-harness
 
-> 开源自托管 AI Agent | Go 1.26+ + Rust 1.94+ | 6 pkg / 13 module / 4 layer | Tier 0 (8GB) floor | provider-agnostic (`configs/defaults.yaml` 推荐 DeepSeek V4)
+> 开源自托管 AI Agent | Go 1.26+ + Rust 1.94+ | 6 pkg / 13 module / 4 layer | Tier 0 (8GB) floor | provider-agnostic (`configs/defaults.toml` 推荐 DeepSeek V4)
 
 ## 角色
 
@@ -42,7 +42,7 @@
 api/proto/                   Protobuf 原始定义
 cmd/polaris/                 主入口
 configs/                     嵌入式启动配置（随二进制打包）
-  threshold-examples/        阈值覆盖示例（m*.toml；复制到 ~/.polarisagi-harness/config/ 生效）
+  threshold-examples/        阈值覆盖示例（m*.toml；复制到 ~/.polarisagi/harness/config/ 生效）
   automations/templates/     内置自动化模板
   agents/ prompts/ *.yaml    各类启动配置
 policies/                    Cedar 策略 + ESCALATE/KILLSWITCH 协议
@@ -65,7 +65,7 @@ rust/substrate/   Rust FFI 性能路径（purego 桥）
 testdata/         测试数据（benchmark/routing golden set 等）
 tools/            Go 构建工具（go:build ignore，make docs-sync / gen-threshold-examples 调用）
 
-~/.polarisagi-harness/  运行时数据根（polaris.db / logs / hooks / cache / config/）
+~/.polarisagi/harness/  运行时数据根（polaris.db / logs / hooks / cache / config/）
                      config/ 为 Operator-Developer 的阈值覆盖目录（m*.toml，可选）
 ```
 
@@ -92,7 +92,7 @@ make build-skills
 - 跨模块走 `internal/protocol/` 结构化事件（禁字符串隐式耦合）
 - Rust 仅性能关键 FFI（维持语言边界）
 - **[强制] DDL 修改策略**：`internal/protocol/schema/NNN_*.sql` 是 Schema SSoT，禁止以 ALTER TABLE / ADD COLUMN 补丁文件打补丁。
-  - **上线前**（`§当前阶段` 未标注"上线后"）：Schema 变更**直接修改原始建表文件**；开发库删除重建（`rm ~/.polarisagi-harness/polaris.db`）。
+  - **上线前**（`§当前阶段` 未标注"上线后"）：Schema 变更**直接修改原始建表文件**；开发库删除重建（`rm ~/.polarisagi/harness/polaris.db`）。
   - **上线后**（存在生产数据）：新增编号迁移文件（ALTER TABLE / 数据迁移），不得修改已应用历史文件。
   - Phase 判断 SSoT：本文 `§当前阶段`。不确定 → 主动提问，禁止静默决策。
 

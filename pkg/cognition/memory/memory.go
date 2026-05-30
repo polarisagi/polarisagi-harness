@@ -76,7 +76,7 @@ type ImmutableCore struct {
 
 	// 三层系统提示词组装字段（stable + volatile）
 
-	// SoulMDContent 用户自定义身份文件内容（~/.polarisagi-harness/config/SOUL.md）。
+	// SoulMDContent 用户自定义身份文件内容（~/.polarisagi/harness/config/SOUL.md）。
 	// 非空时替换 DefaultPolarisIdentity 作为 stable 层首段。
 	SoulMDContent string `json:"soul_md_content,omitempty"`
 
@@ -92,7 +92,7 @@ type ImmutableCore struct {
 	VolatileBlock string `json:"volatile_block,omitempty"`
 
 	// CustomInstructions 用户追加的行为指令（stable 层末尾，追加而非覆盖身份）。
-	// 来源：~/.polarisagi-harness/config/prompts/custom_instructions.md 或 Web UI 编辑。
+	// 来源：~/.polarisagi/harness/config/prompts/custom_instructions.md 或 Web UI 编辑。
 	// DB 删除不影响（文件持久化），factory reset 时才清空。
 	CustomInstructions string `json:"custom_instructions,omitempty"`
 }

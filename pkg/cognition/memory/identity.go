@@ -9,7 +9,7 @@ import (
 
 // defaultPolarisIdentityFallback 是极简兜底文本。
 // 正常路径从 configs/prompts/identity.md（embedded）加载；
-// 用户层从 ~/.polarisagi-harness/config/prompts/identity.md 加载（优先级更高）。
+// 用户层从 ~/.polarisagi/harness/config/prompts/identity.md 加载（优先级更高）。
 // 只有两路都失败时才使用此常量，保证系统始终可用。
 const defaultPolarisIdentityFallback = "你是 Polaris，一个开源自托管 AI Agent。你直接高效，有工具时立即调用。"
 
@@ -35,7 +35,7 @@ func SetEmbeddedPrompts(fsys fs.FS) {
 // ReadPrompt 按三所有权层优先级读取提示词文件内容。
 //
 // 优先级（高→低）：
-//  1. 用户文件 ~/.polarisagi-harness/config/prompts/{name}（用户资产，DB 重置不影响）
+//  1. 用户文件 ~/.polarisagi/harness/config/prompts/{name}（用户资产，DB 重置不影响）
 //  2. Embedded 默认 configs/prompts/{name}（随二进制发布，代码 PR 才能改）
 //  3. fallback 参数（极简硬编码，应对 embedded 加载失败）
 func ReadPrompt(name, fallback string) string {
@@ -85,8 +85,8 @@ func ModelSpecificGuidance(modelID string) string {
 	return ""
 }
 
-// LoadSoulMD 从 ~/.polarisagi-harness/config/SOUL.md 加载用户自定义身份文件。
-// 向后兼容旧路径，新路径为 ~/.polarisagi-harness/config/prompts/identity.md。
+// LoadSoulMD 从 ~/.polarisagi/harness/config/SOUL.md 加载用户自定义身份文件。
+// 向后兼容旧路径，新路径为 ~/.polarisagi/harness/config/prompts/identity.md。
 // SOUL.md 存在时作为 identity.md 的同义词使用；两者都存在时 identity.md 优先。
 func LoadSoulMD() string {
 	// 先看新路径
@@ -98,14 +98,14 @@ func LoadSoulMD() string {
 	if err != nil {
 		return ""
 	}
-	b, err := os.ReadFile(filepath.Join(home, ".polarisagi-harness", "config", "SOUL.md"))
+	b, err := os.ReadFile(filepath.Join(home, ".polarisagi/harness", "config", "SOUL.md"))
 	if err != nil {
 		return ""
 	}
 	return strings.TrimSpace(string(b))
 }
 
-// WriteUserPrompt 将用户编辑的提示词写入 ~/.polarisagi-harness/config/prompts/{name}。
+// WriteUserPrompt 将用户编辑的提示词写入 ~/.polarisagi/harness/config/prompts/{name}。
 // name 只允许 identity.md 和 custom_instructions.md 两个值（安全限制）。
 // 调用方负责校验 name 合法性（见 server/prompts.go allowedUserPrompts）。
 func WriteUserPrompt(name, content string) error {
@@ -113,7 +113,7 @@ func WriteUserPrompt(name, content string) error {
 	if err != nil {
 		return err
 	}
-	dir := filepath.Join(home, ".polarisagi-harness", "config", "prompts")
+	dir := filepath.Join(home, ".polarisagi/harness", "config", "prompts")
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
@@ -127,7 +127,7 @@ func DeleteUserPrompt(name string) error {
 	if err != nil {
 		return err
 	}
-	path := filepath.Join(home, ".polarisagi-harness", "config", "prompts", name)
+	path := filepath.Join(home, ".polarisagi/harness", "config", "prompts", name)
 	err = os.Remove(path)
 	if os.IsNotExist(err) {
 		return nil
@@ -151,7 +151,7 @@ func loadUserPromptFile(name string) string {
 	if err != nil {
 		return ""
 	}
-	b, err := os.ReadFile(filepath.Join(home, ".polarisagi-harness", "config", "prompts", name))
+	b, err := os.ReadFile(filepath.Join(home, ".polarisagi/harness", "config", "prompts", name))
 	if err != nil {
 		return ""
 	}

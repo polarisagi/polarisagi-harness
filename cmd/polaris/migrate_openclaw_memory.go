@@ -662,7 +662,7 @@ func resolvePolarisDB() string {
 		return filepath.Join(dir, "polaris.db")
 	}
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".polarisagi-harness", "polaris.db")
+	return filepath.Join(home, ".polarisagi/harness", "polaris.db")
 }
 
 func verifyEventsTable(db *sql.DB) error {

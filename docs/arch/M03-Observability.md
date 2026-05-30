@@ -251,7 +251,7 @@ OSMemoryGuard 每秒探测 free memory → 三级水位触发 MemoryPressureCall
 
 ## 6. OSMemoryGuard — 绝对空闲内存兜底
 
-OSMemoryGuard 与 M13 ResourceGovernor 共享统一三级资源降级体系。**阈值权威定义来源**: `spec/state.yaml §thresholds.memory_pressure`（全局单一来源，M3 和 M13 均读此节，禁止在各模块配置文件中独立硬编码）。M3 `criticalThresholdMB` / `warningThresholdMB` / `cautionThresholdMB` 三个结构体字段在启动时从 `spec/state.yaml §thresholds.memory_pressure` 加载；M13 ResourceGovernor 的对应阈值同样来源于此节，通过 `config.LoadThresholds(dataDir)` 获取，阈值通过 `Thresholds.M3Observability` 字段读取，不使用各自 `~/.polarisagi-harness/config/m3_observability.toml` / `~/.polarisagi-harness/config/m13_interface.toml` 的本地副本。两者对同一阈值独立采样，任一触发即执行降级。
+OSMemoryGuard 与 M13 ResourceGovernor 共享统一三级资源降级体系。**阈值权威定义来源**: `spec/state.yaml §thresholds.memory_pressure`（全局单一来源，M3 和 M13 均读此节，禁止在各模块配置文件中独立硬编码）。M3 `criticalThresholdMB` / `warningThresholdMB` / `cautionThresholdMB` 三个结构体字段在启动时从 `spec/state.yaml §thresholds.memory_pressure` 加载；M13 ResourceGovernor 的对应阈值同样来源于此节，通过 `config.LoadThresholds(dataDir)` 获取，阈值通过 `Thresholds.M3Observability` 字段读取，不使用各自 `~/.polarisagi/harness/config/m3_observability.toml` / `~/.polarisagi/harness/config/m13_interface.toml` 的本地副本。两者对同一阈值独立采样，任一触发即执行降级。
 
 实现见 `pkg/substrate/observability/hardware_probe.go` (OSMemoryGuard)。结构体字段: criticalThresholdMB(512MB, **L3 临界**) / warningThresholdMB(1.0GB, **L2 紧急**) / cautionThresholdMB(1.5GB, **L1 预警**) / slopeWindow(4次采样环形缓冲区) / slopeThreshold(-100MB/s) / slopeInterval(5s)。
 

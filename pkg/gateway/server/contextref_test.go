@@ -34,7 +34,7 @@ func TestIsSensitivePath_AllowsSafePaths(t *testing.T) {
 		"main.go",
 		"src/main.go",
 		"README.md",
-		"configs/defaults.yaml",
+		"configs/defaults.toml",
 		"internal/protocol/types.go",
 		"ssh",
 	}

@@ -71,7 +71,7 @@ my-plugin/
 
 ### 2.2 Hook 框架（P1）
 
-**决策**: 在 `pkg/action/hook/` 实现 ShellHook 执行引擎，从 `~/.polarisagi-harness/hooks/hooks.yaml` 加载配置。
+**决策**: 在 `pkg/action/hook/` 实现 ShellHook 执行引擎，从 `~/.polarisagi/harness/hooks/hooks.yaml` 加载配置。
 
 **Hook 事件映射**:
 | 事件 | 触发点 | 模块 |

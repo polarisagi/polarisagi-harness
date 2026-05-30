@@ -129,7 +129,7 @@ func DefaultScanPaths() []string {
 	cwd, _ := os.Getwd()
 	return []string{
 		filepath.Join(cwd, "plugins", "builtin"),
-		filepath.Join(home, ".polarisagi-harness", "plugins"),
+		filepath.Join(home, ".polarisagi/harness", "plugins"),
 		filepath.Join(cwd, ".polaris", "plugins"),
 	}
 }

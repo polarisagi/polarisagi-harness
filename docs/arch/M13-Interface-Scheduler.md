@@ -52,7 +52,7 @@ AgentREPL: 逐行读 stdin，"/" 前缀→内置命令（/help /sessions /switch
 数据导出/迁移: `polaris export [outfile.jsonl]` 流式导出 `chat_sessions`、`chat_messages` 和 `kv_store` (config 前缀)。`polaris import <infile.jsonl>` 幂等 upsert 恢复。
 
 **外部平台迁移**: `polaris migrate openclaw`（`cmd/polaris/migrate_openclaw.go`）从 ~/.openclaw 导入配置/密钥/记忆/人设:
-- 配置与密钥 → `configs/defaults.yaml`；SOUL.md/AGENTS.md → 系统 prompt + M5 记忆层
+- 配置与密钥 → `configs/defaults.toml`；SOUL.md/AGENTS.md → 系统 prompt + M5 记忆层
 - 记忆 SQLite → EventLog（`--with-memory`）；`--stage`（默认）写隔离命名空间 `salience=0.3`，`--smart` 启用 LLM 预压缩
 - 迁移后 `polaris memory process-staging` 触发去重→Salience重算→提升主线
 - 技能 SKILL.md 仅拷贝源码并标注"需人工编译为 Wasm"
@@ -175,7 +175,7 @@ SSE 事件 (text/event-stream): "token" | "tool_call" | "tool_result" | "thinkin
 #### 1.2.1 认证
 
 AuthMiddleware:
-  1. X-Session-Token → 匹配本地 Bearer Token (~/.polarisagi-harness/.session_token 0600) → 放行; loopback 不免密 → 401
+  1. X-Session-Token → 匹配本地 Bearer Token (~/.polarisagi/harness/.session_token 0600) → 放行; loopback 不免密 → 401
   2. X-API-Key → [CredentialVault] KeychainProvider.Verify SHA-256 常量时间比较 → 失败 401
   公网: JWT Ed25519 + TLS 1.3; 3 次失败 → IP 冷却 5min
 

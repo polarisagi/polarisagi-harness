@@ -35,7 +35,7 @@
 
 ## 1. 默认模型
 
-Provider-agnostic 设计。`configs/defaults.yaml` 推荐组合：DeepSeek V4 系列（已在 Tier-0 长程验证）；备选 Claude Sonnet 4.6 / GPT-5.x 等任何符合 §2 Provider Interface 的实现。
+Provider-agnostic 设计。`configs/defaults.toml` 推荐组合：DeepSeek V4 系列（已在 Tier-0 长程验证）；备选 Claude Sonnet 4.6 / GPT-5.x 等任何符合 §2 Provider Interface 的实现。
 
 ---
 
@@ -84,7 +84,7 @@ L3 LLM 输出 provider 推荐槽位，由 Route() 确定性函数验证（预算
 | Local-SLM | 3-8B GGUF 本地 | local_only / 离线 fallback |
 | Local-Reasoning | 14B+ 本地 | HT2+ local_only |
 
-> **默认推荐**：`configs/defaults.yaml` 选 DeepSeek V4 Flash + Pro 组合（价格 / 质量 / 中文友好综合最优，Tier-0 长程验证）。用户可在 Web UI Settings 切换至任何兼容 Provider。
+> **默认推荐**：`configs/defaults.toml` 选 DeepSeek V4 Flash + Pro 组合（价格 / 质量 / 中文友好综合最优，Tier-0 长程验证）。用户可在 Web UI Settings 切换至任何兼容 Provider。
 
 ### 4.3 ComplexityDeterminer
 

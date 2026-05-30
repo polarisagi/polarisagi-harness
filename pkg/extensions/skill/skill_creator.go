@@ -23,7 +23,7 @@ type LLMClient interface {
 // SkillCreator defines the auto-generation workflow for skills based on Codex templates.
 type SkillCreator struct {
 	llm        LLMClient
-	baseDir    string // e.g. ~/.polarisagi-harness/plugins/user/
+	baseDir    string // e.g. ~/.polarisagi/harness/plugins/user/
 	installMgr *marketplace.Manager
 }
 

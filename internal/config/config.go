@@ -7,140 +7,139 @@ import (
 	"path/filepath"
 
 	"github.com/pelletier/go-toml/v2"
-	"gopkg.in/yaml.v3"
 
 	"github.com/polarisagi/polarisagi-harness/configs"
 )
 
 type Config struct {
-	System        SystemConfig        `yaml:"system"`
-	Inference     InferenceConfig     `yaml:"inference"`
-	Storage       StorageConfig       `yaml:"storage"`
-	Observability ObservabilityConfig `yaml:"observability"`
-	Agent         AgentConfig         `yaml:"agent"`
-	Orchestrator  OrchestratorConfig  `yaml:"orchestrator"`
-	SelfImprove   SelfImproveConfig   `yaml:"self_improve"`
-	Knowledge     KnowledgeConfig     `yaml:"knowledge"`
-	Policy        PolicyConfig        `yaml:"policy"`
-	Eval          EvalConfig          `yaml:"eval"`
-	Interface     InterfaceConfig     `yaml:"interface"`
-	Thresholds    Thresholds          `yaml:"-"`
+	System        SystemConfig        `toml:"system"`
+	Inference     InferenceConfig     `toml:"inference"`
+	Storage       StorageConfig       `toml:"storage"`
+	Observability ObservabilityConfig `toml:"observability"`
+	Agent         AgentConfig         `toml:"agent"`
+	Orchestrator  OrchestratorConfig  `toml:"orchestrator"`
+	SelfImprove   SelfImproveConfig   `toml:"self_improve"`
+	Knowledge     KnowledgeConfig     `toml:"knowledge"`
+	Policy        PolicyConfig        `toml:"policy"`
+	Eval          EvalConfig          `toml:"eval"`
+	Interface     InterfaceConfig     `toml:"interface"`
+	Thresholds    Thresholds          `toml:"-"`
 }
 
 type SystemConfig struct {
-	Tier         int    `yaml:"tier"`
-	MaxAgents    int    `yaml:"max_agents"`
-	GoMemLimitMB int    `yaml:"go_memlimit_mb"`
-	DataDir      string `yaml:"data_dir"`
+	Tier         int    `toml:"tier"`
+	MaxAgents    int    `toml:"max_agents"`
+	GoMemLimitMB int    `toml:"go_memlimit_mb"`
+	DataDir      string `toml:"data_dir"`
 }
 
 type InferenceConfig struct {
-	DefaultProvider   string      `yaml:"default_provider"`
-	ReasoningProvider string      `yaml:"reasoning_provider"`
-	StructuredOutput  string      `yaml:"structured_output"`
-	EmbedderDim       int         `yaml:"embedder_dim"` // vector dimension; changes on local_only toggle
-	Cache             CacheConfig `yaml:"cache"`
-	STT               STTConfig   `yaml:"stt"`
+	DefaultProvider   string      `toml:"default_provider"`
+	ReasoningProvider string      `toml:"reasoning_provider"`
+	StructuredOutput  string      `toml:"structured_output"`
+	EmbedderDim       int         `toml:"embedder_dim"` // vector dimension; changes on local_only toggle
+	Cache             CacheConfig `toml:"cache"`
+	STT               STTConfig   `toml:"stt"`
 }
 
 type STTConfig struct {
-	SherpaVersion      string `yaml:"sherpa_version" toml:"sherpa_version"`
-	SenseVoiceModelURL string `yaml:"sense_voice_model_url" toml:"sense_voice_model_url"`
-	PunctModelURL      string `yaml:"punct_model_url" toml:"punct_model_url"`
+	SherpaVersion      string `toml:"sherpa_version"`
+	SenseVoiceModelURL string `toml:"sense_voice_model_url"`
+	PunctModelURL      string `toml:"punct_model_url"`
 }
 
 type CacheConfig struct {
-	Enabled bool   `yaml:"enabled"`
-	Backend string `yaml:"backend"`
+	Enabled bool   `toml:"enabled"`
+	Backend string `toml:"backend"`
 }
 
 type StorageConfig struct {
-	Engines map[string]string `yaml:"engines"`
+	Engines map[string]string `toml:"engines"`
 }
 
 type ObservabilityConfig struct {
-	Traces  TraceConfig  `yaml:"traces"`
-	Metrics MetricConfig `yaml:"metrics"`
-	Logs    LogConfig    `yaml:"logs"`
+	Traces  TraceConfig  `toml:"traces"`
+	Metrics MetricConfig `toml:"metrics"`
+	Logs    LogConfig    `toml:"logs"`
 }
 
 type TraceConfig struct {
-	Enabled bool    `yaml:"enabled"`
-	Sampler float64 `yaml:"sampler"`
+	Enabled bool    `toml:"enabled"`
+	Sampler float64 `toml:"sampler"`
 }
 
 type MetricConfig struct {
-	Enabled bool `yaml:"enabled"`
+	Enabled bool `toml:"enabled"`
 }
 
 type LogConfig struct {
-	Level  string `yaml:"level"`
-	Format string `yaml:"format"`
+	Level  string `toml:"level"`
+	Format string `toml:"format"`
 }
 
 type AgentConfig struct {
-	Kernel KernelConfig `yaml:"kernel"`
-	Memory MemoryConfig `yaml:"memory"`
-	Skill  SkillConfig  `yaml:"skill"`
+	Kernel KernelConfig `toml:"kernel"`
+	Memory MemoryConfig `toml:"memory"`
+	Skill  SkillConfig  `toml:"skill"`
 }
 
 type KernelConfig struct {
-	StateMachine             string  `yaml:"state_machine"`
-	DefaultSurpriseThreshold float64 `yaml:"default_surprise_threshold"`
+	StateMachine             string  `toml:"state_machine"`
+	DefaultSurpriseThreshold float64 `toml:"default_surprise_threshold"`
 }
 
 type MemoryConfig struct {
-	Layers        []string `yaml:"layers"`
-	Consolidation string   `yaml:"consolidation"`
+	Layers        []string `toml:"layers"`
+	Consolidation string   `toml:"consolidation"`
 }
 
 type SkillConfig struct {
-	BuiltinPath                string `yaml:"builtin_path"`
-	MaxLogicCollapseConcurrent int    `yaml:"max_logic_collapse_concurrent"`
+	BuiltinPath                string `toml:"builtin_path"`
+	MaxLogicCollapseConcurrent int    `toml:"max_logic_collapse_concurrent"`
 }
 
 type OrchestratorConfig struct {
-	Mode     string `yaml:"mode"`
-	Protocol string `yaml:"protocol"`
+	Mode     string `toml:"mode"`
+	Protocol string `toml:"protocol"`
 }
 
 type SelfImproveConfig struct {
-	Gradient       bool                `yaml:"gradient"`
-	AutoCurriculum bool                `yaml:"auto_curriculum"`
-	LogicCollapse  LogicCollapseConfig `yaml:"logic_collapse"`
+	Gradient       bool                `toml:"gradient"`
+	AutoCurriculum bool                `toml:"auto_curriculum"`
+	LogicCollapse  LogicCollapseConfig `toml:"logic_collapse"`
 }
 
 type LogicCollapseConfig struct {
-	Enabled              bool `yaml:"enabled"`
-	MinSuccessForTrigger int  `yaml:"min_success_for_trigger"`
+	Enabled              bool `toml:"enabled"`
+	MinSuccessForTrigger int  `toml:"min_success_for_trigger"`
 }
 
 type KnowledgeConfig struct {
-	RAG RAGConfig `yaml:"rag"`
+	RAG RAGConfig `toml:"rag"`
 }
 
 type RAGConfig struct {
-	Mode     string `yaml:"mode"`
-	GraphRAG string `yaml:"graphrag"`
+	Mode     string `toml:"mode"`
+	GraphRAG string `toml:"graphrag"`
 }
 
 type PolicyConfig struct {
-	Engine       string `yaml:"engine"`
-	DefaultBlock bool   `yaml:"default_block"`
+	Engine       string `toml:"engine"`
+	DefaultBlock bool   `toml:"default_block"`
 }
 
 type EvalConfig struct {
-	CIGate       bool `yaml:"ci_gate"`
-	ShadowDeploy bool `yaml:"shadow_deploy"`
+	CIGate       bool `toml:"ci_gate"`
+	ShadowDeploy bool `toml:"shadow_deploy"`
 }
 
 type InterfaceConfig struct {
-	Host      string `yaml:"host"`
-	Port      int    `yaml:"port"`
-	CLI       bool   `yaml:"cli"`
-	HTTP      bool   `yaml:"http"`
-	GRPC      bool   `yaml:"grpc"`
-	WebSocket bool   `yaml:"websocket"`
+	Host      string `toml:"host"`
+	Port      int    `toml:"port"`
+	CLI       bool   `toml:"cli"`
+	HTTP      bool   `toml:"http"`
+	GRPC      bool   `toml:"grpc"`
+	WebSocket bool   `toml:"websocket"`
 }
 
 func loadModuleTOML(modulePath string, target interface{}) error {
@@ -164,7 +163,7 @@ func Load(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		// Fallback to embedded configs
-		data, err = configs.FS.ReadFile("defaults.yaml")
+		data, err = configs.FS.ReadFile("defaults.toml")
 		if err != nil {
 			return nil, err
 		}
@@ -175,7 +174,7 @@ func Load(path string) (*Config, error) {
 		}
 	}
 	cfg := &Config{Thresholds: DefaultThresholds()}
-	if err := yaml.Unmarshal(data, cfg); err != nil {
+	if err := toml.Unmarshal(data, cfg); err != nil {
 		return nil, err
 	}
 	if err := cfg.Validate(); err != nil {

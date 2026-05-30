@@ -42,7 +42,7 @@ type AuditTrail struct {
 	db             *sql.DB
 }
 
-// NewAuditTrail 创建审计轨迹，archiveDir 为归档路径（e.g. ~/.polarisagi-harness/audit/archive/）。
+// NewAuditTrail 创建审计轨迹，archiveDir 为归档路径（e.g. ~/.polarisagi/harness/audit/archive/）。
 func NewAuditTrail(db *sql.DB, archiveDir string) *AuditTrail {
 	return &AuditTrail{
 		db:         db,

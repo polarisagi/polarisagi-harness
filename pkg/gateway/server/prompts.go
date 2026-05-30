@@ -70,7 +70,7 @@ func (s *Server) handleGetPrompt(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleSetPrompt PUT /v1/config/prompts/{name}
-// 将用户编辑的提示词写入 ~/.polarisagi-harness/config/prompts/{filename}。
+// 将用户编辑的提示词写入 ~/.polarisagi/harness/config/prompts/{filename}。
 // 立即热更新 ImmutableCore，下一轮对话生效。
 func (s *Server) handleSetPrompt(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")

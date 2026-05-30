@@ -72,8 +72,8 @@ Layer 2 硬约束 — Cedar forbid (无条件优先 permit):
   forbid: 不可逆操作未经审批 → resource.tool_name in [deploy_to_production, delete_data, send_external_communication, financial_transaction] AND context.approval_status != "approved"
   forbid: LLM 生成代码执行特权操作 → principal in Role::"Agent" AND resource.source == "llm_generated" AND resource.risk_level == "privileged"
   forbid: 预算硬上限 → context.monthly_spend_usd > context.monthly_budget_usd (所有 principal/action/resource 无条件)
-  forbid: Holdout Set 读取隔离 → principal in Role::"Agent" AND action in [Action::"read_local", Action::"read_file"] AND resource.path.startsWith(context.polarisagi-harness_eval_holdout_path)
-    说明: context.polarisagi-harness_eval_holdout_path 由 Go 侧在策略加载时注入（展开后的绝对路径，等价于 ~/.polarisagi-harness/eval/holdout/）。ci_gate role 不受此 forbid 限制（CI/Canary 需要读取 Holdout Set）。此规则为防御纵深——物理隔离层（WASI 沙箱 + Openat2 RESOLVE_IN_ROOT）已阻止逃逸，Cedar 规则覆盖 Host Function 层可能的访问向量。
+  forbid: Holdout Set 读取隔离 → principal in Role::"Agent" AND action in [Action::"read_local", Action::"read_file"] AND resource.path.startsWith(context.polarisagi/harness_eval_holdout_path)
+    说明: context.polarisagi/harness_eval_holdout_path 由 Go 侧在策略加载时注入（展开后的绝对路径，等价于 ~/.polarisagi/harness/eval/holdout/）。ci_gate role 不受此 forbid 限制（CI/Canary 需要读取 Holdout Set）。此规则为防御纵深——物理隔离层（WASI 沙箱 + Openat2 RESOLVE_IN_ROOT）已阻止逃逸，Cedar 规则覆盖 Host Function 层可能的访问向量。
 
 Layer 3 软约束 — Cedar permit + conditions:
   permit: 只读工具 → trust_level >= 1
@@ -312,14 +312,14 @@ executePause: 200ms timeout → toolRegistry.StopAllPending
 | 路径 | 机制 | 响应 |
 |------|------|------|
 | Ctrl+C x3 (3s 窗口) | SIGINT 计数器, 窗口重置归零, >=3 → Full Stop | <1s |
-| ~/.polarisagi-harness/KILLSWITCH 文件 | fsnotify 监视, 存在 → Full Stop | <500ms |
+| ~/.polarisagi/harness/KILLSWITCH 文件 | fsnotify 监视, 存在 → Full Stop | <500ms |
 | POST /_admin/kill | localhost-only (127.0.0.1/::1), 无认证 | <100ms |
 | [TokenBurnRate] > 10x baseline 30s | 滑动窗口背压熔断 | ~30s |
 | Global DoS Guard (LLM10) | 全局信号量饱和 / Session Bucket 耗尽 | 限流或 Stage 1 |
 
 TripleCtrlCGuard: 3s 滑动窗口计数 SIGINT, 归零/>=3 → executeFullStop
 
-KILLSWITCHFileWatch: fsnotify 监视 ~/.polarisagi-harness/KILLSWITCH, 存在 → executeFullStop, 删除后恢复
+KILLSWITCHFileWatch: fsnotify 监视 ~/.polarisagi/harness/KILLSWITCH, 存在 → executeFullStop, 删除后恢复
 
 AdminKillEndpoint: 仅 127.0.0.1/::1, POST → executeFullStop; 否则 403
 
@@ -375,7 +375,7 @@ SessionPIIVault:
   **跨会话挂起持久化（解决 Suspended 任务 PII 丢失）**:
   SuspendSnapshot(ctx, taskID):
     token map (tokenID→PII 明文) → msgpack → AES-256-GCM + persistent_key 加密（nonce 随机，prepend 密文头）
-    ≤4KB → tasks.pii_vault_blob 列 (base64)；>4KB → VFS blob (`~/.polarisagi-harness/vfs/`) + tasks.vfs_ref (VFS refcount+1)
+    ≤4KB → tasks.pii_vault_blob 列 (base64)；>4KB → VFS blob (`~/.polarisagi/harness/vfs/`) + tasks.vfs_ref (VFS refcount+1)
     落盘: MutationIntent{Table:"tasks", Op:OpPatch, Payload:{pii_vault_blob:...}} 经 MutationBus 串行
     落盘成功 → 立即清零内存 vault（GDPR：明文不持久驻留）
     架构约束: 仅 Tier-0 单机有效；persistent_key 源 OS Keychain，跨机迁移不可解密——已知限制
@@ -491,7 +491,7 @@ Hash Chain 结构：`RecordHash = SHA-256(序列化后记录，不含 RecordHash
 
 ### 7.2 Epoch 轮转
 
-触发：审计日志估算体积 > 100MB（由调用方传入当前 MB 数）。封存流程：追加 `epoch_end` 标记记录（FinalHash + RecordCount），写 DB；更新 epochID；追加 `epoch_start` 标记（PrevEpochFinalHash），建立跨 Epoch 密码学连续性。归档目录 `~/.polarisagi-harness/audit/archive/`，保留 90 天（Tier 0）。
+触发：审计日志估算体积 > 100MB（由调用方传入当前 MB 数）。封存流程：追加 `epoch_end` 标记记录（FinalHash + RecordCount），写 DB；更新 epochID；追加 `epoch_start` 标记（PrevEpochFinalHash），建立跨 Epoch 密码学连续性。归档目录 `~/.polarisagi/harness/audit/archive/`，保留 90 天（Tier 0）。
 
 ### 7.3 Outbox Worker 增量消费（HE-Rule-6）
 

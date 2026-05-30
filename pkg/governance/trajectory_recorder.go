@@ -62,7 +62,7 @@ func (r *TrajectoryRecorder) recordEvent(eventType string, data any) {
 }
 
 // Save 将录制的轨迹落盘（以 JSONL 格式）。
-// path 通常位于 ~/.polarisagi-harness/eval/training/ 或类似目录，受到 M11 保护。
+// path 通常位于 ~/.polarisagi/harness/eval/training/ 或类似目录，受到 M11 保护。
 func (r *TrajectoryRecorder) Save(path string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
