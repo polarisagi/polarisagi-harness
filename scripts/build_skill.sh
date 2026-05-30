@@ -1,38 +1,39 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+# build_skill.sh — 编译单个 Skill 的 impl.go → impl.wasm
+# 用法：./scripts/build_skill.sh <skill_name>
+#   skill_name: skills/builtin/ 下的子目录名，如 regex_match
 
-# build_skill.sh
-# 自动编译 skills/builtin/ 下的 Go 源码为 Wasm 二进制
+set -euo pipefail
 
-PROJECT_ROOT=$(pwd)
-SKILL_DIR="${PROJECT_ROOT}/skills/builtin"
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+NC='\033[0m'
 
-# 检查环境变量
-export GOOS=wasip1
-export GOARCH=wasm
+if [ $# -eq 0 ]; then
+    echo "用法: $(basename "$0") <skill_name>"
+    echo "示例: $(basename "$0") regex_match"
+    exit 1
+fi
 
-echo "Compiling WebAssembly skills (GOOS=wasip1 GOARCH=wasm)..."
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SKILL_NAME="$1"
+SKILL_DIR="${PROJECT_ROOT}/skills/builtin/${SKILL_NAME}"
 
-count=0
-for dir in "${SKILL_DIR}"/*; do
-  if [ -d "$dir" ]; then
-    if [ -f "$dir/impl.go" ]; then
-      skill_name=$(basename "$dir")
-      echo "  -> Building ${skill_name}..."
-      
-      cd "$dir"
-      # 使用 Go 原生 wasip1 的 c-shared 模式编译以支持 //go:wasmexport
-      go build -buildmode=c-shared -o impl.wasm impl.go
-      
-      if [ $? -eq 0 ]; then
-        echo "     [OK] impl.wasm created."
-        count=$((count+1))
-      else
-        echo "     [FAILED] Could not build ${skill_name}"
-      fi
-      cd "${PROJECT_ROOT}"
-    fi
-  fi
-done
+if [ ! -d "$SKILL_DIR" ]; then
+    echo -e "${RED}Error: 技能目录不存在: ${SKILL_DIR}${NC}"
+    exit 1
+fi
+if [ ! -f "${SKILL_DIR}/impl.go" ]; then
+    echo -e "${RED}Error: ${SKILL_DIR}/impl.go 不存在${NC}"
+    exit 1
+fi
 
-echo "Successfully built ${count} Wasm skill(s)."
+if ! command -v tinygo &>/dev/null; then
+    echo "Error: tinygo 未找到。安装: https://tinygo.org/getting-started/"
+    exit 1
+fi
+
+echo "=> 编译 ${SKILL_NAME} → impl.wasm"
+# 子 shell 隔离 cd
+(cd "$SKILL_DIR" && tinygo build -o impl.wasm -target=wasi impl.go)
+echo -e "${GREEN}✓ ${SKILL_DIR}/impl.wasm${NC}"

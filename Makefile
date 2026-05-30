@@ -1,4 +1,4 @@
-.PHONY: build run test lint clean rust-build rust-test build-skills build-ui dev-ui docs-sync docs-check docs-lint gen-threshold-examples generate-manifest _copy-skills
+.PHONY: build run test lint clean rust-build rust-test build-skills build-skill build-ui dev-ui docs-sync docs-check docs-lint gen-threshold-examples generate-manifest _copy-skills
 
 GO := go
 CARGO := cargo
@@ -93,6 +93,10 @@ benchmark-routing:
 
 build-skills:
 	@./scripts/build_skills.sh
+
+# 编译单个技能: make build-skill SKILL=regex_match
+build-skill:
+	@./scripts/build_skill.sh $(SKILL)
 
 gen-threshold-examples:
 	$(GO) run tools/gen_threshold_examples.go configs/threshold-examples/

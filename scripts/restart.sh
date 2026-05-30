@@ -136,6 +136,11 @@ fi
 GO_CMD="$GO_CMD -o bin/polaris ./cmd/polaris"
 eval $GO_CMD
 
+# ── 4.5 将已编译的 wasm 同步到 bin/skills/（供二进制运行时加载）──
+if ! $SKIP_SKILLS; then
+  make --no-print-directory _copy-skills
+fi
+
 # ── 5. 启动 ───────────────────────────────────────────────
 echo "→ 启动 Polaris..."
 # Polaris 遵循配置层规范，默认使用 ~/.polarisagi-harness/config.yaml

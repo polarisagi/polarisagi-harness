@@ -1,62 +1,53 @@
 #!/usr/bin/env bash
+# build_skills.sh — 批量将 skills/builtin/*/impl.go 编译为 impl.wasm
+# 用法：./scripts/build_skills.sh [skills_dir]
+#   skills_dir 默认为 skills/builtin
 
-set -e
+set -euo pipefail
 
-# ANSI Color Codes
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[0;33m'
 NC='\033[0m'
 
-echo "=> Checking for TinyGo..."
-if ! command -v tinygo &> /dev/null; then
-    echo -e "${YELLOW}Warning: 'tinygo' could not be found.${NC}"
-    echo "Wasm skills compilation will be skipped."
-    echo "To compile skills, please install TinyGo (https://tinygo.org/getting-started/)."
+# 脚本所在目录向上一级即项目根，保证从任意路径调用都正确
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SKILLS_DIR="${1:-${PROJECT_ROOT}/skills/builtin}"
+
+if ! command -v tinygo &>/dev/null; then
+    echo -e "${YELLOW}Warning: tinygo 未找到，跳过 Wasm 编译。${NC}"
+    echo "安装 TinyGo: https://tinygo.org/getting-started/"
     exit 0
 fi
 
-SKILLS_DIR="skills/builtin"
-
 if [ ! -d "$SKILLS_DIR" ]; then
-    echo -e "${RED}Error: Directory $SKILLS_DIR does not exist.${NC}"
+    echo -e "${RED}Error: 目录不存在: ${SKILLS_DIR}${NC}"
     exit 1
 fi
 
-echo "=> Compiling built-in skills to Wasm..."
+echo "=> 编译内置 Skills → Wasm  [${SKILLS_DIR}]"
 
 SUCCESS_COUNT=0
 FAIL_COUNT=0
 
-# Find all directories containing impl.go
-for impl_file in $(find "$SKILLS_DIR" -name "impl.go"); do
-    skill_dir=$(dirname "$impl_file")
-    skill_name=$(basename "$skill_dir")
-
-    echo "  -> Compiling skill: $skill_name"
-
-    # Run tinygo build in the skill directory
-    cd "$skill_dir"
-
-    # We use -target=wasi for wazero compatibility
-    if tinygo build -o impl.wasm -target=wasi impl.go; then
+# 使用 while read 而非 for $(find ...) 避免路径含空格时断裂
+while IFS= read -r impl_file; do
+    skill_dir="$(dirname "$impl_file")"
+    skill_name="$(basename "$skill_dir")"
+    echo "  -> $skill_name"
+    # 用子 shell 隔离 cd，失败不影响主循环
+    if (cd "$skill_dir" && tinygo build -o impl.wasm -target=wasi impl.go); then
         echo -e "     ${GREEN}✓ Success${NC}"
         SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
     else
-        echo -e "     ${RED}��� Failed${NC}"
+        echo -e "     ${RED}✗ Failed${NC}"
         FAIL_COUNT=$((FAIL_COUNT + 1))
     fi
-
-    # Return to project root
-    cd - > /dev/null
-done
+done < <(find "$SKILLS_DIR" -name "impl.go" -type f)
 
 echo ""
-echo "=> Compilation Summary:"
-echo -e "   ${GREEN}Successful: $SUCCESS_COUNT${NC}"
-if [ $FAIL_COUNT -gt 0 ]; then
-    echo -e "   ${RED}Failed: $FAIL_COUNT${NC}"
+echo "=> 编译完成: ${GREEN}成功 ${SUCCESS_COUNT}${NC}"
+if [ "$FAIL_COUNT" -gt 0 ]; then
+    echo -e "            ${RED}失败 ${FAIL_COUNT}${NC}"
     exit 1
 fi
-
-exit 0
