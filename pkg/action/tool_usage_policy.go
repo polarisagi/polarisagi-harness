@@ -242,7 +242,7 @@ func (e *PolicyEvolver) GetContextHint(toolName string) string {
 // 格式示例：
 //
 //	<tool-hints>
-//	  <tool name="web_search">FailureWarning: Frequent timeout. Mitigation: reduce scope; </tool>
+//	  <tool name="browser_use">FailureWarning: Frequent timeout. Mitigation: reduce scope; </tool>
 //	  <tool name="code_exec">ParamHints: timeout_ms (default: 10000 - ...); </tool>
 //	</tool-hints>
 //
