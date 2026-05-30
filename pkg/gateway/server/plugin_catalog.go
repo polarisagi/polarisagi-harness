@@ -69,6 +69,7 @@ func (s *Server) appendCustomCatalogs(ctx context.Context, result []protocol.Reg
 				e.Command = v
 			}
 		}
+		e.MarketplaceSortOrder = 1000 // 用户自定义的扩展放到同类状态的最后
 		result = append(result, e)
 	}
 	return result
@@ -76,7 +77,10 @@ func (s *Server) appendCustomCatalogs(ctx context.Context, result []protocol.Reg
 
 // appendCachedCatalogs 追加市场同步缓存条目，叠加安装状态。
 func (s *Server) appendCachedCatalogs(ctx context.Context, result []protocol.RegistryEntry, installed map[string]bool) []protocol.RegistryEntry {
-	rows, err := s.db.QueryContext(ctx, `SELECT payload FROM extension_catalog`)
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT c.payload, COALESCE(m.sort_order, 999) 
+		FROM extension_catalog c 
+		LEFT JOIN plugin_marketplaces m ON c.marketplace_id = m.id`)
 	if err != nil {
 		return result
 	}
@@ -84,7 +88,8 @@ func (s *Server) appendCachedCatalogs(ctx context.Context, result []protocol.Reg
 
 	for rows.Next() {
 		var payload string
-		if err := rows.Scan(&payload); err != nil {
+		var sortOrder int
+		if err := rows.Scan(&payload, &sortOrder); err != nil {
 			continue
 		}
 		var entry protocol.RegistryEntry
@@ -92,30 +97,16 @@ func (s *Server) appendCachedCatalogs(ctx context.Context, result []protocol.Reg
 			continue
 		}
 		entry.Installed = installed[entry.ID]
+		entry.MarketplaceSortOrder = sortOrder
 		result = append(result, entry)
 	}
 	return result
 }
 
-// publisherPriority 将 publisher 映射为目录列表排序权重（值越小越靠前）。
-// 与 configs/marketplaces.yaml 的 sort_order 保持一致。
-func publisherPriority(publisher string) int {
-	switch publisher {
-	case "polarisagi":
-		return 0
-	case "anthropic":
-		return 10
-	case "openai":
-		return 20
-	case "google":
-		return 30
-	default:
-		return 999
-	}
-}
+
 
 // handleListPluginCatalog 返回扩展目录列表（用户自建 + 市场缓存）。
-// 排序规则：已安装优先 → 市场优先级（polaris<anthropic<openai<google<其他）→ 名字字母序。
+// 排序规则：已安装优先 → 官方市场优先（SortOrder == 0）→ 名字字母序。
 // 已安装的条目只出现一次（installed=true），不在未安装区重复展示。
 // GET /v1/plugins/catalog
 func (s *Server) handleListPluginCatalog(w http.ResponseWriter, r *http.Request) {
@@ -136,7 +127,7 @@ func (s *Server) handleListPluginCatalog(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	// 排序键：(installed_rank=0/1, publisher_priority, name_lower)
+	// 排序键：(installed_rank=0/1, marketplace_sort_order, name_lower)
 	sort.Slice(uniqueResult, func(i, j int) bool {
 		ei, ej := uniqueResult[i], uniqueResult[j]
 
@@ -145,13 +136,14 @@ func (s *Server) handleListPluginCatalog(w http.ResponseWriter, r *http.Request)
 			return ei.Installed
 		}
 
-		// 同安装状态按市场优先级排
-		pi, pj := publisherPriority(ei.Publisher), publisherPriority(ej.Publisher)
-		if pi != pj {
-			return pi < pj
+		// 同安装状态：官方市场（SortOrder == 0）排在最前，其他的不再按市场细分排序
+		isOfficialI := ei.MarketplaceSortOrder == 0
+		isOfficialJ := ej.MarketplaceSortOrder == 0
+		if isOfficialI != isOfficialJ {
+			return isOfficialI
 		}
 
-		// 同市场按名字排
+		// 官方内部或其他市场内部，统一按名称排
 		return strings.ToLower(ei.Name) < strings.ToLower(ej.Name)
 	})
 

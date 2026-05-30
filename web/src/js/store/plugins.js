@@ -53,11 +53,7 @@ Alpine.store('plugins', {
       }
     }
 
-    return uniqueList.sort((a, b) => {
-      if (a.installed && !b.installed) return -1
-      if (!a.installed && b.installed) return 1
-      return (a.name || '').localeCompare(b.name || '')
-    })
+    return uniqueList
   },
 
   get filteredMarketplaces() {
@@ -70,7 +66,7 @@ Alpine.store('plugins', {
         (e.publisher || '').toLowerCase().includes(q)
       )
     }
-    return [...list].sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+    return list
   },
 
   async load() {

@@ -31,6 +31,8 @@ type RegistryEntry struct {
 	Icon             string `json:"icon,omitempty" yaml:"icon,omitempty"`
 	// 运行时叠加：是否已安装（extension_instances 表中存在同 catalog_id）
 	Installed bool `json:"installed" yaml:"installed"`
+	// 运行时叠加：所属市场的排序权重（用于列表展示）
+	MarketplaceSortOrder int `json:"marketplace_sort_order,omitempty" yaml:"-"`
 }
 
 // Marketplace 市场配置。
