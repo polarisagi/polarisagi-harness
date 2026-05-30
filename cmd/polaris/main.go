@@ -413,12 +413,19 @@ func run() error { //nolint:gocyclo
 	skillSelector := skill.NewSelector(skillRegistry)
 	_ = skillSelector
 
+	// 将已编译的内置技能注册到 extension_instances（幂等 UPSERT）。
+	// 注册后 SkillMeta.WasmPath 由 registry.Get() 联查填充，无需 WasmLoader。
+	skillsDir := resolveBuiltinSkillsDir()
+	if err := skill.SeedBuiltinSkills(ctx, store.DB(), skillsDir); err != nil {
+		slog.Warn("polaris: builtin skill seeding partial failure", "err", err)
+	} else {
+		slog.Info("polaris: builtin skills seeded", "dir", skillsDir)
+	}
+
 	wasmRT := action.NewWazeroRuntime(ctx)
 	wasmRunner := action.NewWasmRunnerAdapter(wasmRT)
-	// WasmLoader 兜底：从 skills/builtin/ 加载本地已编译的 wasm（make build-skills）。
-	// marketplace 安装的技能优先走 SkillMeta.WasmPath，不经此 loader。
-	wasmLoader := skill.NewFilesystemWasmLoader("")
-	skillExecutor := skill.NewWasmSkillExecutor(skillRegistry, wasmRunner, wasmLoader)
+	// 所有技能（builtin + marketplace）均通过 SkillMeta.WasmPath 加载，loader=nil。
+	skillExecutor := skill.NewWasmSkillExecutor(skillRegistry, wasmRunner, nil)
 	_ = skillExecutor
 	slog.Info("polaris: skill library initialized (wazero-backed)")
 
@@ -751,6 +758,21 @@ func initDirectories(dataDir string) {
 			slog.Warn("polaris: failed to create directory", "dir", d, "err", err)
 		}
 	}
+}
+
+// resolveBuiltinSkillsDir 解析内置技能目录的绝对路径。
+// 优先查找与可执行文件同级的 skills/ 目录（make build 复制产物）；
+// 开发模式 fallback 到 CWD 下的 skills/builtin/。
+func resolveBuiltinSkillsDir() string {
+	if exe, err := os.Executable(); err == nil {
+		// make build 将 wasm 复制到 bin/skills/；二进制在 bin/ 下
+		d := filepath.Join(filepath.Dir(exe), "skills")
+		if fi, err := os.Stat(d); err == nil && fi.IsDir() {
+			return d
+		}
+	}
+	// 开发模式：go run ./cmd/polaris 在项目根执行
+	return "skills/builtin"
 }
 
 func printStartupSummary(cfg *config.Config, components ...any) {

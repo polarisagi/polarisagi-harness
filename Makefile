@@ -1,4 +1,4 @@
-.PHONY: build run test lint clean rust-build rust-test build-skills build-ui dev-ui docs-sync docs-check docs-lint gen-threshold-examples generate-manifest
+.PHONY: build run test lint clean rust-build rust-test build-skills build-ui dev-ui docs-sync docs-check docs-lint gen-threshold-examples generate-manifest _copy-skills
 
 GO := go
 CARGO := cargo
@@ -11,6 +11,7 @@ build: generate-manifest rust-build build-ui
 	@cp rust/substrate/target/release/libsubstrate.so bin/lib/ 2>/dev/null || true
 	@cp rust/substrate/target/release/substrate.dll bin/lib/ 2>/dev/null || true
 	$(GO) build -o bin/$(BINARY) ./cmd/polaris
+	@$(MAKE) --no-print-directory _copy-skills
 
 build-tier1: generate-manifest rust-build-tier1 build-ui
 	@mkdir -p bin/lib
@@ -18,6 +19,20 @@ build-tier1: generate-manifest rust-build-tier1 build-ui
 	@cp rust/substrate/target/release/libsubstrate.so bin/lib/ 2>/dev/null || true
 	@cp rust/substrate/target/release/substrate.dll bin/lib/ 2>/dev/null || true
 	$(GO) build -tags tier1 -o bin/$(BINARY) ./cmd/polaris
+	@$(MAKE) --no-print-directory _copy-skills
+
+# 将已编译的 wasm 复制到 bin/skills/ 使二进制可独立运行（不依赖 CWD）
+_copy-skills:
+	@if [ -d skills/builtin ]; then \
+		for d in skills/builtin/*/; do \
+			name=$$(basename "$$d"); \
+			wasm="$$d/impl.wasm"; \
+			if [ -f "$$wasm" ]; then \
+				mkdir -p "bin/skills/$$name"; \
+				cp "$$wasm" "bin/skills/$$name/impl.wasm"; \
+			fi; \
+		done; \
+	fi
 
 build-ui:
 	@cd $(WEBUI_DIR) && npm install --silent && npm run build
