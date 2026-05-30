@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"gopkg.in/yaml.v3"
+
 	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 
 	"github.com/polarisagi/polarisagi-harness/internal/protocol"
@@ -56,31 +58,33 @@ func SkillMetaFromSKILLmd(path string, signingKey []byte) (*protocol.SkillMeta, 
 // 格式：--- ... name: xxx ... description: yyy ... ---
 func parseFrontmatter(data []byte) (name, description string, err error) {
 	lines := strings.Split(string(data), "\n")
-	if len(lines) == 0 || strings.TrimSpace(lines[0]) != "---" {
-		return "", "", perrors.New(perrors.CodeInternal, "no frontmatter found")
-	}
+	firstDash := -1
+	secondDash := -1
 
-	inFrontmatter := false
-	for _, line := range lines {
+	for i, line := range lines {
 		trimmed := strings.TrimSpace(line)
 		if trimmed == "---" {
-			if !inFrontmatter {
-				inFrontmatter = true
-				continue
+			if firstDash == -1 {
+				firstDash = i
+			} else {
+				secondDash = i
+				break
 			}
-			break // 第二个 ---，frontmatter 结束
-		}
-		if !inFrontmatter {
-			continue
-		}
-		if after, ok := strings.CutPrefix(trimmed, "name:"); ok {
-			name = strings.TrimSpace(after)
-		}
-		if after, ok := strings.CutPrefix(trimmed, "description:"); ok {
-			description = strings.TrimSpace(after)
 		}
 	}
-	return name, description, nil
+
+	if firstDash != -1 && secondDash != -1 && secondDash > firstDash+1 {
+		yamlContent := strings.Join(lines[firstDash+1:secondDash], "\n")
+		var fm struct {
+			Name        string `yaml:"name"`
+			Description string `yaml:"description"`
+		}
+		if err := yaml.Unmarshal([]byte(yamlContent), &fm); err == nil {
+			return fm.Name, fm.Description, nil
+		}
+	}
+
+	return "", "", perrors.New(perrors.CodeInternal, "loader: failed to parse YAML frontmatter")
 }
 
 // ParseSKILLmd 解析 SKILL.md，需要提供 signingKey 保证跨重启验证一致性。

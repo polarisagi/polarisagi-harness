@@ -33,7 +33,7 @@
   "pkg/action/tool/tool_test.go": "c30e402444f899ea6c81f824b3517355216b11a225997464ba2306d0dcc14f35",
   "pkg/action/tool/tts_edge.go": "8e491bbe2df40d2fb4103e8946fbaed888f41c0e6e9b6972a2de28ecacfb81c8",
   "pkg/action/tool/video_analysis.go": "d1e44b13555ebbeca64d12d5861d0c368c6536df1d0ff1365b4fb971973980c8",
-  "pkg/action/tool_usage_policy.go": "82fa17523c3153de3652404dbbcdcef5a439f70055a6272f937e8098e5220ec3",
+  "pkg/action/tool_usage_policy.go": "79e302f45b155eb379af89ca56668ab9c8c4521aa3533ecb7f239566140ce745",
   "pkg/action/wasm_runner_adapter.go": "e40fcbf13b33175e4f3d95f3980db7542559a4bddefaa3e4fcbe04fcd95ea731",
   "pkg/action/wazero_runtime.go": "411d5cc15c1aa53addd79e9cc4de35db8d806211d2dffe20468e7b19980dfccd",
   "pkg/action/wazero_runtime_test.go": "c38b7e37227303da159c61ee57125febca685645ce1779def606a65060afb161",

@@ -173,7 +173,7 @@ POST /v1/plugins/install {catalog_id, type=plugin}
   4. 解析 plugin.json (PluginBundleManifest)：
      mcp_inline{} → installBundleMCP() → mcp_servers + 子 extension_instances
      mcp_servers（.mcp.json）→ 同上（safeJoin 路径校验）
-     skills[] → installBundleSkill() → skills + 子 extension_instances
+     skills[] → installBundleSkill() → skills + 子 extension_instances（强制追加插件名前缀，形如 `pluginName-skillName`，实现 LLM 工具调用命名空间隔离）
      hooks{} → 写入 ~/.polarisagi-harness/hooks/，注册到 M7 HookRunner
      外部格式 → adapter.ParseManifestDir() → 按类型分发
   5. INSERT plugins (021) 写 bundle 入口元数据
@@ -211,6 +211,8 @@ POST /v1/plugins/install {catalog_id, type=agent}
 ### 5.6 市场同步（只同步不安装）
 
 启动时 `bootMarketplaceInit` 后台拉取 `is_builtin=1` 市场源至 `extension_catalog`，仅作前端展示缓存。**不静默安装任何外部扩展**。
+
+**边界探测 (Bundle Root Detection)**：同步爬虫（`discoverMarketplaceEntries`）在扫描市场仓库时，一旦探测到合法的插件清单文件（如 `plugin.json`、`plugin.toml`、`mcp.json`、`skills.yaml` 等），即判定该目录为一个**原子级插件包（Plugin Bundle）**，将其整体作为单个条目录入，并强制停止向下钻取其子目录。这避免了内部依附的零碎动作（如 `SKILL.md`）被摊平暴露到全局市场，彻底杜绝列表污染与大模型工具的全局同名冲突。
 
 ### 5.7 彻底卸载
 

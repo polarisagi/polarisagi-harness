@@ -169,8 +169,8 @@ func parsePluginEntry(path string, mpDir string, mp protocol.Marketplace) (*prot
 	}, nil
 }
 
-// parseMCPEntry 解析市场的 mcp.json 文件并返回 protocol.RegistryEntry。
-func parseMCPEntry(path string, mpDir string, mp protocol.Marketplace) (*protocol.RegistryEntry, error) {
+// parseMCPEntry 解析市场的 mcp.json 文件并返回 []protocol.RegistryEntry。
+func parseMCPEntry(path string, mpDir string, mp protocol.Marketplace) ([]protocol.RegistryEntry, error) {
 	relDir, err := filepath.Rel(mpDir, filepath.Dir(path))
 	if err != nil {
 		return nil, err
@@ -182,49 +182,90 @@ func parseMCPEntry(path string, mpDir string, mp protocol.Marketplace) (*protoco
 		return nil, err
 	}
 
-	var mJSON struct {
-		Name        string            `json:"name"`
-		Description string            `json:"description"`
-		Transport   string            `json:"transport"`
-		Command     string            `json:"command"`
-		Args        []string          `json:"args"`
-		Env         map[string]string `json:"env"`
-		Keywords    []string          `json:"keywords"`
-	}
-	if err := json.Unmarshal(contentBytes, &mJSON); err != nil {
+	var mcpConfig protocol.MCPConfig
+	if err := json.Unmarshal(contentBytes, &mcpConfig); err != nil {
 		return nil, err
 	}
 
-	name := mJSON.Name
-	if name == "" {
-		name = filepath.Base(relDir)
-		name = formatName(name)
+	// 兼容扁平格式
+	if len(mcpConfig.MCPServers) == 0 {
+		var flat map[string]protocol.MCPServerDef
+		if err := json.Unmarshal(contentBytes, &flat); err == nil {
+			filtered := make(map[string]protocol.MCPServerDef)
+			for k, v := range flat {
+				if k != "mcpServers" && (v.Command != "" || v.URL != "") {
+					filtered[k] = v
+				}
+			}
+			mcpConfig.MCPServers = filtered
+		}
 	}
 
-	url := mp.RepoURL
-	if strings.Contains(url, "github.com") {
-		url = strings.TrimSuffix(url, "/") + "/tree/main/" + relPath
+	var entries []protocol.RegistryEntry
+	for srvName, srvDef := range mcpConfig.MCPServers {
+		url := mp.RepoURL
+		if strings.Contains(url, "github.com") {
+			url = strings.TrimSuffix(url, "/") + "/tree/main/" + relPath
+		}
+
+		name := srvName
+		if name == "" {
+			name = filepath.Base(relDir)
+			name = formatName(name)
+		}
+
+		transport := "stdio"
+		if srvDef.URL != "" {
+			transport = "sse"
+		}
+
+		entries = append(entries, protocol.RegistryEntry{
+			ID:          mp.ID + "/" + relPath + "/" + srvName,
+			Publisher:   mp.Publisher,
+			Type:        "mcp",
+			TrustTier:   mp.TrustTier,
+			Name:        name,
+			Description: srvName + " MCP Server",
+			URL:         url,
+			Timeout:     60,
+			Transport:   transport,
+			Command:     srvDef.Command,
+			Args:        srvDef.Args,
+			Env:         srvDef.Env,
+		})
 	}
 
-	return &protocol.RegistryEntry{
-		ID:          mp.ID + "/" + relPath,
-		Publisher:   mp.Publisher,
-		Type:        "mcp",
-		TrustTier:   mp.TrustTier,
-		Name:        name,
-		Description: mJSON.Description,
-		URL:         url,
-		Tags:        mJSON.Keywords,
-		Timeout:     60,
-		Transport:   mJSON.Transport,
-		Command:     mJSON.Command,
-		Args:        mJSON.Args,
-		Env:         mJSON.Env,
-	}, nil
+	return entries, nil
+}
+
+// isPluginBundleRoot 探测目录是否包含明确的插件边界配置文件
+func isPluginBundleRoot(dir string) (string, string) {
+	manifests := []struct {
+		relPath string
+		typ     string
+	}{
+		{"plugin.json", "plugin.json"},
+		{".claude-plugin/plugin.json", "plugin.json"},
+		{"ai-plugin.json", "ai-plugin.json"},
+		{"plugin.toml", "plugin.toml"},
+		{".claude-plugin/plugin.toml", "plugin.toml"},
+		{"skills.yaml", "skills.yaml"},
+		{"agent-manifest.yaml", "agent-manifest.yaml"},
+		{"mcp.json", "mcp.json"},
+		{".mcp.json", "mcp.json"},
+	}
+
+	for _, m := range manifests {
+		p := filepath.Join(dir, m.relPath)
+		if info, err := os.Stat(p); err == nil && !info.IsDir() {
+			return p, m.typ
+		}
+	}
+	return "", ""
 }
 
 // discoverMarketplaceEntries 递归遍历市场目录，自动发现所有的插件和技能。
-// 这解决了插件/技能页面只列出整个市场仓库的系统漏洞。
+// 引入 Bundle Root Detection，遇到完整插件包则不再拆解其内部的子技能。
 func discoverMarketplaceEntries(mpDir string, mp protocol.Marketplace) ([]protocol.RegistryEntry, error) { //nolint:gocyclo
 	var entries []protocol.RegistryEntry
 
@@ -236,60 +277,45 @@ func discoverMarketplaceEntries(mpDir string, mp protocol.Marketplace) ([]protoc
 			if info.Name() == ".git" {
 				return filepath.SkipDir
 			}
+
+			// 如果当前目录是一个插件包（如 discord 目录包含了 .claude-plugin/plugin.json），则整体作为一个插件条目，不再继续深入遍历其 skills/
+			manifestPath, manifestType := isPluginBundleRoot(path)
+			if manifestPath != "" {
+				switch manifestType {
+				case "plugin.json":
+					if entry, err := parsePluginEntry(manifestPath, mpDir, mp); err == nil && entry != nil {
+						entries = append(entries, *entry)
+					}
+				case "ai-plugin.json":
+					if entry, err := parseAIPluginEntry(manifestPath, mpDir, mp); err == nil && entry != nil {
+						entries = append(entries, *entry)
+					}
+				case "plugin.toml":
+					if entry, err := parsePluginTOMLEntry(manifestPath, mpDir, mp); err == nil && entry != nil {
+						entries = append(entries, *entry)
+					}
+				case "skills.yaml", "agent-manifest.yaml":
+					if newEntries, err := parseGoogleSkillsEntry(manifestPath, mpDir, mp); err == nil {
+						entries = append(entries, newEntries...)
+					}
+				case "mcp.json":
+					if newEntries, err := parseMCPEntry(manifestPath, mpDir, mp); err == nil {
+						entries = append(entries, newEntries...)
+					}
+				}
+				// 核心：跳过进入该包内部（如 external_plugins/discord/skills），防止内部碎片能力被提取到全局市场
+				return filepath.SkipDir
+			}
 			return nil
 		}
 
-		// 寻找所有 SKILL.md
+		// 只有在未被标记为 Plugin 包的独立散装目录中，才会提取单独的组件
 		if info.Name() == "SKILL.md" {
-			entry, err := parseSkillEntry(path, mpDir, mp)
-			if err != nil {
-				return err
-			}
-			if entry != nil {
+			if entry, err := parseSkillEntry(path, mpDir, mp); err == nil && entry != nil {
 				entries = append(entries, *entry)
 			}
-		}
-
-		// 寻找所有 plugin.json
-		if info.Name() == "plugin.json" {
-			entry, err := parsePluginEntry(path, mpDir, mp)
-			if err != nil {
-				return err
-			}
-			if entry != nil {
-				entries = append(entries, *entry)
-			}
-		}
-
-		// 寻找所有 mcp.json
-		if info.Name() == "mcp.json" {
-			entry, err := parseMCPEntry(path, mpDir, mp)
-			if err != nil {
-				return err
-			}
-			if entry != nil {
-				entries = append(entries, *entry)
-			}
-		}
-
-		// OpenAI ai-plugin.json
-		if info.Name() == "ai-plugin.json" {
-			if entry, err := parseAIPluginEntry(path, mpDir, mp); err == nil && entry != nil {
-				entries = append(entries, *entry)
-			}
-		}
-
-		// Anthropic plugin.toml（根目录或 .claude-plugin/ 子目录）
-		if info.Name() == "plugin.toml" {
-			if entry, err := parsePluginTOMLEntry(path, mpDir, mp); err == nil && entry != nil {
-				entries = append(entries, *entry)
-			}
-		}
-
-		// Google Agent Skills skills.yaml / agent-manifest.yaml
-		if info.Name() == "skills.yaml" || info.Name() == "agent-manifest.yaml" {
-			newEntries, err := parseGoogleSkillsEntry(path, mpDir, mp)
-			if err == nil {
+		} else if info.Name() == "mcp.json" {
+			if newEntries, err := parseMCPEntry(path, mpDir, mp); err == nil {
 				entries = append(entries, newEntries...)
 			}
 		}

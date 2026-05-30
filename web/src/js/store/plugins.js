@@ -42,7 +42,22 @@ Alpine.store('plugins', {
         (e.tags || []).some(t => t.toLowerCase().includes(q))
       )
     }
-    return [...list].sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+    
+    // Deduplicate by ID
+    const seen = new Set()
+    const uniqueList = []
+    for (const item of list) {
+      if (!seen.has(item.id)) {
+        seen.add(item.id)
+        uniqueList.push(item)
+      }
+    }
+
+    return uniqueList.sort((a, b) => {
+      if (a.installed && !b.installed) return -1
+      if (!a.installed && b.installed) return 1
+      return (a.name || '').localeCompare(b.name || '')
+    })
   },
 
   get filteredMarketplaces() {

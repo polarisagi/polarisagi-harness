@@ -6,11 +6,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"maps"
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -103,10 +105,33 @@ func (s *Server) handleListPluginCatalog(w http.ResponseWriter, r *http.Request)
 	result = s.appendCustomCatalogs(r.Context(), result, installed)
 	result = s.appendCachedCatalogs(r.Context(), result, installed)
 
+	// Deduplicate by ID
+	seen := make(map[string]bool)
+	uniqueResult := make([]protocol.RegistryEntry, 0, len(result))
+	for _, entry := range result {
+		if !seen[entry.ID] {
+			seen[entry.ID] = true
+			uniqueResult = append(uniqueResult, entry)
+		} else {
+			slog.Warn("polaris-server: found duplicate catalog entry", "id", entry.ID, "name", entry.Name)
+		}
+	}
+
+	// Sort: installed first, then alphabetically by Name
+	sort.Slice(uniqueResult, func(i, j int) bool {
+		if uniqueResult[i].Installed && !uniqueResult[j].Installed {
+			return true
+		}
+		if !uniqueResult[i].Installed && uniqueResult[j].Installed {
+			return false
+		}
+		return strings.Compare(strings.ToLower(uniqueResult[i].Name), strings.ToLower(uniqueResult[j].Name)) < 0
+	})
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{ //nolint:errcheck
-		"catalog": result,
-		"total":   len(result),
+		"catalog": uniqueResult,
+		"total":   len(uniqueResult),
 	})
 }
 
@@ -551,7 +576,7 @@ func (s *Server) downloadAndInstallExtension(ctx context.Context, extID, catalog
 		declaredSkillPaths := make(map[string]bool, len(bundle.Skills))
 		for _, skillRef := range bundle.Skills {
 			declaredSkillPaths[skillRef.Path] = true
-			s.installBundleSkill(ctx, extID, destDir, skillRef.Path, skillRef.Name, entry.TrustTier, now)
+			s.installBundleSkill(ctx, extID, name, destDir, skillRef.Path, skillRef.Name, entry.TrustTier, now)
 		}
 
 		// 安装 SkillsDir（字符串路径形式，Codex 标准："skills": "./skills/"）
@@ -565,7 +590,7 @@ func (s *Server) downloadAndInstallExtension(ctx context.Context, extID, catalog
 					rel, _ := filepath.Rel(destDir, path)
 					if !declaredSkillPaths[rel] {
 						declaredSkillPaths[rel] = true
-						s.installBundleSkill(ctx, extID, destDir, rel, "", entry.TrustTier, now)
+						s.installBundleSkill(ctx, extID, name, destDir, rel, "", entry.TrustTier, now)
 					}
 					return nil
 				})
@@ -584,7 +609,7 @@ func (s *Server) downloadAndInstallExtension(ctx context.Context, extID, catalog
 			if declaredSkillPaths[rel] {
 				return nil
 			}
-			s.installBundleSkill(ctx, extID, destDir, rel, "", entry.TrustTier, now)
+			s.installBundleSkill(ctx, extID, name, destDir, rel, "", entry.TrustTier, now)
 			return nil
 		})
 
@@ -744,7 +769,7 @@ func (s *Server) installBundleMCP(ctx context.Context, parentExtID, name string,
 }
 
 // installBundleSkill 在 Plugin Bundle 安装过程中写入子 Skill 的运行时记录和安装记录。
-func (s *Server) installBundleSkill(ctx context.Context, parentExtID, bundleDir, skillPath, skillName string, trustTier int, now string) {
+func (s *Server) installBundleSkill(ctx context.Context, parentExtID, parentPluginName, bundleDir, skillPath, skillName string, trustTier int, now string) {
 	// 安全：拒绝穿越 bundleDir 的路径，防止读取 bundle 外文件
 	fullPath, ok := safeJoin(bundleDir, skillPath)
 	if !ok {
@@ -761,6 +786,12 @@ func (s *Server) installBundleSkill(ctx context.Context, parentExtID, bundleDir,
 	}
 	if skillName == "" {
 		skillName = filepath.Base(filepath.Dir(fullPath))
+	}
+
+	// 核心修复：为防止各插件自带的 `access`、`configure` 等通用名称在大模型 Function Calling 时发生全局冲突，
+	// 强制以插件名称作为前缀（符合 Anthropic 官方规范 <plugin-name>:<skill-name> 的变体形式）
+	if parentPluginName != "" && !strings.HasPrefix(skillName, parentPluginName) {
+		skillName = fmt.Sprintf("%s-%s", parentPluginName, skillName)
 	}
 
 	childExtID := "ext_" + newHex(8)
