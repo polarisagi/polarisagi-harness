@@ -281,6 +281,7 @@ func (a *Agent) runValidateDAG(ctx context.Context) error {
 		// 会拦截所有非只读工具，导致任何包含写操作的 DAG 永远无法通过校验。
 		ActiveTaintLevel: protocol.TaintNone,
 		PolicyGate:       a.policyGate,
+		ToolRegistry:     a.toolRegistry, // 用于 isReadOnlyTool 动态查询工具 Capability
 		AgentID:          a.sCtx.AgentID,
 		SessionID:        a.sCtx.SessionID,
 		SystemTier:       a.Config.SystemTier, // 由 M3 HardwareProbe 探测后通过 AgentConfig.SystemTier 注入
@@ -298,7 +299,7 @@ func (a *Agent) runValidateDAG(ctx context.Context) error {
 	if vCtx.SystemTier >= 1 && a.provider != nil && vCtx.Plan != nil {
 		var dangerous []string
 		for _, node := range vCtx.Plan.Nodes {
-			if !isReadOnlyTool(node.ToolName) {
+			if !isReadOnlyTool(node.ToolName, a.toolRegistry) {
 				dangerous = append(dangerous, fmt.Sprintf("Tool: %s, Args: %s", node.ToolName, string(node.Args)))
 			}
 		}

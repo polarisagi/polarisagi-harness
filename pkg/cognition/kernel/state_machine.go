@@ -300,16 +300,23 @@ func (sm *StateMachine) onPerceiveFailure(sCtx protocol.StateContext, err error)
 }
 
 func (sm *StateMachine) promptPlan(sCtx *StateContext, pCtx protocol.StateContext) []protocol.Message {
-	// 有记忆系统时注入历史执行经验（Episodic Top-5 + 任务目标）
+	// 有记忆系统时注入历史执行经验（Episodic Top-5 + 任务目标 + 工具列表）
 	if pCtx.Mem != nil {
-		if msgs, err := buildPlanContext(sm.bgCtx(), pCtx.Mem, sCtx); err == nil {
+		if msgs, err := buildPlanContext(sm.bgCtx(), pCtx.Mem, sCtx, pCtx.Tools); err == nil {
 			return msgs
 		}
 	}
 
 	b := NewPromptBuilder()
+
+	// 基础规划指令
+	instText := "基于 TaskModel 生成执行 DAG"
+	// 无记忆系统时也注入工具列表（保证 LLM 知道可用工具）
+	if pCtx.Tools != nil {
+		instText += "\n\n" + buildToolListSection(pCtx.Tools)
+	}
 	safeInst, _ := substrate.SanitizeToSafe(substrate.NewTaintedString(
-		"基于 TaskModel 生成执行 DAG",
+		instText,
 		substrate.TaintSource{OriginTaintLevel: protocol.TaintNone},
 		"system_prompt",
 	))

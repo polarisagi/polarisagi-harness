@@ -196,16 +196,16 @@ func newRateLimiter(qps int64) *rateLimiter {
 }
 
 func (rl *rateLimiter) Allow() bool {
-	// 周期刷新
-	if time.Now().UnixNano() >= rl.refillAt.Load() {
-		rl.tokens.Store(rl.maxQPS)
-		rl.refillAt.Store(time.Now().Add(time.Second).UnixNano())
+	now := time.Now().UnixNano()
+	if now >= rl.refillAt.Load() {
+		// CAS 保证只有一个 goroutine 执行刷新，避免多次 Store 竞态。
+		old := rl.refillAt.Load()
+		if rl.refillAt.CompareAndSwap(old, now+int64(time.Second)) {
+			rl.tokens.Store(rl.maxQPS)
+		}
 	}
-	if rl.tokens.Add(-1) >= 0 {
-		return true
-	}
-	rl.tokens.Add(1) // 还回
-	return false
+	// Add(-1) 是原子操作；负值代表本窗口超限，不还回——避免多 goroutine 同时还回导致误放行。
+	return rl.tokens.Add(-1) >= 0
 }
 
 // toolTrustLevel 根据工具来源推导信任等级。

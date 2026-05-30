@@ -513,6 +513,7 @@ func computeUnifiedDiff(oldLines, newLines []string) string { //nolint:gocyclo
 
 // checkAllowedPath 确认 path 在白名单内（防路径穿越）。
 // 若白名单为空则拒绝所有访问（fail-closed）。
+// 使用 == 或 Separator 前缀双重校验，防止 /allowed-extra 通过 /allowed 白名单。
 func checkAllowedPath(path string, allowedPaths []string) error {
 	if len(allowedPaths) == 0 {
 		return perrors.New(perrors.CodeInternal, "path_guard: no allowed paths configured (fail-closed)")
@@ -520,7 +521,7 @@ func checkAllowedPath(path string, allowedPaths []string) error {
 	clean := filepath.Clean(path)
 	for _, allowed := range allowedPaths {
 		allowedClean := filepath.Clean(allowed)
-		if strings.HasPrefix(clean, allowedClean) {
+		if clean == allowedClean || strings.HasPrefix(clean, allowedClean+string(filepath.Separator)) {
 			return nil
 		}
 	}

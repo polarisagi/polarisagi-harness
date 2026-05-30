@@ -19,6 +19,9 @@ type DAGValidationContext struct {
 	ActiveTaintLevel protocol.TaintLevel
 	// PolicyGate 是 Cedar 策略引擎的 Go 接口（L1 确定性 Cedar 校验）。
 	PolicyGate protocol.PolicyGate
+	// ToolRegistry 用于 L1_taint 校验中动态判断工具的只读属性（替代硬编码白名单）。
+	// 为 nil 时退化为内置白名单兜底。
+	ToolRegistry protocol.ToolRegistry
 	// AgentID 用于 PolicyGate.Review 中的 principal 字段。
 	AgentID string
 	// SessionID 用于审计事件的关联查询。
@@ -129,7 +132,7 @@ func validateTaintGate(vCtx *DAGValidationContext) error {
 			}
 			// SanitizeToSafe 正确拒绝了——说明 TaintHigh 数据需要在执行前降级
 			// 若节点工具名不在只读白名单中，则阻断
-			if !isReadOnlyTool(node.ToolName) {
+			if !isReadOnlyTool(node.ToolName, vCtx.ToolRegistry) {
 				return &DAGValidationError{
 					Layer:  "L1_taint",
 					NodeID: node.ID,
@@ -142,8 +145,15 @@ func validateTaintGate(vCtx *DAGValidationContext) error {
 }
 
 // isReadOnlyTool 判断工具是否为纯读操作（不写入外部状态）。
-// 白名单由 M7 ToolRegistry 维护，此处为 MVP 精简版。
-func isReadOnlyTool(toolName string) bool {
+// 优先查询 ToolRegistry 的 Capability 字段（动态，覆盖所有注册工具）。
+// registry 为 nil 或工具未找到时退化到内置白名单（防止新工具被误放行）。
+func isReadOnlyTool(toolName string, registry protocol.ToolRegistry) bool {
+	if registry != nil {
+		if t, err := registry.Lookup(toolName); err == nil {
+			return t.Capability <= protocol.CapReadOnly
+		}
+	}
+	// 内置白名单兜底（仅对已知工具适用，未知工具默认 fail-closed）
 	switch toolName {
 	case "read_file", "list_dir", "search_web", "fetch_url":
 		return true

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
@@ -61,9 +62,10 @@ func buildPerceiveContext(ctx context.Context, memory protocol.Memory, sCtx *Sta
 	return msgs, nil
 }
 
-// buildPlanContext 基于已解析的 TaskModel
+// buildPlanContext 基于已解析的 TaskModel 和可用工具列表
 // 从 Memory 系统组装生成 DAG 计划所需的 LLM 提示词。
-func buildPlanContext(ctx context.Context, memory protocol.Memory, sCtx *StateContext) ([]protocol.Message, error) {
+// tools 为 nil 时跳过工具注入（测试环境）。
+func buildPlanContext(ctx context.Context, memory protocol.Memory, sCtx *StateContext, tools protocol.ToolRegistry) ([]protocol.Message, error) {
 	if memory == nil {
 		return []protocol.Message{
 			{Role: "system", Content: "基于 TaskModel 生成执行 DAG。"},
@@ -99,7 +101,12 @@ func buildPlanContext(ctx context.Context, memory protocol.Memory, sCtx *StateCo
 
 	if sCtx.TaskModel != nil {
 		taskJson, _ := json.Marshal(sCtx.TaskModel)
-		baseContent += "已解析的任务模型：\n" + string(taskJson)
+		baseContent += "已解析的任务模型：\n" + string(taskJson) + "\n\n"
+	}
+
+	// 注入可用工具列表，LLM 必须仅使用列表中的工具名称（action 字段）
+	if tools != nil {
+		baseContent += buildToolListSection(tools)
 	}
 
 	msgs := []protocol.Message{
@@ -111,6 +118,28 @@ func buildPlanContext(ctx context.Context, memory protocol.Memory, sCtx *StateCo
 	}
 
 	return msgs, nil
+}
+
+// buildToolListSection 将注册表中所有工具格式化为 LLM 可读的工具定义段落。
+// 格式与 DAGNode.Action + DAGNode.Params 字段对齐，便于 LLM 直接引用。
+func buildToolListSection(tools protocol.ToolRegistry) string {
+	list := tools.List()
+	if len(list) == 0 {
+		return ""
+	}
+	var sb strings.Builder
+	sb.WriteString("可用工具列表（DAG 节点的 action 字段必须为以下名称之一）：\n")
+	for _, t := range list {
+		sb.WriteString(fmt.Sprintf("- %s: %s", t.Name, t.Description))
+		if t.InputSchema != nil {
+			if schemaBytes, err := json.Marshal(t.InputSchema); err == nil {
+				sb.WriteString(fmt.Sprintf("（参数 schema: %s）", string(schemaBytes)))
+			}
+		}
+		sb.WriteByte('\n')
+	}
+	sb.WriteByte('\n')
+	return sb.String()
 }
 
 // buildReflectContext 组装反思阶段的 Prompt。
