@@ -21,7 +21,7 @@ var toolUseEnforcementModels = []string{
 	"deepseek", "qwen", "glm", "gpt", "codex", "grok", "gemini", "gemma",
 }
 
-// embeddedPromptsFS 由 server 层（pkg/interface/）在启动时注入。
+// embeddedPromptsFS 由 server 层（pkg/gateway/）在启动时注入。
 // 分离原因：pkg/cognition/memory/ 禁止直接 import configs 包（依赖方向约束）。
 // configs.FS 由 M13 Interface 层通过 memory.SetEmbeddedPrompts() 传入。
 var embeddedPromptsFS fs.FS

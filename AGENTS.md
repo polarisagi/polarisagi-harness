@@ -39,11 +39,14 @@
 ## 项目结构
 
 ```
-api/proto/        Protobuf 原始定义
-cmd/polaris/      主入口
-configs/          启动配置
-policies/         Cedar 策略 + ESCALATE/KILLSWITCH 协议
-# skills/builtin/ （已废弃，官方技能与插件作为官方 bundle 解耦发布至 GitHub，不再随主程序硬编码打包）
+api/proto/                   Protobuf 原始定义
+cmd/polaris/                 主入口
+configs/                     嵌入式启动配置（随二进制打包）
+  threshold-examples/        阈值覆盖示例（m*.toml；复制到 ~/.polarisagi-harness/config/ 生效）
+  automations/templates/     内置自动化模板
+  agents/ prompts/ *.yaml    各类启动配置
+policies/                    Cedar 策略 + ESCALATE/KILLSWITCH 协议
+skills/builtin/              内置 Wasm 技能包（将解耦至 GitHub Bundle；现阶段仍嵌入二进制）
 
 pkg/substrate/    L0: inference/storage/observability/policy
 pkg/cognition/    L1: kernel/memory/skill
@@ -52,12 +55,15 @@ pkg/extensions/   L2: 官方扩展包（Skill/MCP/Plugin/Browser，对齐 OpenAI
 pkg/swarm/        L2: orchestrator/self_improve/knowledge
 pkg/governance/   L3: eval
 pkg/edge/         L3: scheduler
+pkg/gateway/      L3: HTTP API Server + 多渠道适配（Telegram/Slack/Discord 等）
 
 internal/config/   配置加载 + 编译期不变量
 internal/errors/   统一错误类型（禁裸 error 泄漏）
 internal/protocol/ 跨模块共享类型 + 接口契约 + DDL + protoc 生成
 
 rust/substrate/   Rust FFI 性能路径（purego 桥）
+testdata/         测试数据（benchmark/routing golden set 等）
+tools/            Go 构建工具（go:build ignore，make docs-sync / gen-threshold-examples 调用）
 
 ~/.polarisagi-harness/  运行时数据根（polaris.db / logs / hooks / cache / config/）
                      config/ 为 Operator-Developer 的阈值覆盖目录（m*.toml，可选）

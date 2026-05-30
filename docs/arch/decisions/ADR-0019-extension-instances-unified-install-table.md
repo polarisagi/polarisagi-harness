@@ -45,7 +45,7 @@
 
 ## 影响
 
-- `pkg/interface/server/plugin_catalog.go`：`installSkillSource` / `handleUninstallPlugin` / `appendCustomCatalogs` 重写
+- `pkg/gateway/server/plugin_catalog.go`：`installSkillSource` / `handleUninstallPlugin` / `appendCustomCatalogs` 重写
 - `internal/protocol/schema/`：新增 034、035、036 迁移文件
 - `M13-bis-Extension-Registry.md`：安装流完整描述
 - M9 Self-Improvement Engine：promote 路径必须经 `extension_instances` → `SkillRegistry`（inv_M6_02）

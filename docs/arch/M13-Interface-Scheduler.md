@@ -61,7 +61,7 @@ AgentREPL: 逐行读 stdin，"/" 前缀→内置命令（/help /sessions /switch
 
 ### 1.2 HTTP REST API
 
-完整路由见 `pkg/interface/server/server.go`。以下按业务域分组。
+完整路由见 `pkg/gateway/server/server.go`。以下按业务域分组。
 
 ```
 ─── 系统 ───────────────────────────────────────────────

@@ -15,7 +15,7 @@ import (
 	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 
 	"github.com/polarisagi/polarisagi-harness/internal/protocol"
-	"github.com/polarisagi/polarisagi-harness/pkg/interface/channels"
+	"github.com/polarisagi/polarisagi-harness/pkg/gateway/channels"
 )
 
 // ChannelConfig 聊天平台集成配置。config_json 存储厂商特有字段。

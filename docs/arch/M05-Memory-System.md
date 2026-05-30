@@ -398,7 +398,7 @@ BuildContext 5 Zone 布局和 SessionCompressor 实现见 `pkg/cognition/context
 | 层 | 内容 | 变更频率 | 文件 |
 |----|------|---------|------|
 | stable | Agent 身份（SOUL.md 或 `DefaultPolarisIdentity`）+ 模型感知工具调用引导 + 平台感知提示 | 跨会话不变 | `pkg/cognition/memory/identity.go` `pkg/cognition/memory/platform_hints.go` |
-| context | 项目上下文（由 M13 Interface 层注入 ambient skills / 全局目标等） | 会话内不变 | `pkg/interface/server/sse.go` |
+| context | 项目上下文（由 M13 Interface 层注入 ambient skills / 全局目标等） | 会话内不变 | `pkg/gateway/server/sse.go` |
 | volatile | 当前日期（精确到天，不到分钟，避免逐分钟破坏 prefix cache） | 每天变一次 | `ImmutableCore.VolatileBlock` |
 
 **用户自定义身份**：`~/.polarisagi-harness/config/SOUL.md` 存在时覆盖 `DefaultPolarisIdentity`，服务启动时一次性读取并缓存到 `Server.soulMDContent`。
@@ -425,7 +425,7 @@ BuildContext 5 Zone 布局和 SessionCompressor 实现见 `pkg/cognition/context
 
 不暴露给用户的提示词：tool_enforcement（产品行为逻辑）、platform hints（格式化指令）。
 
-**API**: `GET/PUT/DELETE /v1/config/prompts/{name}`（实现见 `pkg/interface/server/prompts.go`）。
+**API**: `GET/PUT/DELETE /v1/config/prompts/{name}`（实现见 `pkg/gateway/server/prompts.go`）。
 
 **re-init vs factory reset**：删除 DB（re-init）只清 M9 数据，Layer 1 用户文件存活；`DELETE /v1/config/prompts/{name}` 才清用户自定义，恢复到内置默认。
 

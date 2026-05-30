@@ -18,7 +18,7 @@ import (
 	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 
 	"github.com/polarisagi/polarisagi-harness/internal/protocol"
-	"github.com/polarisagi/polarisagi-harness/pkg/interface/channels"
+	"github.com/polarisagi/polarisagi-harness/pkg/gateway/channels"
 
 	"gopkg.in/yaml.v3"
 )
@@ -734,7 +734,7 @@ func parseCronField(part string) (int, int) {
 
 // ─── 自动化模板市场 ───────────────────────────────────────────────────────────
 
-// automationTemplate 对应 automations/templates/*.yaml 或远程 index.json 中的单条记录。
+// automationTemplate 对应 configs/automations/templates/*.yaml 或远程 index.json 中的单条记录。
 type automationTemplate struct {
 	Icon            string   `yaml:"icon"             json:"icon"`
 	Name            string   `yaml:"name"             json:"name"`
@@ -898,7 +898,7 @@ func (s *Server) handleListAutomationTemplates(w http.ResponseWriter, r *http.Re
 
 	// 若 automation_sources.yaml 不存在或全为 remote 且未配，fallback 到本地默认目录
 	if len(all) == 0 && filterSource == "" {
-		all = loadLocalTemplates("automations/templates")
+		all = loadLocalTemplates("configs/automations/templates")
 	}
 
 	// 标签过滤

@@ -578,7 +578,7 @@ POST /v1/plugins/install → plugin_catalog.go.downloadAndInstallPlugin()
 - Plugin Bundle MCP 默认 Taint=High（M7 inv_M7_02）
 - Script Skills trust_tier 继承 extension_catalog
 
-**代码位置**: `pkg/interface/server/plugin_catalog.go`（安装）、`pkg/extensions/marketplace/adapter.go`（多厂商解析）、`pkg/extensions/marketplace/loader.go`（Polaris 原生格式）
+**代码位置**: `pkg/gateway/server/plugin_catalog.go`（安装）、`pkg/extensions/marketplace/adapter.go`（多厂商解析）、`pkg/extensions/marketplace/loader.go`（Polaris 原生格式）
 
 ---
 

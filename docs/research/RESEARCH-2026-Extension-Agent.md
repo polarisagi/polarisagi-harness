@@ -204,14 +204,14 @@ tar.gz 打包，SHA-256 完整性校验，支持 delta 更新。
 | MCP Server | `pkg/extensions/marketplace/` + `015_mcp_servers.sql` |
 | Skill (script) | `pkg/cognition/skill/` + `008_skills.sql` (runtime='script') |
 | Skill (wasm) | `pkg/cognition/skill/` + `008_skills.sql` (runtime='wasm') |
-| Plugin Bundle | `pkg/interface/server/plugin_catalog.go` |
+| Plugin Bundle | `pkg/gateway/server/plugin_catalog.go` |
 | Extension 注册 | `019_extension_catalog.sql` + `020_extension_instances.sql` |
 | Trust Gate | `pkg/substrate/policy/gate.go` |
 | Capability Token | `pkg/substrate/policy/capability_token.go` |
 | Taint Sandbox | `pkg/action/sandbox.go` + `InProcessSandbox` |
-| buildToolSchemas | `pkg/interface/server/server.go` |
+| buildToolSchemas | `pkg/gateway/server/server.go` |
 | toolExec 路由 | `cmd/polaris/main.go` SetToolExecutor |
-| Automation（cron/webhook/manual） | `017_automations.sql` + `pkg/interface/server/cron.go` |
+| Automation（cron/webhook/manual） | `017_automations.sql` + `pkg/gateway/server/cron.go` |
 | Automation（event/github trigger） | 规划中（`trigger_type` 扩展） |
 | Automation（worktree 执行环境） | 规划中（DDL 增 `env_type`，Git worktree 集成） |
 | Automation（显式 Workflow DAG） | 规划中（`workflow_json`，复用 M4 dag_executor） |

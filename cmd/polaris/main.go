@@ -34,7 +34,7 @@ import (
 	"github.com/polarisagi/polarisagi-harness/pkg/extensions/mcp"
 	"github.com/polarisagi/polarisagi-harness/pkg/extensions/native"
 	"github.com/polarisagi/polarisagi-harness/pkg/governance/eval"
-	"github.com/polarisagi/polarisagi-harness/pkg/interface/server"
+	"github.com/polarisagi/polarisagi-harness/pkg/gateway/server"
 	"github.com/polarisagi/polarisagi-harness/pkg/substrate"
 	"github.com/polarisagi/polarisagi-harness/pkg/substrate/inference"
 	"github.com/polarisagi/polarisagi-harness/pkg/substrate/observability"

@@ -511,7 +511,7 @@ M9 Self-Improvement Engine promote 候选技能时：
 | `mcp_servers` | 015 | M7 MCPManager |
 | `skills` | 008 | M6 SkillRegistry + server.buildToolSchemas() |
 | `plugins` | 021 | plugin_catalog.go（bundle 元数据） |
-| `automations` | 017 | M13 Scheduler（`pkg/interface/server/cron.go`） |
+| `automations` | 017 | M13 Scheduler（`pkg/gateway/server/cron.go`） |
 | `automation_runs` | 017 | M13 Scheduler — 执行历史 |
 | `cron_jobs` | 014 | 旧版定时任务表，由 017_automations 接管，逐步废弃 |
 

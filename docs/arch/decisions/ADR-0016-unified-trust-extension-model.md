@@ -14,7 +14,7 @@
 
 **发现 1**: `skills/builtin/shell_exec/SKILL.md` 证实**内置技能已经是 agentskills.io 标准格式**。格式统一问题**已经解决**，无需迁移。真正的问题是信任层太粗（`SignatureValid bool` 只有真/假）。
 
-**发现 2**: `pkg/interface/server/plugin_catalog.go` 证实 **M13 已有 Plugin Catalog（MCP 专属）**，这是 Plugin Registry 的正确位置。ADR-0015 把 Plugin Registry 放 M7 是临时错误决策。
+**发现 2**: `pkg/gateway/server/plugin_catalog.go` 证实 **M13 已有 Plugin Catalog（MCP 专属）**，这是 Plugin Registry 的正确位置。ADR-0015 把 Plugin Registry 放 M7 是临时错误决策。
 
 **发现 3**: `AgentCard.TrustLevel int` 已有信任字段但无类型定义，`SignatureValid bool` 语义过于粗糙——无法区分「本地签名」「官方签名」「系统内置」。
 

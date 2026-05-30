@@ -18,7 +18,7 @@
 | R1.10 | 概率过滤当安全边界 | `if rand > 0.5 { block }` 当安全措施 | 物理断裂：TaintTracking + sandbox + capability token |
 | R1.11 | 绕过 Provider 直接调 LLM | pkg/ 内 `http.Post("api.openai.com/...")` 构造 LLM 请求 | `protocol.Provider.Infer/StreamInfer`（XR-09） |
 | R1.12 | 业务路径直接打印 | `fmt.Printf` / `log.Printf` / `fmt.Println` 在 pkg/ 下 | `slog.Info/Warn/Error`（XR-08） |
-| R1.13 | 绕过沙箱执行外部命令 | `os/exec.Command(...)` 在 pkg/cognition/ pkg/swarm/ pkg/governance/ pkg/edge/ **及 pkg/interface/server/**（install hook 唯一例外：必须经 `ContainerSandbox.RunScript`，不可裸调） | `protocol.ToolRegistry.ExecuteTool` + Sandbox（XR-10） |
+| R1.13 | 绕过沙箱执行外部命令 | `os/exec.Command(...)` 在 pkg/cognition/ pkg/swarm/ pkg/governance/ pkg/edge/ **及 pkg/gateway/server/**（install hook 唯一例外：必须经 `ContainerSandbox.RunScript`，不可裸调） | `protocol.ToolRegistry.ExecuteTool` + Sandbox（XR-10） |
 | R1.14 | 安全门 nil 旁路 | `if installMgr != nil { /* 安全检查 */ }` 之后继续执行安装，nil 时相当于跳过策略层 | **安全门依赖必须 fail-closed**：nil → 返回 503，不得继续。调用方负责启动期注入断言 |
 | R1.15 | MCP 子进程继承完整父环境 | `cmd.Env = os.Environ()` 不过滤，将宿主 `*_KEY/_TOKEN/_SECRET/_PASSWORD` 等密钥类环境变量传入 MCP stdio 子进程 | 统一调用 `sanitizeParentEnv()`，仅保留运行时必要变量并叠加显式配置的 `MCPClientConfig.Env` |
 

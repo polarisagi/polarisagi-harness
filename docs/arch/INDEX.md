@@ -63,7 +63,7 @@
 
 读取流程：先 `Read offset=1 limit=10` 拿 §跳读 → 按行号 `Read offset=N limit=M` 精读目标章节。
 
-**行号机器维护**：§跳读 行号由 `scripts/sync_doc_toc.go` 从实际 `## N.` headers 自动生成，禁手动编辑。改 markdown 后跑 `make docs-sync` 重写；CI `docs-toc` job 跑 `make docs-check`，drift 即 fail。新增章节 / 编辑结构后流程：
+**行号机器维护**：§跳读 行号由 `tools/sync_doc_toc.go` 从实际 `## N.` headers 自动生成，禁手动编辑。改 markdown 后跑 `make docs-sync` 重写；CI `docs-toc` job 跑 `make docs-check`，drift 即 fail。新增章节 / 编辑结构后流程：
 1. 自由增删 `## N. Title` headers
 2. `make docs-sync` 刷新所有文件头 §跳读 行号
 3. 提交前 `make docs-check` 确认无 drift

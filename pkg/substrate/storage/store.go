@@ -280,7 +280,7 @@ func (s *SQLiteStore) Capabilities() protocol.StoreCapabilities {
 // 适用场景：
 //   - MutationBus.DatabaseWriter（AI 核心数据批量写）
 //   - SQLiteBlackboard（CAS 操作，需同步确认）
-//   - pkg/interface/server（配置管理 CRUD，复杂 SQL 无法走 KV 接口）
+//   - pkg/gateway/server（配置管理 CRUD，复杂 SQL 无法走 KV 接口）
 //
 // 所有调用方共享同一实例，MaxOpenConns=1 保证写串行化，无需额外锁。
 func (s *SQLiteStore) DB() *sql.DB { return s.db }

@@ -38,7 +38,7 @@
 5. 输出路由权重建议: HealthScorer 更新 (可用性×0.4 + 延迟×0.3 + 成本×0.2 + 质量×0.1)
 ```
 
-**集成**: `promptfoo eval --config benchmark/routing/providers.yaml` → JSON → M12 EvalStore → RollingBaseline。CI: `make benchmark-routing`（手动触发）。**调度**: 每月 1 日自动；Provider 弃用/升级 / 商业窗口变更时手动触发。
+**集成**: `promptfoo eval --config testdata/benchmark/routing/providers.yaml` → JSON → M12 EvalStore → RollingBaseline。CI: `make benchmark-routing`（手动触发）。**调度**: 每月 1 日自动；Provider 弃用/升级 / 商业窗口变更时手动触发。
 
 ---
 

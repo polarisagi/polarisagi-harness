@@ -24,7 +24,7 @@ import (
 	"github.com/polarisagi/polarisagi-harness/pkg/cognition/memory"
 	"github.com/polarisagi/polarisagi-harness/pkg/extensions/marketplace"
 	"github.com/polarisagi/polarisagi-harness/pkg/extensions/mcp"
-	"github.com/polarisagi/polarisagi-harness/pkg/interface/channels"
+	"github.com/polarisagi/polarisagi-harness/pkg/gateway/channels"
 	"github.com/polarisagi/polarisagi-harness/pkg/substrate/inference"
 	"github.com/polarisagi/polarisagi-harness/pkg/substrate/inference/stt"
 	"github.com/polarisagi/polarisagi-harness/pkg/substrate/observability"

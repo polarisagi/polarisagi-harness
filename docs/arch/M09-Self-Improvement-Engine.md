@@ -114,7 +114,7 @@ ROADMAP §4.4 决议了"三层机会主义架构"（Layer A logprob / Layer B Ma
 
 **Layer A（实验性，不修改主计算式）**: per-token logprob 机会主义旁路收集，依赖上游 Provider 暴露 logprob（DeepSeek V4/Claude 全系不暴露；2027+ 可能）。≥6个月数据后评估是否叠加。
 
-路由阈值: si < low → System 1 | low ≤ si < high → System 1.5 | si ≥ high → System 2。默认 low=0.30 / high=0.60，由 `M9SelfImproveThresholds.SurpriseRouteLowThreshold/HighThreshold`（`config/m9_self_improve.toml`）覆盖，DynamicDifficultyCalibrator 可在此基础上动态调整。
+路由阈值: si < low → System 1 | low ≤ si < high → System 1.5 | si ≥ high → System 2。默认 low=0.30 / high=0.60，由 `M9SelfImproveThresholds.SurpriseRouteLowThreshold/HighThreshold`（`configs/threshold-examples/m9_self_improve.toml`）覆盖，DynamicDifficultyCalibrator 可在此基础上动态调整。
 
 SurpriseIndex 类型和 Compute/Route 实现见 `pkg/swarm/surprise.go`。SurpriseCalculator 持有 context.CancelFunc，调用 `Close()` 可优雅停止 4 个 worker goroutine（防模块重启泄漏）。
 
