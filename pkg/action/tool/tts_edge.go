@@ -15,7 +15,7 @@ import (
 func NewEdgeTTS() protocol.Tool {
 	return protocol.Tool{
 		Name:        "tts_edge",
-		Description: "Convert text to speech using Edge TTS",
+		Description: "Convert text to speech using Edge TTS and return a base64-encoded audio data URI (audio/mp3).",
 		Version:     "1.0.0",
 		Capability:  protocol.CapWriteNetwork,
 		SideEffects: []protocol.SideEffect{protocol.SideNetworkCall, protocol.SideProcessSpawn, protocol.SideFileWrite},
@@ -27,7 +27,17 @@ func NewEdgeTTS() protocol.Tool {
 			"properties": map[string]any{
 				"text": map[string]any{
 					"type":        "string",
-					"description": "Text to convert to speech",
+					"description": "The text to synthesize into speech.",
+				},
+				"voice": map[string]any{
+					"type":        "string",
+					"default":     "en-US-AriaNeural",
+					"description": "Edge TTS voice name (e.g. 'en-US-AriaNeural', 'zh-CN-XiaoxiaoNeural'). Defaults to en-US-AriaNeural.",
+				},
+				"rate": map[string]any{
+					"type":        "string",
+					"default":     "+0%",
+					"description": "Speech rate adjustment relative to default (e.g. '+20%' for faster, '-10%' for slower).",
 				},
 			},
 			"required": []string{"text"},
@@ -38,10 +48,18 @@ func NewEdgeTTS() protocol.Tool {
 // ExecuteEdgeTTS 执行文本转语音。
 func ExecuteEdgeTTS(ctx context.Context, args []byte) ([]byte, error) {
 	var req struct {
-		Text string `json:"text"`
+		Text  string `json:"text"`
+		Voice string `json:"voice"`
+		Rate  string `json:"rate"`
 	}
 	if err := json.Unmarshal(args, &req); err != nil {
 		return nil, perrors.Wrap(perrors.CodeInvalidInput, "invalid args", err)
+	}
+	if req.Voice == "" {
+		req.Voice = "en-US-AriaNeural"
+	}
+	if req.Rate == "" {
+		req.Rate = "+0%"
 	}
 
 	audioURI := ""
@@ -53,7 +71,11 @@ func ExecuteEdgeTTS(ctx context.Context, args []byte) ([]byte, error) {
 		tmpFile.Close()
 		defer os.Remove(tmpPath)
 
-		cmd := exec.CommandContext(ctx, "edge-tts", "--text", req.Text, "--write-media", tmpPath)
+		cmd := exec.CommandContext(ctx, "edge-tts",
+			"--text", req.Text,
+			"--voice", req.Voice,
+			"--rate", req.Rate,
+			"--write-media", tmpPath)
 		if err := cmd.Run(); err == nil {
 			if data, err := os.ReadFile(tmpPath); err == nil {
 				audioURI = "data:audio/mp3;base64," + base64.StdEncoding.EncodeToString(data)

@@ -18,7 +18,7 @@ import (
 func NewVideoAnalysis() protocol.Tool {
 	return protocol.Tool{
 		Name:        "video_analysis",
-		Description: "Analyze video by extracting keyframes to fit within Tier-0 memory constraints",
+		Description: "Extract keyframes from a video at a fixed interval and return them as base64-encoded JPEG data URIs. Requires ffmpeg.",
 		Version:     "1.0.0",
 		Capability:  protocol.CapWriteNetwork,
 		SideEffects: []protocol.SideEffect{protocol.SideProcessSpawn, protocol.SideFileWrite},
@@ -30,11 +30,17 @@ func NewVideoAnalysis() protocol.Tool {
 			"properties": map[string]any{
 				"video_uri": map[string]any{
 					"type":        "string",
-					"description": "URI or local path of the video",
+					"description": "URI or local file path of the video to analyze (e.g. 'file:///tmp/clip.mp4' or '/tmp/clip.mp4').",
 				},
 				"interval_sec": map[string]any{
 					"type":        "integer",
-					"description": "Interval in seconds to extract keyframes",
+					"default":     5,
+					"description": "Interval in seconds between extracted keyframes (default 5). Lower values produce more frames.",
+				},
+				"max_frames": map[string]any{
+					"type":        "integer",
+					"default":     20,
+					"description": "Maximum number of keyframes to return. Prevents excessive memory usage on long videos (default 20).",
 				},
 			},
 			"required": []string{"video_uri"},
@@ -47,13 +53,17 @@ func ExecuteVideoAnalysis(ctx context.Context, args []byte) ([]byte, error) {
 	var req struct {
 		VideoURI    string `json:"video_uri"`
 		IntervalSec int    `json:"interval_sec"`
+		MaxFrames   int    `json:"max_frames"`
 	}
 	if err := json.Unmarshal(args, &req); err != nil {
 		return nil, perrors.Wrap(perrors.CodeInvalidInput, "invalid args", err)
 	}
 
 	if req.IntervalSec <= 0 {
-		req.IntervalSec = 5 // 默认 5 秒一帧
+		req.IntervalSec = 5
+	}
+	if req.MaxFrames <= 0 {
+		req.MaxFrames = 20
 	}
 
 	var frames []string
@@ -79,6 +89,10 @@ func ExecuteVideoAnalysis(ctx context.Context, args []byte) ([]byte, error) {
 			"data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAS...", // 模拟数据
 			"data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAS...",
 		}
+	}
+
+	if len(frames) > req.MaxFrames {
+		frames = frames[:req.MaxFrames]
 	}
 
 	result := map[string]any{

@@ -38,72 +38,132 @@ func RegisterBuiltinTools(
 		{
 			meta: protocol.Tool{
 				Name:        "read_file",
-				Description: "读取本地文件内容（仅限白名单路径）",
+				Description: "Read the contents of a file at the specified path. Restricted to allowed directories.",
 				Version:     "1.0.0",
 				Capability:  protocol.CapReadOnly,
 				SideEffects: []protocol.SideEffect{protocol.SideNone},
 				RiskLevel:   protocol.RiskLow,
 				SandboxTier: protocol.SandboxInProcess,
 				Source:      protocol.ToolBuiltin,
+				InputSchema: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"path": map[string]any{
+							"type":        "string",
+							"description": "Absolute path of the file to read. Must be within the allowed directories.",
+						},
+					},
+					"required": []string{"path"},
+				},
 			},
 			fn: makeReadFileFn(allowedPaths),
 		},
 		{
 			meta: protocol.Tool{
 				Name:        "list_dir",
-				Description: "列出目录内容（仅限白名单路径）",
+				Description: "List the entries of a directory (name, type, size). Restricted to allowed directories.",
 				Version:     "1.0.0",
 				Capability:  protocol.CapReadOnly,
 				SideEffects: []protocol.SideEffect{protocol.SideNone},
 				RiskLevel:   protocol.RiskLow,
 				SandboxTier: protocol.SandboxInProcess,
 				Source:      protocol.ToolBuiltin,
+				InputSchema: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"path": map[string]any{
+							"type":        "string",
+							"description": "Absolute path of the directory to list. Must be within the allowed directories.",
+						},
+					},
+					"required": []string{"path"},
+				},
 			},
 			fn: makeListDirFn(allowedPaths),
 		},
 		{
 			meta: protocol.Tool{
 				Name:        "write_file",
-				Description: "追加或覆写本地文件（仅限白名单路径，需 CapWriteLocal 权限）",
+				Description: "Write or append content to a file. Creates the file if it does not exist. Restricted to allowed directories.",
 				Version:     "1.0.0",
 				Capability:  protocol.CapWriteLocal,
 				SideEffects: []protocol.SideEffect{protocol.SideFileWrite},
 				RiskLevel:   protocol.RiskMedium,
 				SandboxTier: protocol.SandboxInProcess,
 				Source:      protocol.ToolBuiltin,
+				InputSchema: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"path": map[string]any{
+							"type":        "string",
+							"description": "Absolute path of the file to write. Must be within the allowed directories.",
+						},
+						"content": map[string]any{
+							"type":        "string",
+							"description": "Text content to write into the file.",
+						},
+						"append": map[string]any{
+							"type":        "boolean",
+							"default":     false,
+							"description": "If true, append to the file instead of overwriting it.",
+						},
+					},
+					"required": []string{"path", "content"},
+				},
 			},
 			fn: makeWriteFileFn(allowedPaths),
 		},
 		{
 			meta: protocol.Tool{
 				Name:        "fetch_url",
-				Description: "获取公开 URL 内容（SSRFGuard 五阶段校验，禁止内网 CIDR）",
+				Description: "Fetch the content of a public URL and return the response body. SSRF-guarded: private/internal network addresses are blocked.",
 				Version:     "1.0.0",
 				Capability:  protocol.CapWriteNetwork,
 				SideEffects: []protocol.SideEffect{protocol.SideNetworkCall},
 				RiskLevel:   protocol.RiskMedium,
 				SandboxTier: protocol.SandboxInProcess,
 				Source:      protocol.ToolBuiltin,
+				InputSchema: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"url": map[string]any{
+							"type":        "string",
+							"format":      "uri",
+							"description": "The public URL to fetch. Private/internal addresses (localhost, 192.168.x, 10.x, etc.) are blocked.",
+						},
+					},
+					"required": []string{"url"},
+				},
 			},
 			fn: makeFetchURLFn(dialer),
 		},
 		{
 			meta: protocol.Tool{
 				Name:        "bash",
-				Description: "执行受控的 Bash shell 命令 (仅限于指定白名单工作目录内运行)",
+				Description: "Execute a bash command in a sandboxed environment. Restricted to allowed working directories. Use for shell operations, scripting, and CLI tools.",
 				Version:     "1.0.0",
 				Capability:  protocol.CapWriteLocal,
 				SideEffects: []protocol.SideEffect{protocol.SideFileWrite},
 				RiskLevel:   protocol.RiskHigh,
 				SandboxTier: protocol.SandboxContainer,
 				Source:      protocol.ToolBuiltin,
+				InputSchema: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"command": map[string]any{
+							"type":        "string",
+							"description": "Bash command string to execute (passed to bash -c). Runs in the first allowed directory as working directory.",
+						},
+					},
+					"required": []string{"command"},
+				},
 			},
 			fn: makeBashFn(allowedPaths),
 		},
 		{
 			meta: protocol.Tool{
 				Name:        "get_datetime",
-				Description: "返回当前日期和时间（UTC + 本地时区）",
+				Description: "Return the current date and time in UTC and local timezone.",
 				Version:     "1.0.0",
 				Capability:  protocol.CapReadOnly,
 				SideEffects: []protocol.SideEffect{protocol.SideNone},
@@ -117,7 +177,7 @@ func RegisterBuiltinTools(
 		{
 			meta: protocol.Tool{
 				Name:        "csv_parse",
-				Description: "解析 CSV 文本，返回 JSON 数组（每行一个对象，key 取自首行表头）",
+				Description: "Parse CSV text and return a JSON array where each row is an object keyed by the header row.",
 				Version:     "1.0.0",
 				Capability:  protocol.CapReadOnly,
 				SideEffects: []protocol.SideEffect{protocol.SideNone},
@@ -127,7 +187,10 @@ func RegisterBuiltinTools(
 				InputSchema: map[string]any{
 					"type": "object",
 					"properties": map[string]any{
-						"csv": map[string]any{"type": "string", "description": "CSV 格式文本"},
+						"csv": map[string]any{
+							"type":        "string",
+							"description": "Raw CSV text. The first row is treated as the header and becomes the object keys.",
+						},
 					},
 					"required": []string{"csv"},
 				},
@@ -137,7 +200,7 @@ func RegisterBuiltinTools(
 		{
 			meta: protocol.Tool{
 				Name:        "diff_text",
-				Description: "计算两段文本的 unified diff（逐行差异）",
+				Description: "Compute the unified diff between two text strings and return the diff output.",
 				Version:     "1.0.0",
 				Capability:  protocol.CapReadOnly,
 				SideEffects: []protocol.SideEffect{protocol.SideNone},
@@ -147,8 +210,14 @@ func RegisterBuiltinTools(
 				InputSchema: map[string]any{
 					"type": "object",
 					"properties": map[string]any{
-						"old": map[string]any{"type": "string", "description": "原始文本"},
-						"new": map[string]any{"type": "string", "description": "新文本"},
+						"old": map[string]any{
+							"type":        "string",
+							"description": "The original text (left side of the diff, shown as '-' lines).",
+						},
+						"new": map[string]any{
+							"type":        "string",
+							"description": "The new text (right side of the diff, shown as '+' lines).",
+						},
 					},
 					"required": []string{"old", "new"},
 				},
