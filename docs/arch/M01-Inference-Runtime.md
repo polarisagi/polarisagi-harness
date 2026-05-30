@@ -17,6 +17,7 @@
 | Token 计数与流式成本追踪 | 预算策略制定者（M11） |
 | 本地推理侧车管理（离线/隐私 fallback） | 模型训练（M9） |
 | 流式 SSE 帧归一化（Anthropic/OpenAI/DeepSeek → 统一 StreamEvent） | 推理结果质量评估（M12） |
+| 多模态请求预处理（图片降采样/格式归一，`Infer`/`StreamInfer` 入口统一执行） | 业务侧多媒体采集（M13 Gateway） |
 
 ---
 
@@ -86,7 +87,17 @@ L3 LLM 输出 provider 推荐槽位，由 Route() 确定性函数验证（预算
 
 > **默认推荐**：`configs/defaults.toml` 选 DeepSeek V4 Flash + Pro 组合（价格 / 质量 / 中文友好综合最优，Tier-0 长程验证）。用户可在 Web UI Settings 切换至任何兼容 Provider。
 
-### 4.3 ComplexityDeterminer
+### 4.3 多模态请求预处理
+
+`InferenceRouter.normalizeInferRequest`（`pkg/substrate/inference/media_opt.go`）在 `Infer`/`StreamInfer` 入口统一执行，覆盖所有调用路径（Gateway、Kernel、MCP 工具结果、Swarm）：
+
+- 图片降采样：长边 > 1568px 等比缩放，满足主流 Vision Provider token 预算上限
+- 格式归一：PNG/GIF 转 JPEG（quality=85），减少传输体积
+- 不修改文本内容、工具定义、路由参数，对非图片 Part 零开销
+
+调用方无需手动处理；MCP 工具返回的 `protocol.ImagePart` 由此路径自动压缩。
+
+### 4.4 ComplexityDeterminer
 
 实现见 `pkg/substrate/inference/router.go:InferenceRouter`。
 
