@@ -86,7 +86,20 @@ Alpine.store('chat', {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      this._mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+
+      // 按优先级探测浏览器支持的 mimeType：
+      // webm（Chrome/Firefox） → mp4（iOS Safari 14.3+） → ogg（Firefox） → 系统默认
+      const preferredTypes = ['audio/webm', 'audio/mp4', 'audio/ogg'];
+      let mimeType = '';
+      for (const t of preferredTypes) {
+        if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(t)) {
+          mimeType = t;
+          break;
+        }
+      }
+
+      const recorderOpts = mimeType ? { mimeType } : {};
+      this._mediaRecorder = new MediaRecorder(stream, recorderOpts);
       this._audioChunks = [];
 
       this._mediaRecorder.ondataavailable = (e) => {
@@ -99,7 +112,10 @@ Alpine.store('chat', {
         this.isRecording = false;
         stream.getTracks().forEach(track => track.stop());
 
-        const audioBlob = new Blob(this._audioChunks, { type: 'audio/webm' });
+        // 使用实际录制时协商的 mimeType（Safari 可能是 audio/mp4 而非 audio/webm）
+        const actualMime = this._mediaRecorder.mimeType || mimeType || 'audio/webm';
+        const ext = actualMime.includes('mp4') ? 'mp4' : actualMime.includes('ogg') ? 'ogg' : 'webm';
+        const audioBlob = new Blob(this._audioChunks, { type: actualMime });
         this._audioChunks = [];
         
         if (Alpine.store('toast')) {
@@ -107,7 +123,7 @@ Alpine.store('chat', {
         }
 
         const formData = new FormData();
-        formData.append('file', audioBlob, 'recording.webm');
+        formData.append('file', audioBlob, `recording.${ext}`);
         
         try {
           const headers = authHeaders();

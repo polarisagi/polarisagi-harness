@@ -43,9 +43,12 @@ func NewOpenAIAdapter(baseURL, model string, credFn func() string, client *http.
 		caps: protocol.ProviderCapabilities{
 			SupportsStreaming: true,
 			SupportsTools:     true,
-			MaxContextTokens:  128000,
-			CostPer1KInput:    0.15,
-			CostPer1KOutput:   0.60,
+			// gpt-4o / gpt-4o-mini 等均支持视觉输入；client.go parseImagePart 已实现
+			// 此处声明后路由层才能在多模态请求时将 OpenAI 纳入候选
+			SupportsVision:   true,
+			MaxContextTokens: 128000,
+			CostPer1KInput:   0.15,
+			CostPer1KOutput:  0.60,
 		},
 	}
 }

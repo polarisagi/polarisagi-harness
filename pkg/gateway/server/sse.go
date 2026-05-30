@@ -147,13 +147,16 @@ func (s *Server) handleAgentStream(w http.ResponseWriter, r *http.Request) { //n
 	var userPromptBuilder strings.Builder
 	userPromptBuilder.WriteString(req.Input)
 
-	var hasImages bool
-	visionParts := make([]any, 0, len(req.Attachments)+len(req.ImageParts))
+	var hasMedia bool
+	mediaParts := make([]any, 0, len(req.Attachments)+len(req.ImageParts))
 
 	// 处理新增的 VFS 附件
 	for _, att := range req.Attachments {
-		if !strings.HasPrefix(att.MimeType, "image/") {
-			// 非图片文件，向提示词中注入挂载信息
+		isImage := strings.HasPrefix(att.MimeType, "image/")
+		isVideo := strings.HasPrefix(att.MimeType, "video/")
+
+		if !isImage && !isVideo {
+			// 非图片/视频文件，向提示词中注入挂载信息
 			userPromptBuilder.WriteString(fmt.Sprintf("\n\n[System: 用户挂载了系统附件 %s", att.URI))
 			if att.Name != "" {
 				userPromptBuilder.WriteString(fmt.Sprintf(" (原始文件名: %s)", att.Name))
@@ -162,24 +165,71 @@ func (s *Server) handleAgentStream(w http.ResponseWriter, r *http.Request) { //n
 			continue
 		}
 
-		// 解析本地 VFS 路径
+		// 必须是 workspace:// 协议才能读本地文件
 		if !strings.HasPrefix(att.URI, "workspace://") {
+			slog.Warn("server: non-workspace URI skipped for media attachment", "uri", att.URI)
 			continue
 		}
 
 		localPath := filepath.Join(s.dataDir, "workspace", strings.TrimPrefix(att.URI, "workspace://"))
+
+		if isVideo {
+			// 视频大小门控：超过 Gemini inlineData 上限（20MB）直接拒绝，避免 OOM
+			fi, statErr := os.Stat(localPath)
+			if statErr != nil {
+				slog.Warn("server: failed to stat video attachment", "uri", att.URI, "err", statErr)
+				continue
+			}
+			if fi.Size() > maxVideoInlineBytes {
+				slog.Warn("server: video too large for inline, skipping", "uri", att.URI, "size", fi.Size())
+				name := att.Name
+				if name == "" {
+					name = att.URI
+				}
+				userPromptBuilder.WriteString(fmt.Sprintf(
+					"\n\n[System: 视频文件 %s (%.1fMB) 超过内联上限（20MB），未能传递给模型。请使用较小的视频片段。]",
+					name, float64(fi.Size())/(1024*1024),
+				))
+				continue
+			}
+		}
+
 		raw, err := os.ReadFile(localPath)
 		if err != nil {
-			slog.Warn("server: failed to read image attachment", "uri", att.URI, "err", err)
+			slog.Warn("server: failed to read media attachment", "uri", att.URI, "err", err)
 			continue
 		}
 
-		hasImages = true
-		visionParts = append(visionParts, protocol.ImagePart{
-			Type:      "image",
-			MediaType: att.MimeType,
-			Data:      raw,
-		})
+		hasMedia = true
+		if isImage {
+			mime := att.MimeType
+			if isProcessableImage(mime) {
+				// 降采样 + PNG/GIF→JPEG 转换，减少 token 用量和传输体积
+				if resized, newMime, ok := resizeImageForLLM(raw, mime); ok {
+					origKB := len(raw) / 1024
+					newKB := len(resized) / 1024
+					slog.Info("server: image resized for LLM",
+						"uri", att.URI,
+						"orig_kb", origKB,
+						"new_kb", newKB,
+						"new_mime", newMime,
+					)
+					raw, mime = resized, newMime
+				}
+			}
+			mediaParts = append(mediaParts, protocol.ImagePart{
+				Type:      "image",
+				MediaType: mime,
+				Data:      raw,
+			})
+		} else {
+			// video/* → Gemini inlineData 方式（已通过上方大小门控，≤20MB）
+			mediaParts = append(mediaParts, protocol.VideoPart{
+				Type:      "video",
+				MediaType: att.MimeType,
+				Data:      raw,
+			})
+		}
 	}
 
 	finalInput := strings.TrimSpace(userPromptBuilder.String())
@@ -193,21 +243,27 @@ func (s *Server) handleAgentStream(w http.ResponseWriter, r *http.Request) { //n
 				slog.Warn("server: invalid image base64, skipping", "err", err)
 				continue
 			}
-			hasImages = true
-			visionParts = append(visionParts, protocol.ImagePart{
+			mime := ip.MimeType
+			if isProcessableImage(mime) {
+				if resized, newMime, ok := resizeImageForLLM(raw, mime); ok {
+					raw, mime = resized, newMime
+				}
+			}
+			hasMedia = true
+			mediaParts = append(mediaParts, protocol.ImagePart{
 				Type:      "image",
-				MediaType: ip.MimeType,
+				MediaType: mime,
 				Data:      raw,
 			})
 		}
 	}
 
-	if hasImages {
-		parts := make([]any, 0, 1+len(visionParts))
+	if hasMedia {
+		parts := make([]any, 0, 1+len(mediaParts))
 		if finalInput != "" {
 			parts = append(parts, map[string]any{"type": "text", "text": finalInput})
 		}
-		parts = append(parts, visionParts...)
+		parts = append(parts, mediaParts...)
 		userMsg.Parts = parts
 	}
 
@@ -379,7 +435,10 @@ func (s *Server) handleAgentStream(w http.ResponseWriter, r *http.Request) { //n
 			toolResultParts = append(toolResultParts, map[string]any{
 				"type":        "tool_result",
 				"tool_use_id": toolID,
-				"content":     resultText,
+				// name 字段供 Gemini adapter 的 FunctionResponse 匹配工具名称；
+				// Anthropic/OpenAI 适配器不使用此字段（忽略未知 key），不影响兼容性
+				"name":    toolName,
+				"content": resultText,
 			})
 
 			var inputObj any

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -180,7 +181,8 @@ func buildGeminiRequest(req *protocol.InferRequest) ([]byte, error) { //nolint:g
 					parts = append(parts, Part{
 						InlineData: &InlineData{
 							MimeType: ip.MediaType,
-							Data:     string(ip.Data),
+							// Gemini inlineData.data 要求 Base64 编码字符串，不能是原始二进制字节
+							Data: base64.StdEncoding.EncodeToString(ip.Data),
 						},
 					})
 					continue

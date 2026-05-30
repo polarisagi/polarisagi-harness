@@ -320,10 +320,10 @@ func (a *AnthropicAdapter) buildAnthropicRequest(req *protocol.InferRequest, str
 // tool_use 事件打包为 StreamToolCall，Content 为 JSON: {"id","name","input"}。
 func (a *AnthropicAdapter) parseAnthropicStream(ctx context.Context, body io.Reader, ch chan<- protocol.StreamEvent) { //nolint:gocyclo
 	scanner := bufio.NewScanner(body)
-	// 跟踪当前 tool_use block 的状态
 	var toolID, toolName string
 	var toolInputBuf strings.Builder
 	inToolBlock := false
+	inThinkingBlock := false // 标记当前是否在处理 extended thinking block
 
 	for scanner.Scan() {
 		select {
@@ -346,6 +346,7 @@ func (a *AnthropicAdapter) parseAnthropicStream(ctx context.Context, body io.Rea
 			Delta struct {
 				Type        string `json:"type"`
 				Text        string `json:"text"`
+				Thinking    string `json:"thinking"` // extended thinking delta
 				PartialJSON string `json:"partial_json"`
 				StopReason  string `json:"stop_reason"`
 			} `json:"delta"`
@@ -378,16 +379,29 @@ func (a *AnthropicAdapter) parseAnthropicStream(ctx context.Context, body io.Rea
 				observability.GlobalTokenBurnRate.Add(int64(frame.Message.Usage.InputTokens))
 			}
 		case "content_block_start":
-			if frame.ContentBlock.Type == "tool_use" {
+			switch frame.ContentBlock.Type {
+			case "tool_use":
 				toolID = frame.ContentBlock.ID
 				toolName = frame.ContentBlock.Name
 				toolInputBuf.Reset()
 				inToolBlock = true
+				inThinkingBlock = false
+			case "thinking":
+				// Anthropic extended thinking block 开始
+				inThinkingBlock = true
+				inToolBlock = false
+			default:
+				inToolBlock = false
+				inThinkingBlock = false
 			}
 		case "content_block_delta":
-			if inToolBlock && frame.Delta.Type == "input_json_delta" {
+			switch {
+			case inToolBlock && frame.Delta.Type == "input_json_delta":
 				toolInputBuf.WriteString(frame.Delta.PartialJSON)
-			} else if !inToolBlock && frame.Delta.Type == "text_delta" && frame.Delta.Text != "" {
+			case inThinkingBlock && frame.Delta.Type == "thinking_delta" && frame.Delta.Thinking != "":
+				// 将思考内容发送给前端显示
+				ch <- protocol.StreamEvent{Type: protocol.StreamThinking, Content: frame.Delta.Thinking}
+			case !inToolBlock && !inThinkingBlock && frame.Delta.Type == "text_delta" && frame.Delta.Text != "":
 				ch <- protocol.StreamEvent{Type: protocol.StreamTextDelta, Content: frame.Delta.Text}
 			}
 		case "content_block_stop":
@@ -404,6 +418,7 @@ func (a *AnthropicAdapter) parseAnthropicStream(ctx context.Context, body io.Rea
 				ch <- protocol.StreamEvent{Type: protocol.StreamToolCall, Content: string(payload)}
 				inToolBlock = false
 			}
+			inThinkingBlock = false
 		case "message_delta":
 			if frame.Usage.OutputTokens > 0 {
 				ch <- protocol.StreamEvent{

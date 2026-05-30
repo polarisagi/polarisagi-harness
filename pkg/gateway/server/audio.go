@@ -11,23 +11,28 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync/atomic"
 
 	"github.com/google/uuid"
 
 	"github.com/polarisagi/polarisagi-harness/pkg/substrate/inference/stt"
 )
 
-var globalSTTEngine *stt.Engine
+// globalSTTEngine 使用 atomic.Pointer 保证并发安全：
+// InitSTTEngine 在 goroutine 中异步完成真实引擎替换，concurrent HTTP 请求可安全 Load。
+var globalSTTEngine atomic.Pointer[stt.Engine]
 
-// SetSTTEngine 注入全局的 STT 引擎实例
+// SetSTTEngine 原子替换全局 STT 引擎实例（goroutine-safe）。
 func SetSTTEngine(engine *stt.Engine) {
-	globalSTTEngine = engine
+	globalSTTEngine.Store(engine)
 }
 
 // handleAudioTranscriptions 处理前端语音输入并转写文本
 // 路由: POST /v1/audio/transcriptions
 func (s *Server) handleAudioTranscriptions(w http.ResponseWriter, r *http.Request) {
-	if globalSTTEngine == nil {
+	// 原子 Load，与 SetSTTEngine 的 Store 不存在 data race
+	engine := globalSTTEngine.Load()
+	if engine == nil {
 		http.Error(w, "STT Engine not initialized", http.StatusServiceUnavailable)
 		return
 	}
@@ -39,7 +44,7 @@ func (s *Server) handleAudioTranscriptions(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	file, _, err := r.FormFile("file")
+	file, header, err := r.FormFile("file")
 	if err != nil {
 		http.Error(w, "missing file", http.StatusBadRequest)
 		return
@@ -47,8 +52,13 @@ func (s *Server) handleAudioTranscriptions(w http.ResponseWriter, r *http.Reques
 	defer file.Close()
 
 	// 将录音保存为临时文件以供 ffmpeg 处理
+	// 使用上传文件的真实扩展名（.webm/.mp4/.ogg），ffmpeg 凭文件头自动识别格式
 	tmpDir := os.TempDir()
-	inPath := filepath.Join(tmpDir, uuid.New().String()+".webm")
+	ext := filepath.Ext(header.Filename)
+	if ext == "" {
+		ext = ".webm" // 兜底
+	}
+	inPath := filepath.Join(tmpDir, uuid.New().String()+ext)
 
 	outFile, err := os.Create(inPath)
 	if err != nil {
@@ -64,15 +74,15 @@ func (s *Server) handleAudioTranscriptions(w http.ResponseWriter, r *http.Reques
 	defer os.Remove(inPath)
 
 	// 使用 ffmpeg 提取为 16000Hz f32le 原始 PCM 数据流
-	// 我们不落地 wav 文件，而是直接通过管道读取标准输出
+	// 不落地 wav 文件，直接通过管道读取标准输出
 	cmd := exec.Command("ffmpeg", "-y", "-i", inPath, "-f", "f32le", "-ac", "1", "-ar", "16000", "-")
 
 	var outBuf bytes.Buffer
 	cmd.Stdout = &outBuf
 	if err := cmd.Run(); err != nil {
 		slog.Error("ffmpeg decode failed", "err", err)
-		// 如果机器上没有 ffmpeg，则触发 Mock (纯测试回退)
-		mockText, _ := globalSTTEngine.Transcribe(nil, 16000)
+		// 机器上没有 ffmpeg 时触发 Mock（纯测试回退）
+		mockText, _ := engine.Transcribe(nil, 16000)
 		respondJSON(w, map[string]any{"text": mockText})
 		return
 	}
@@ -84,7 +94,7 @@ func (s *Server) handleAudioTranscriptions(w http.ResponseWriter, r *http.Reques
 		samples[i] = math.Float32frombits(bits)
 	}
 
-	text, err := globalSTTEngine.Transcribe(samples, 16000)
+	text, err := engine.Transcribe(samples, 16000)
 	if err != nil {
 		http.Error(w, "stt failed: "+err.Error(), http.StatusInternalServerError)
 		return

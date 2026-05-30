@@ -162,6 +162,10 @@ func (s *Server) ensureSession(ctx context.Context, sessionID string) error {
 	return err
 }
 
+// loadMessages 从数据库加载会话历史（role + content 纯文本）。
+// 【架构约束】图片/视频等多模态 Parts 不落盘，仅存在于当轮请求的内存中。
+// 这意味着多轮视觉对话中，历史轮次的图片不会随上下文一并重传给大模型。
+// 如需多轮图片记忆，需要在 saveMessage 中序列化 Parts 并在此处反序列化还原。
 func (s *Server) loadMessages(ctx context.Context, sessionID string) ([]protocol.Message, error) {
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT role, content FROM chat_messages WHERE session_id=? ORDER BY id`, sessionID)
