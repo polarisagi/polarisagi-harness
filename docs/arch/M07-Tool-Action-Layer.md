@@ -172,7 +172,7 @@ Auto-Curriculum: M9 `bash_restricted` 强制 L2 Wasm，字符集 `[A-Za-z0-9 ./\
 | I/O 总量 | 100MB | 10MB | 1MB |
 | 内存(maxPages) | 256 (16MB) | 128 (8MB) | 64 (4MB) |
 
-**WazeroRuntime 缓存并发安全**: `WazeroRuntime` 三级缓存（goldCache/silverCache/bronzeCache）均由 `sync.RWMutex` 保护，支持并发读写安全。
+**WazeroRuntime 缓存并发安全**: `WazeroRuntime` 三级缓存（goldCache/silverCache/bronzeCache）均由 `sync.RWMutex` 保护，支持并发读写安全。缓存容量上限由 `M6SkillThresholds`（Gold=5 / Silver=20 / Bronze=25）配置，`PreWarmCache` 超限时驱逐最旧条目后再插入。
 
 **SandboxSpec tier 一致性**: `SandboxRouter.Execute` 传入 `SandboxSpec.SandboxTier` 为 `AssignSandboxTier` 升级后的实际 tier，确保审计日志与执行层一致。
 
@@ -429,7 +429,7 @@ Security: StreamingActionBus不绕过Capability——mouse_delta/key_sequence需
 - Sandbox: `[Sandbox-L3]` 平台原生 microVM（Tier 0 拒绝执行，返回 `ErrTier0SandboxLimit`）
 - Capability Token: 一次性，MaxCalls=1，TTL=60s
 - Audit: 完整代码 + stdout/stderr + exit_code 写 EventLog（`event_type='codeact_exec'`）
-- Cedar 策略: deny-by-default，需 `permit code_act when context.session_trust_level >= 3 AND context.approval_status == "approved"`
+- Cedar 策略: deny-by-default，需 `permit code_act when context.session_trust_level >= 3 AND context.approval_status == "approved"`；`policyGate` 未注入时 fail-closed（返回 CodeInternal，不降级执行）
 
 **`ExecuteCodeAct` 流程**:
 ```

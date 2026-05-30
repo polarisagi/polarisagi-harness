@@ -2,7 +2,9 @@ package substrate
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,7 +17,7 @@ import (
 	"github.com/polarisagi/polarisagi-harness/internal/protocol/pb"
 )
 
-// executeInsertEvent 执行针对 events 表的专门插入。
+// executeInsertEvent 执行针对 events 表的专门插入，含 M11 hash chain 计算。
 // intent.Payload 必须是 pb.Event 的序列化字节。
 func (dw *DatabaseWriter) executeInsertEvent(tx *sql.Tx, intent *MutationIntent) error {
 	var ev pb.Event
@@ -23,10 +25,26 @@ func (dw *DatabaseWriter) executeInsertEvent(tx *sql.Tx, intent *MutationIntent)
 		return perrors.Wrap(perrors.CodeInternal, "unmarshal pb.Event", err)
 	}
 
+	// 读取链上最新 hash（同 tx 内已插入的事件对此查询可见，保证批内链式连续）
+	var prevHash sql.NullString
+	_ = tx.QueryRow(`SELECT hash FROM events ORDER BY offset DESC LIMIT 1`).Scan(&prevHash)
+
+	// SHA-256(id || topic || actor || type || payload || prev_hash)
+	h := sha256.New()
+	h.Write([]byte(ev.Id))
+	h.Write([]byte(ev.Topic))
+	h.Write([]byte(ev.Actor))
+	h.Write([]byte(ev.Type))
+	h.Write(ev.Payload)
+	if prevHash.Valid {
+		h.Write([]byte(prevHash.String))
+	}
+	currentHash := hex.EncodeToString(h.Sum(nil))
+
 	query := `INSERT INTO events (
 		id, topic, actor, type, payload, idempotency_key,
-		occurred_at, durative_group_id, created_at
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		occurred_at, durative_group_id, created_at, prev_hash, hash
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	var idempotencyKey any
 	if ev.IdempotencyKey != "" {
@@ -35,6 +53,10 @@ func (dw *DatabaseWriter) executeInsertEvent(tx *sql.Tx, intent *MutationIntent)
 	var durativeGroupID any
 	if ev.DurativeGroupId != "" {
 		durativeGroupID = ev.DurativeGroupId
+	}
+	var prevHashVal any
+	if prevHash.Valid {
+		prevHashVal = prevHash.String
 	}
 
 	_, err := tx.Exec(query,
@@ -47,6 +69,8 @@ func (dw *DatabaseWriter) executeInsertEvent(tx *sql.Tx, intent *MutationIntent)
 		ev.OccurredAt,
 		durativeGroupID,
 		ev.CreatedAt,
+		prevHashVal,
+		currentHash,
 	)
 	return err
 }

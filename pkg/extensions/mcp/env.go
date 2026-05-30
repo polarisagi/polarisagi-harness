@@ -5,39 +5,40 @@ import (
 	"strings"
 )
 
-// secretKeyPatterns 是判断环境变量键名含有敏感信息的后缀列表（全大写比较）。
-var secretKeyPatterns = []string{
-	"_KEY", "_TOKEN", "_SECRET", "_PASSWORD", "_PASS",
-	"_CREDENTIAL", "_CREDENTIALS", "_CRED", "_APIKEY",
-	"_API_KEY", "_AUTH", "_PRIVATE",
+// allowedEnvKeys 是 MCP 子进程可继承的环境变量白名单（全大写精确匹配）。
+// 凭据/密钥类变量需通过显式注入（not os.Environ），防止黑名单绕过。
+var allowedEnvKeys = map[string]struct{}{
+	"PATH":      {},
+	"HOME":      {},
+	"TMPDIR":    {},
+	"TEMP":      {},
+	"TMP":       {},
+	"USER":      {},
+	"USERNAME":  {},
+	"LANG":      {},
+	"LC_ALL":    {},
+	"LC_CTYPE":  {},
+	"TERM":      {},
+	"SHELL":     {},
+	"NODE_PATH": {},
+	"GOPATH":    {},
+	"GOROOT":    {},
 }
 
-// sanitizeParentEnv 返回过滤掉密钥类变量后的父进程环境切片。
-// 保留 PATH、HOME、TMPDIR、USER、LANG、LC_ALL、TERM、NODE_PATH、GOPATH 等运行时必要变量；
-// 移除任何键名匹配 secretKeyPatterns 的条目，防止凭据泄漏给 MCP 子进程。
+// sanitizeParentEnv 仅将白名单内的无害系统变量传递给 MCP 子进程。
+// 采用白名单策略：未显式授权的变量一律拦截，防止凭据通过非典型键名泄漏。
 func sanitizeParentEnv() []string {
 	raw := os.Environ()
-	out := make([]string, 0, len(raw))
+	out := make([]string, 0, len(allowedEnvKeys))
 	for _, kv := range raw {
 		idx := strings.IndexByte(kv, '=')
 		if idx <= 0 {
-			out = append(out, kv)
 			continue
 		}
 		key := strings.ToUpper(kv[:idx])
-		if isSecretKey(key) {
-			continue
+		if _, ok := allowedEnvKeys[key]; ok {
+			out = append(out, kv)
 		}
-		out = append(out, kv)
 	}
 	return out
-}
-
-func isSecretKey(upperKey string) bool {
-	for _, pat := range secretKeyPatterns {
-		if strings.HasSuffix(upperKey, pat) {
-			return true
-		}
-	}
-	return false
 }

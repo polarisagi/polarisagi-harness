@@ -118,6 +118,9 @@ type M9SelfImproveThresholds struct {
 	WorkerRestartBackoffMaxSeconds int       `toml:"worker.restart_backoff_max_seconds"` // 60
 	CanarySteps                    []float64 `toml:"canary.steps"`                       // [0.01, 0.10, 0.50, 1.00]
 	CanaryDwellPerStepHoursHT0     int       `toml:"canary.dwell_per_step_hours_ht0"`    // 1
+	// SurpriseIndex 双通道路由阈值（System 1 / 混合 / System 2）
+	SurpriseRouteLowThreshold  float64 `toml:"surprise_route.low_threshold"`  // 0.30
+	SurpriseRouteHighThreshold float64 `toml:"surprise_route.high_threshold"` // 0.60
 }
 
 type M10KnowledgeThresholds struct {
@@ -249,6 +252,8 @@ func DefaultThresholds() Thresholds {
 			WorkerRestartBackoffMaxSeconds: 60,
 			CanarySteps:                    []float64{0.01, 0.10, 0.50, 1.00},
 			CanaryDwellPerStepHoursHT0:     1,
+			SurpriseRouteLowThreshold:      0.30,
+			SurpriseRouteHighThreshold:     0.60,
 		},
 		M10Knowledge: M10KnowledgeThresholds{
 			RAGFinalTopK:        5,

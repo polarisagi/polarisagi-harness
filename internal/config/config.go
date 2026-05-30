@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -177,8 +178,24 @@ func Load(path string) (*Config, error) {
 	if err := yaml.Unmarshal(data, cfg); err != nil {
 		return nil, err
 	}
-
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
 	return cfg, nil
+}
+
+// Validate 对边界非法值做 Fail-Fast 校验，防止明显错误配置在运行期才暴露 panic。
+// 未填写的字段（零值）代表"使用系统默认"，不视为错误。
+func (c *Config) Validate() error {
+	if c.System.Tier < 0 || c.System.Tier > 3 {
+		return fmt.Errorf("config: system.tier must be 0-3, got %d", c.System.Tier)
+	}
+	// go_memlimit_mb 为 0 代表不设 GOMEMLIMIT（由运行时自动管理），合法。
+	// 非零时要求最低 64MB，低于此值会导致频繁 GC 甚至 OOM。
+	if c.System.GoMemLimitMB != 0 && c.System.GoMemLimitMB < 64 {
+		return fmt.Errorf("config: system.go_memlimit_mb must be >= 64 when set, got %d", c.System.GoMemLimitMB)
+	}
+	return nil
 }
 
 func LoadThresholds(dataDir string) (*Thresholds, error) {

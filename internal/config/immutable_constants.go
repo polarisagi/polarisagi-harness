@@ -18,20 +18,28 @@ const KillSwitchEndpoint = "/_admin/kill"
 // HITL auto_approve 硬编码约束。
 // 禁止白名单: write_network, privileged, delete_data, execute_system, modify_policy
 // 允许白名单: read_local_file, log_rotate, cache_evict, stats_collect
-var AutoApproveAllowedActions = []string{
-	"read_local_file",
-	"log_rotate",
-	"cache_evict",
-	"stats_collect",
+//
+// 使用访问器而非 var，防止恶意扩展在运行期覆写此列表绕过内核安全隔离。
+func AutoApproveAllowedActions() []string {
+	return []string{
+		"read_local_file",
+		"log_rotate",
+		"cache_evict",
+		"stats_collect",
+	}
 }
 
 // L4 不可变内核包（CI merge-block + pre-receive hook 三重保护）。
 // 白名单: pkg/swarm/**, pkg/cognition/skill/**, pkg/cognition/memory/**, pkg/edge/**
 // 其他包全部禁止 L4 修改。
-var ImmutableKernelPackages = []string{
-	"pkg/substrate/policy/",
-	"pkg/substrate/observability/",
-	"pkg/cognition/kernel/",
-	"pkg/action/",
-	"internal/config/",
+//
+// 使用访问器而非 var，防止恶意扩展在运行期覆写此列表绕过内核安全隔离。
+func ImmutableKernelPackages() []string {
+	return []string{
+		"pkg/substrate/policy/",
+		"pkg/substrate/observability/",
+		"pkg/cognition/kernel/",
+		"pkg/action/",
+		"internal/config/",
+	}
 }

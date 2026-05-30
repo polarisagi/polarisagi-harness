@@ -487,6 +487,8 @@ Hash Chain 结构：`RecordHash = SHA-256(序列化后记录，不含 RecordHash
 
 `VerifyIntegrity()` 遍历内存链逐条重算 RecordHash 并比对 PrevHash 链接，返回 (ok bool, brokenIndex int)。同时在 `RecoverOnStartup()` 中对从 DB 恢复的尾部 100 条记录执行完整性校验，不通过则拒绝启动。
 
+**DB 层 Hash Chain（全事件覆盖）**：`events` 表新增 `hash`/`prev_hash` 列，由 `DatabaseWriter.executeInsertEvent` 在 INSERT 时同步计算：`hash = SHA-256(id||topic||actor||type||payload||prev_hash)`。同一批次内链式连续（SQLite 可序列化事务内前一条 INSERT 对后续查询可见）。提供独立于内存审计链的持久可验证层，覆盖全表事件（不限 audit.policy topic）。
+
 ### 7.2 Epoch 轮转
 
 触发：审计日志估算体积 > 100MB（由调用方传入当前 MB 数）。封存流程：追加 `epoch_end` 标记记录（FinalHash + RecordCount），写 DB；更新 epochID；追加 `epoch_start` 标记（PrevEpochFinalHash），建立跨 Epoch 密码学连续性。归档目录 `~/.polarisagi-harness/audit/archive/`，保留 90 天（Tier 0）。

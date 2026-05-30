@@ -227,16 +227,52 @@ func (wr *WazeroRuntime) GetOrCompile(skillID string, successRate float64) (any,
 	return nil, nil
 }
 
-// PreWarmCache 提供给测试和启动时的本地缓存注入。
+// PreWarmCache 注入预编译 Wasm 模块到 Gold 缓存。
+// Gold 缓存上限 5（Tier-0 硬约束，见 M6Skill.GoldCacheSize）；超限时 evict 最旧条目晋升不了、仅记录失败。
 func (wr *WazeroRuntime) PreWarmCache(skillID string, wasmBytes []byte) error {
 	compiled, err := wr.runtime.CompileModule(context.Background(), wasmBytes)
 	if err != nil {
 		return err
 	}
+
+	goldLimit, _, _ := wasmCacheLimits()
+
 	wr.mu.Lock()
+	defer wr.mu.Unlock()
+
+	// 已存在则直接覆盖（版本更新路径）
+	if _, exists := wr.goldCache[skillID]; exists {
+		wr.goldCache[skillID] = compiled
+		return nil
+	}
+
+	if len(wr.goldCache) >= goldLimit {
+		// 驱逐任意一条（Gold 层条目均为高频热点，简单 FIFO 足够）
+		for k := range wr.goldCache {
+			delete(wr.goldCache, k)
+			break
+		}
+	}
 	wr.goldCache[skillID] = compiled
-	wr.mu.Unlock()
 	return nil
+}
+
+// wasmCacheLimits 从配置读取 Gold/Silver/Bronze 缓存上限。
+func wasmCacheLimits() (gold, silver, bronze int) {
+	gold, silver, bronze = 5, 20, 25 // 内置默认（Tier-0 硬约束）
+	if cfg := config.Get(); cfg != nil {
+		t := cfg.Thresholds.M6Skill
+		if t.GoldCacheSize > 0 {
+			gold = t.GoldCacheSize
+		}
+		if t.SilverCacheSize > 0 {
+			silver = t.SilverCacheSize
+		}
+		if t.BronzeCacheSize > 0 {
+			bronze = t.BronzeCacheSize
+		}
+	}
+	return
 }
 
 // CheckLimits 资源硬限制检查。

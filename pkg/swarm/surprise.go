@@ -1,6 +1,11 @@
 package swarm
 
-import "sync"
+import (
+	"context"
+	"sync"
+
+	"github.com/polarisagi/polarisagi-harness/internal/config"
+)
 
 // SurpriseIndex — System 1/2 路由信号计算。
 // 权威实现位于 M9（因依赖 MEMF），M3 仅暴露 Prometheus Gauge。
@@ -27,12 +32,23 @@ func (si *SurpriseIndex) Compute() float64 {
 		0.25*si.MEMFMatchSurprise
 }
 
-// Route 根据 SurpriseIndex 选择执行路径。
+// Route 根据 SurpriseIndex 选择执行路径，阈值从配置读取。
+// low < 0.30 → System 1（快速缓存路由）；low~high → 混合；high+ → System 2（完整推理）。
 func Route(si float64) int {
+	low, high := 0.30, 0.60
+	if cfg := config.Get(); cfg != nil {
+		t := cfg.Thresholds.M9SelfImprove
+		if t.SurpriseRouteLowThreshold > 0 {
+			low = t.SurpriseRouteLowThreshold
+		}
+		if t.SurpriseRouteHighThreshold > 0 {
+			high = t.SurpriseRouteHighThreshold
+		}
+	}
 	switch {
-	case si < 0.3:
+	case si < low:
 		return 1
-	case si < 0.6:
+	case si < high:
 		return 15
 	default:
 		return 2
@@ -48,6 +64,7 @@ type SurpriseCalculator struct {
 	rollingAvg      float64       // 滑动平均 SurpriseIndex
 	rollingCount    int64
 	mu              sync.Mutex // 保护 rollingAvg/rollingCount/markov
+	cancel          context.CancelFunc
 }
 
 type CalcRequest struct {
@@ -69,16 +86,23 @@ func NewSurpriseCalculatorWith(memf *FallacyMemoryPool, layerBThreshold float64)
 	if layerBThreshold < MinLayerBThreshold {
 		layerBThreshold = MinLayerBThreshold
 	}
+	ctx, cancel := context.WithCancel(context.Background())
 	c := &SurpriseCalculator{
 		queue:           make(chan *CalcRequest, 256), // cap=256
 		memfPool:        memf,
 		markov:          NewMarkovMatrix(), // 始终初始化，持续积累数据
 		layerBThreshold: layerBThreshold,
+		cancel:          cancel,
 	}
 	for range 4 {
-		go c.workerLoop()
+		go c.workerLoop(ctx)
 	}
 	return c
+}
+
+// Close 停止所有 worker goroutine，释放资源。模块重启或测试结束时调用。
+func (c *SurpriseCalculator) Close() {
+	c.cancel()
 }
 
 // WithMarkovMatrix 替换内部马尔可夫矩阵（warm-start：从持久化数据恢复预训练矩阵）。
@@ -110,73 +134,85 @@ func (c *SurpriseCalculator) CurrentSurprise() float64 {
 	return c.rollingAvg
 }
 
-func (c *SurpriseCalculator) workerLoop() {
-	for req := range c.queue {
-		embSurprise := 0.2
-		if len(req.Keywords) == 0 {
-			embSurprise = 0.8
-		}
-
-		c.mu.Lock()
-		markov := c.markov
-		threshold := c.layerBThreshold
-		c.mu.Unlock()
-
-		// 无论 Layer B 是否激活，始终积累转移数据（先算再更新，避免自我影响）
-		var toolSurprise float64
-		if markov.TotalTransitions() >= threshold {
-			// Layer B（M09 §2.0）：转移数达标，用马尔可夫条件概率惊异值
-			toolSurprise = markov.Surprise(req.ToolSeq)
-		} else {
-			// Tier-0 基线：bash/computer_use 启发式加权
-			toolSurprise = 0.1
-			for _, t := range req.ToolSeq {
-				if t == "bash" || t == "computer_use" {
-					toolSurprise += 0.3
-				}
-			}
-			if toolSurprise > 1.0 {
-				toolSurprise = 1.0
-			}
-		}
-		markov.Update(req.ToolSeq) // 在线学习（计算完成后更新）
-
-		memfSurprise := 0.1
-		if c.memfPool != nil && c.memfPool.db != nil {
-			var maxQuality float64
-			err := c.memfPool.db.QueryRow(`
-				SELECT MAX(node_quality_score)
-				FROM fallacy_records
-				WHERE task_type = ?
-			`, req.TaskType).Scan(&maxQuality)
-			if err == nil && maxQuality > 0 {
-				memfSurprise += maxQuality * 0.5
-			}
-		}
-		if memfSurprise > 1.0 {
-			memfSurprise = 1.0
-		}
-
-		idx := &SurpriseIndex{
-			EmbeddingSurprise:    embSurprise,
-			ToolSequenceSurprise: toolSurprise,
-			MEMFMatchSurprise:    memfSurprise,
-		}
-		result := idx.Compute()
-
-		// 维护滑动平均（EWMA α=0.2），mutex 保护并发读写
-		c.mu.Lock()
-		if c.rollingCount == 0 {
-			c.rollingAvg = result
-		} else {
-			c.rollingAvg = 0.8*c.rollingAvg + 0.2*result
-		}
-		c.rollingCount++
-		c.mu.Unlock()
-
+func (c *SurpriseCalculator) workerLoop(ctx context.Context) {
+	for {
 		select {
-		case req.ResultCh <- result:
-		default:
+		case <-ctx.Done():
+			return
+		case req, ok := <-c.queue:
+			if !ok {
+				return
+			}
+			c.processRequest(req)
 		}
+	}
+}
+
+func (c *SurpriseCalculator) processRequest(req *CalcRequest) {
+	embSurprise := 0.2
+	if len(req.Keywords) == 0 {
+		embSurprise = 0.8
+	}
+
+	c.mu.Lock()
+	markov := c.markov
+	threshold := c.layerBThreshold
+	c.mu.Unlock()
+
+	// 无论 Layer B 是否激活，始终积累转移数据（先算再更新，避免自我影响）
+	var toolSurprise float64
+	if markov.TotalTransitions() >= threshold {
+		// Layer B（M09 §2.0）：转移数达标，用马尔可夫条件概率惊异值
+		toolSurprise = markov.Surprise(req.ToolSeq)
+	} else {
+		// Tier-0 基线：bash/computer_use 启发式加权
+		toolSurprise = 0.1
+		for _, t := range req.ToolSeq {
+			if t == "bash" || t == "computer_use" {
+				toolSurprise += 0.3
+			}
+		}
+		if toolSurprise > 1.0 {
+			toolSurprise = 1.0
+		}
+	}
+	markov.Update(req.ToolSeq) // 在线学习（计算完成后更新）
+
+	memfSurprise := 0.1
+	if c.memfPool != nil && c.memfPool.db != nil {
+		var maxQuality float64
+		err := c.memfPool.db.QueryRow(`
+			SELECT MAX(node_quality_score)
+			FROM fallacy_records
+			WHERE task_type = ?
+		`, req.TaskType).Scan(&maxQuality)
+		if err == nil && maxQuality > 0 {
+			memfSurprise += maxQuality * 0.5
+		}
+	}
+	if memfSurprise > 1.0 {
+		memfSurprise = 1.0
+	}
+
+	idx := &SurpriseIndex{
+		EmbeddingSurprise:    embSurprise,
+		ToolSequenceSurprise: toolSurprise,
+		MEMFMatchSurprise:    memfSurprise,
+	}
+	result := idx.Compute()
+
+	// 维护滑动平均（EWMA α=0.2），mutex 保护并发读写
+	c.mu.Lock()
+	if c.rollingCount == 0 {
+		c.rollingAvg = result
+	} else {
+		c.rollingAvg = 0.8*c.rollingAvg + 0.2*result
+	}
+	c.rollingCount++
+	c.mu.Unlock()
+
+	select {
+	case req.ResultCh <- result:
+	default:
 	}
 }

@@ -67,21 +67,22 @@ func (ca *CodeAct) Execute(ctx context.Context, req CodeActRequest) (*CodeActRes
 		return nil, perrors.New(perrors.CodeForbidden, "code_act: capability_id required (inv_global_07)")
 	}
 
-	// Cedar 策略评估
-	if ca.policyGate != nil {
-		evalCtx := map[string]any{
-			"source":              "llm_generated",
-			"capability_token_id": req.CapabilityID,
-			"trust_level":         1,
+	// Cedar 策略评估（fail-closed：gate 未注入视为安全依赖缺失，直接拒绝）
+	if ca.policyGate == nil {
+		return nil, perrors.New(perrors.CodeInternal, "code_act: policy gate not available (fail-closed)")
+	}
+	evalCtx := map[string]any{
+		"source":              "llm_generated",
+		"capability_token_id": req.CapabilityID,
+		"trust_level":         1,
+	}
+	allowed, err := ca.policyGate.IsAuthorized(ctx, req.AgentID, "execute_code", "code_act:"+req.Language, evalCtx)
+	if err != nil || !allowed {
+		reason := "policy denied"
+		if err != nil {
+			reason = err.Error()
 		}
-		allowed, err := ca.policyGate.IsAuthorized(ctx, req.AgentID, "execute_code", "code_act:"+req.Language, evalCtx)
-		if err != nil || !allowed {
-			reason := "policy denied"
-			if err != nil {
-				reason = err.Error()
-			}
-			return nil, perrors.New(perrors.CodeForbidden, "code_act: policy gate denied: "+reason)
-		}
+		return nil, perrors.New(perrors.CodeForbidden, "code_act: policy gate denied: "+reason)
 	}
 
 	// 沙箱执行（强制 L3，fail-closed）

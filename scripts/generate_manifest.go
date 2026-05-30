@@ -16,7 +16,7 @@ import (
 
 func main() {
 	manifest := make(map[string]string)
-	for _, dir := range config.ImmutableKernelPackages {
+	for _, dir := range config.ImmutableKernelPackages() {
 		err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err

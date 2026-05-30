@@ -71,9 +71,16 @@ CREATE TABLE IF NOT EXISTS events (
     created_at        INTEGER NOT NULL,
     -- ↑ 写入时间（Unix 毫秒），DatabaseWriter COMMIT 时设置。
 
-    metadata          TEXT
+    metadata          TEXT,
     -- ↑ 扩展元数据（JSON），如 trace_id、session_id。非结构化补充字段。
     --   4KB 硬限 —— 超出内容须垂直拆分至 VFS，热表仅存 vfs_ref 指针 [HE-Rule-6]。
+
+    prev_hash         TEXT,
+    -- ↑ 前一事件的 hash 值（M11 hash chain 链首为 NULL）。
+
+    hash              TEXT
+    -- ↑ SHA-256(id || topic || actor || type || payload || prev_hash)，hex 编码。
+    --   M11 AuditTrail 通过重算 hash 链验证 EventLog 不可否认性。
 );
 
 -- 按 topic + offset 分区消费（Outbox Worker 增量拉取的主索引）
