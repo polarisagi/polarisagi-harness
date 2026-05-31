@@ -565,7 +565,7 @@ func (s *Server) injectSystemPrompt(history []protocol.Message) []protocol.Messa
 	}
 
 	// 插件 + 独立 MCP 感知注入（让 LLM 了解插件维度，区别于工具 schema 层）
-	if s.db != nil || s.mcpMgr != nil {
+	if s.db != nil || s.mcpMgr != nil { //nolint:nestif
 		var pluginLines []string
 
 		// 1. 已安装插件（来自 plugins 表），格式：display_name: description [MCPs: name ✓/✗]

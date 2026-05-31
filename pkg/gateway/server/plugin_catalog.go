@@ -743,4 +743,3 @@ func safeJoin(base, rel string) (string, bool) {
 	}
 	return realCandidate, true
 }
-
