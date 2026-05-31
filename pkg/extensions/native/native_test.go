@@ -3,6 +3,7 @@ package native
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -29,16 +30,18 @@ func TestMakeExtensionSearchFn_InvalidJSON(t *testing.T) {
 // ── MakeExtensionInstallFn ────────────────────────────────────────────────────
 
 func TestMakeExtensionInstallFn_NilClient(t *testing.T) {
-	fn := MakeExtensionInstallFn(nil, nil, nil)
-	input, _ := json.Marshal(map[string]string{"id": "some-ext"})
-	_, err := fn(context.Background(), input)
+	fn := MakeExtensionInstallFn(nil, nil, nil, nil)
+	_, err := fn(context.Background(), []byte(`{"id":"some-id"}`))
 	if err == nil {
-		t.Fatal("nil client should return error")
+		t.Fatal("expected error with nil client")
+	}
+	if !strings.Contains(err.Error(), "exact package") {
+		t.Errorf("unexpected error: %v", err)
 	}
 }
 
 func TestMakeExtensionInstallFn_InvalidJSON(t *testing.T) {
-	fn := MakeExtensionInstallFn(nil, nil, nil)
+	fn := MakeExtensionInstallFn(nil, nil, nil, nil)
 	_, err := fn(context.Background(), []byte("{bad json"))
 	if err == nil {
 		t.Fatal("invalid JSON input should return error")

@@ -28,7 +28,7 @@ func RegisterExtensionTools(
 		fn   action.InProcessFn
 	}{
 		{"search_extension", MakeExtensionSearchFn(db, marketplaceClient)},
-		{"install_extension", MakeExtensionInstallFn(marketplaceClient, installMgr, hitlGateway)},
+		{"install_extension", MakeExtensionInstallFn(db, marketplaceClient, installMgr, hitlGateway)},
 	}
 
 	for _, d := range defs {

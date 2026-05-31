@@ -86,8 +86,8 @@ func searchLocalCatalog(ctx context.Context, db *sql.DB, query string) ([]protoc
 	like := "%" + strings.ToLower(query) + "%"
 	rows, err := db.QueryContext(ctx,
 		`SELECT payload FROM extension_catalog
-		 WHERE LOWER(name) LIKE ? OR LOWER(description) LIKE ?`,
-		like, like)
+		 WHERE LOWER(name) LIKE ? OR LOWER(description) LIKE ? OR LOWER(id) LIKE ? OR LOWER(publisher) LIKE ?`,
+		like, like, like, like)
 	if err != nil {
 		return nil, err
 	}
@@ -108,12 +108,33 @@ func searchLocalCatalog(ctx context.Context, db *sql.DB, query string) ([]protoc
 	return results, rows.Err()
 }
 
-// MakeExtensionInstallFn creates an InProcessFn for installing official extensions.
-func MakeExtensionInstallFn(client *marketplace.MCPMarketplaceClient, installMgr *marketplace.Manager, hitlGateway protocol.HITL) action.InProcessFn {
-	return func(ctx context.Context, input []byte) ([]byte, error) {
-		if client == nil {
-			return nil, perrors.New(perrors.CodeInternal, "install_extension: marketplace client is not initialized")
+func findRegistryTarget(ctx context.Context, id string, db *sql.DB, client *marketplace.MCPMarketplaceClient) *protocol.RegistryEntry {
+	if db != nil {
+		var payload string
+		err := db.QueryRowContext(ctx, "SELECT payload FROM extension_catalog WHERE id = ?", id).Scan(&payload)
+		if err == nil {
+			var e protocol.RegistryEntry
+			if err := json.Unmarshal([]byte(payload), &e); err == nil {
+				return &e
+			}
 		}
+	}
+	if client != nil {
+		results, err := client.Search(ctx, id)
+		if err == nil {
+			for i := range results {
+				if results[i].ID == id {
+					return &results[i]
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// MakeExtensionInstallFn creates an InProcessFn for installing official extensions.
+func MakeExtensionInstallFn(db *sql.DB, client *marketplace.MCPMarketplaceClient, installMgr *marketplace.Manager, hitlGateway protocol.HITL) action.InProcessFn {
+	return func(ctx context.Context, input []byte) ([]byte, error) {
 		var args installExtensionArgs
 		if err := json.Unmarshal(input, &args); err != nil {
 			return nil, perrors.Wrap(perrors.CodeInternal, "install_extension: invalid args", err)
@@ -121,21 +142,7 @@ func MakeExtensionInstallFn(client *marketplace.MCPMarketplaceClient, installMgr
 
 		slog.Info("native: install_extension invoked", "id", args.ID)
 
-		// Search first to get the RegistryEntry
-		results, err := client.Search(ctx, args.ID)
-		if err != nil || len(results) == 0 {
-			return nil, perrors.Wrap(perrors.CodeInternal, "install_extension: package not found via search", err)
-		}
-
-		// Find exact match
-		var target *protocol.RegistryEntry
-		for i := range results {
-			if results[i].ID == args.ID {
-				target = &results[i]
-				break
-			}
-		}
-
+		target := findRegistryTarget(ctx, args.ID, db, client)
 		if target == nil {
 			return nil, perrors.New(perrors.CodeInternal, fmt.Sprintf("install_extension: exact package %q not found", args.ID))
 		}
