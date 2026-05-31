@@ -564,32 +564,137 @@ func (s *Server) injectSystemPrompt(history []protocol.Message) []protocol.Messa
 		ic.BuiltinTools = strings.Join(builtin, "\n")
 	}
 
-	// MCP plugins
-	if s.mcpMgr != nil {
-		var mcpNames []string
-		for _, srv := range s.mcpMgr.ListServers() {
-			if srv.Connected {
-				mcpNames = append(mcpNames, srv.Name)
+	// 插件 + 独立 MCP 感知注入（让 LLM 了解插件维度，区别于工具 schema 层）
+	if s.db != nil || s.mcpMgr != nil {
+		var pluginLines []string
+
+		// 1. 已安装插件（来自 plugins 表），格式：display_name: description [MCPs: name ✓/✗]
+		if s.db != nil {
+			plugRows, err := s.db.Query(
+				`SELECT id, name, display_name, description, mcp_policy FROM plugins WHERE enabled=1`)
+			if err == nil {
+				defer plugRows.Close()
+
+				// 预取 MCP 连接状态
+				connectedSet := make(map[string]bool)
+				if s.mcpMgr != nil {
+					for _, srv := range s.mcpMgr.ListServers() {
+						connectedSet[srv.ID] = srv.Connected
+					}
+				}
+
+				for plugRows.Next() {
+					var plugID, plugName, displayName, desc, policyJSON string
+					if plugRows.Scan(&plugID, &plugName, &displayName, &desc, &policyJSON) != nil {
+						continue
+					}
+					label := displayName
+					if label == "" {
+						label = plugName
+					}
+
+					var policy map[string]map[string]any
+					_ = json.Unmarshal([]byte(policyJSON), &policy)
+
+					var mcpParts []string
+					for serverName, entry := range policy {
+						enabled := true
+						if v, ok := entry["enabled"].(bool); ok {
+							enabled = v
+						}
+						if !enabled {
+							continue
+						}
+						serverID := "plugin_" + plugID + "_" + serverName
+						scopedName := plugName + "-" + serverName
+						mark := "✗"
+						if connectedSet[serverID] {
+							mark = "✓"
+						}
+						mcpParts = append(mcpParts, scopedName+" "+mark)
+					}
+
+					line := "- " + label + ": " + desc
+					if len(mcpParts) > 0 {
+						line += " [MCPs: " + strings.Join(mcpParts, ", ") + "]"
+					}
+					pluginLines = append(pluginLines, line)
+				}
 			}
 		}
-		ic.InstalledPlugins = strings.Join(mcpNames, ", ")
+
+		// 2. 独立 MCP（mcp_servers 表，ID 无 plugin_ 前缀）
+		if s.mcpMgr != nil {
+			var standaloneMCPs []string
+			for _, srv := range s.mcpMgr.ListServers() {
+				if strings.HasPrefix(srv.ID, "plugin_") {
+					continue
+				}
+				mark := "✗"
+				if srv.Connected {
+					mark = "✓"
+				}
+				standaloneMCPs = append(standaloneMCPs, srv.Name+" "+mark)
+			}
+			if len(standaloneMCPs) > 0 {
+				pluginLines = append(pluginLines, "Standalone MCPs: "+strings.Join(standaloneMCPs, ", "))
+			}
+		}
+
+		ic.InstalledPlugins = strings.Join(pluginLines, "\n")
 	}
 
 	// Ambient skills（追加到 stable 层，仅在模板模式下走追加路径）
 	if s.db != nil { //nolint:nestif
+		var ambientInstructions []string
+
+		// 1. 独立安装的 ambient skill（skills 表，runtime='script'）
 		rows, err := s.db.Query(`SELECT name, instructions FROM skills WHERE runtime='script' AND exec_mode='ambient' AND deprecated=0`)
 		if err == nil {
 			defer rows.Close()
-			var ambientInstructions []string
 			for rows.Next() {
 				var name, inst string
 				if rows.Scan(&name, &inst) == nil {
 					ambientInstructions = append(ambientInstructions, "Ambient Skill: "+name+"\n"+inst)
 				}
 			}
-			if len(ambientInstructions) > 0 {
-				ic.SystemPromptTemplate += "\n\n" + strings.Join(ambientInstructions, "\n\n")
+		}
+
+		// 2. 已启用插件内嵌的 ambient skill（从 install_path/skills/ 动态扫描）
+		pluginRows, err2 := s.db.Query(`SELECT name, install_path FROM plugins WHERE enabled=1 AND install_path != ''`)
+		if err2 == nil {
+			defer pluginRows.Close()
+			for pluginRows.Next() {
+				var pluginName, installPath string
+				if pluginRows.Scan(&pluginName, &installPath) != nil {
+					continue
+				}
+				skillsDir := filepath.Join(installPath, "skills")
+				_ = filepath.WalkDir(skillsDir, func(path string, d os.DirEntry, walkErr error) error {
+					if walkErr != nil || d.IsDir() || d.Name() != "SKILL.md" {
+						return nil //nolint:nilerr
+					}
+					data, readErr := os.ReadFile(path)
+					if readErr != nil {
+						return nil //nolint:nilerr
+					}
+					skillName, _, _, execMode := parseSkillMD(string(data))
+					if execMode != "ambient" {
+						return nil
+					}
+					// 加插件名前缀，避免不同插件的同名 skill 冲突
+					if skillName == "" {
+						skillName = d.Name()
+					}
+					scopedName := pluginName + "-" + skillName
+					ambientInstructions = append(ambientInstructions, "Ambient Skill: "+scopedName+"\n"+string(data))
+					return nil
+				})
 			}
+		}
+
+		if len(ambientInstructions) > 0 {
+			ic.SystemPromptTemplate += "\n\n" + strings.Join(ambientInstructions, "\n\n")
 		}
 	}
 

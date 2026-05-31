@@ -347,6 +347,11 @@ func NewServer(addr string, dataDir string, agent *kernel.Agent, bb protocol.Bla
 	mux.HandleFunc("POST /v1/plugins/install", s.handleInstallPlugin)
 	mux.HandleFunc("DELETE /v1/plugins/{catalogID}", s.handleUninstallPlugin)
 
+	// 已安装插件管理 API（对接 plugins 运行时表）
+	mux.HandleFunc("GET /v1/plugins", s.handleListPlugins)
+	mux.HandleFunc("PUT /v1/plugins/{id}", s.handleUpdatePlugin)
+	mux.HandleFunc("PATCH /v1/plugins/{id}/mcp/{serverName}", s.handleTogglePluginMCP)
+
 	// Custom Entity Creation
 	mux.HandleFunc("POST /v1/mcp/create", s.handleCreateMCP)
 	mux.HandleFunc("POST /v1/skills/create", s.handleCreateSkill)

@@ -688,7 +688,8 @@ func run() error { //nolint:gocyclo
 		slog.Error("polaris: failed to start HTTP server", "err", err)
 		return err
 	}
-	go mcpMgr.LoadFromDB(ctx, store.DB(), dataDir) // 异步连接已启用的 MCP Server
+	go mcpMgr.LoadFromDB(ctx, store.DB(), dataDir)      // 异步连接独立安装的 MCP Server
+	go mcpMgr.LoadFromPlugins(ctx, store.DB(), dataDir) // 异步连接已启用插件内嵌的子 MCP
 
 	// ─── 12. 启动摘要 ─────────────────────────────────────────────────────────
 	printStartupSummary(cfg, gate, router, mem, ingester, retriever, evalRunner, blackboard, sched, hitlGateway, agent, dagExec, httpServer)

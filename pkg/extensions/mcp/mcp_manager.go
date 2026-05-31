@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -243,6 +244,102 @@ func (m *MCPManager) LoadFromDB(ctx context.Context, db *sql.DB, dataDir string)
 			}
 		}(id, name, cfg)
 	}
+}
+
+// LoadFromPlugins 从已安装插件加载子 MCP Server。
+// 插件内的 MCP 不写 mcp_servers 全局表，通过此方法在启动时动态读取 install_path/.mcp.json。
+// 与 LoadFromDB 配合：LoadFromDB 加载独立安装的 MCP，LoadFromPlugins 加载插件内嵌的 MCP。
+func (m *MCPManager) LoadFromPlugins(ctx context.Context, db *sql.DB, dataDir string) {
+	rows, err := db.QueryContext(ctx,
+		`SELECT id, name, install_path, mcp_policy, trust_tier FROM plugins WHERE enabled=1 AND install_path != ''`)
+	if err != nil {
+		slog.Error("mcp_manager: load_from_plugins query failed", "err", err)
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var pluginID, pluginName, installPath, mcpPolicyJSON string
+		var trustTier int
+		if err := rows.Scan(&pluginID, &pluginName, &installPath, &mcpPolicyJSON, &trustTier); err != nil {
+			continue
+		}
+		m.LoadOnePlugin(ctx, pluginID, pluginName, installPath, mcpPolicyJSON, trustTier, dataDir)
+	}
+}
+
+// LoadOnePlugin 加载单个插件的子 MCP Server，供插件启用/MCP 策略变更时按需调用。
+func (m *MCPManager) LoadOnePlugin(ctx context.Context, pluginID, pluginName, installPath, mcpPolicyJSON string, trustTier int, dataDir string) {
+	var mcpPolicy map[string]map[string]any
+	_ = json.Unmarshal([]byte(mcpPolicyJSON), &mcpPolicy)
+
+	type mcpServerEntry struct {
+		Command string            `json:"command"`
+		Args    []string          `json:"args"`
+		Env     map[string]string `json:"env"`
+		URL     string            `json:"url"`
+	}
+	type mcpFile struct {
+		MCPServers map[string]mcpServerEntry `json:"mcpServers"`
+	}
+
+	mcpData, err := readFileBytes(installPath + "/.mcp.json")
+	if err != nil {
+		slog.Debug("mcp_manager: plugin has no .mcp.json", "plugin", pluginName)
+		return
+	}
+	var fileCfg mcpFile
+	if err := json.Unmarshal(mcpData, &fileCfg); err != nil {
+		slog.Warn("mcp_manager: failed to parse plugin .mcp.json", "plugin", pluginName, "err", err)
+		return
+	}
+
+	for serverName, def := range fileCfg.MCPServers {
+		if policy, ok := mcpPolicy[serverName]; ok {
+			if enabled, ok := policy["enabled"].(bool); ok && !enabled {
+				slog.Info("mcp_manager: plugin mcp disabled by policy", "plugin", pluginName, "server", serverName)
+				continue
+			}
+		}
+
+		args := make([]string, len(def.Args))
+		for i, a := range def.Args {
+			args[i] = strings.ReplaceAll(a, "{DATA_DIR}", dataDir)
+		}
+
+		transport := MCPStdio
+		resolvedURL := strings.ReplaceAll(def.URL, "{DATA_DIR}", dataDir)
+		if resolvedURL != "" {
+			transport = MCPStreamableHTTP
+		}
+
+		serverID := fmt.Sprintf("plugin_%s_%s", pluginID, serverName)
+		scopedName := pluginName + "-" + serverName
+
+		cfg := MCPClientConfig{
+			Transport:  transport,
+			Command:    def.Command,
+			Args:       args,
+			Env:        def.Env,
+			URL:        resolvedURL,
+			Timeout:    30 * time.Second,
+			ServerName: scopedName,
+			Trusted:    trustTier >= 3,
+		}
+
+		go func(id, name string, cfg MCPClientConfig) {
+			connCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
+			defer cancel()
+			if err := m.Add(connCtx, id, name, cfg); err != nil {
+				slog.Error("mcp_manager: load plugin mcp failed", "plugin", pluginName, "server", serverName, "err", err)
+			}
+		}(serverID, scopedName, cfg)
+	}
+}
+
+// readFileBytes 读取文件内容，供包内使用。
+func readFileBytes(path string) ([]byte, error) {
+	return os.ReadFile(path)
 }
 
 // maxLLMToolNameLen 是 OpenAI 兼容接口对 function.name 的最大长度限制。

@@ -193,7 +193,10 @@ func (m *Manager) removeRuntime(ctx context.Context, extType, runtimeID, catalog
 			_, _ = m.db.ExecContext(ctx, "UPDATE skills SET deprecated=1, updated_at=CURRENT_TIMESTAMP WHERE name=?", runtimeID)
 		}
 	case "plugin":
-		_, _ = m.db.ExecContext(ctx, "DELETE FROM plugins WHERE catalog_id=?", catalogID)
+		// 通过 runtime_id 删除，与 extension_instances.runtime_id 对齐
+		if runtimeID != "" {
+			_, _ = m.db.ExecContext(ctx, "DELETE FROM plugins WHERE id=?", runtimeID)
+		}
 	}
 }
 

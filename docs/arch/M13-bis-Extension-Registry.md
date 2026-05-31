@@ -9,7 +9,7 @@
 
 - **是**: 市场同步、目录展示、安装/卸载 API、安装状态追踪
 - **是**: `extension_instances` 作为所有已安装扩展的单一事实来源（SSoT）
-- **是**: 安装后运行时绑定（写 `mcp_servers` / `skills` / `plugins` / `automations`）
+- **是**: 安装后运行时绑定（写 `mcp_servers` / `skills` / `plugins` / `automations`；Plugin 内子组件不跨边界注入全局表）
 - **是**: 工具能力发现（ToolSearch 懒加载、Extension Card 元数据）
 - **不是**: MCP 进程生命周期管理（M7 MCPManager）
 - **不是**: Wasm 执行与沙箱（M7 WazeroRuntime）
@@ -32,7 +32,8 @@ Layer 1  Instances（安装层）← SSoT
 Layer 2  Runtime（运行时层）
   mcp_servers（015）    MCP 进程连接配置；MCPManager 唯一消费方
   skills（008）         script/wasm 执行元数据 + instructions 全文
-  plugins（021）        Bundle 入口元数据（entrypoint/env）
+  plugins（021）        插件运行时状态表（install_path + enabled + mcp_policy + manifest 快照）
+                        消费方：MCPManager.LoadOnePlugin（子 MCP 动态启动）/ SSE ambient 扫描（skills/ 动态注入）/ 已安装插件管理 API
   automations（017）    触发器 + Agent 任务配置；M13 Scheduler 消费方
 ```
 
@@ -48,7 +49,7 @@ Layer 2  Runtime（运行时层）
 |----------|---------|-----------|---------|
 | `mcp` | 外部工具进程（JSON-RPC 2.0 over stdio/HTTP） | `mcp_servers` → MCPManager | marketplace / user |
 | `skill` | 行为指令集（SKILL.md）或 Wasm 执行单元 | `skills`（008） | marketplace / learned |
-| `plugin` | Skills + MCP + Hooks 的打包分发单元 | `plugins`（021）+ 子组件各自绑定 | marketplace |
+| `plugin` | Skills + MCP + Hooks 的打包分发单元 | `plugins`（021）；子 MCP/Skill **不**注入全局表，保留在 install_path 文件边界内，运行时动态加载 | marketplace |
 | `app` | URL 应用，通过 WebProxy HTTP 代理访问 | 无独立表（URL 存 extension_instances） | marketplace / user |
 | `automation` | 触发器 + Agent 任务（cron/webhook/both/manual；规划：event/github） | `automations`（017） | user / marketplace |
 | `agent` | 外部 AI Agent 端点（A2A 协议）暴露为工具 | `mcp_servers`（transport=a2a） | marketplace / user |
@@ -165,19 +166,34 @@ POST /v1/plugins/install {catalog_id, type=skill}
 
 ### 5.3 Plugin Bundle
 
+**设计原则（与 Codex 对齐）：Plugin 是容器，子 MCP / Skill 不跨边界注入全局表。**
+运行时引擎（MCPManager / SSE ambient）在启动或按需时从 `install_path` 动态加载，而非写 `mcp_servers` / `skills` 全局表。
+
 ```
 POST /v1/plugins/install {catalog_id, type=plugin}
   1. Manager.InstallExtension() → Cedar Gate（含 hooks 安全检查）
-  2. 写 extension_instances (status=downloading, parent)
+  2. 写 extension_instances (status=downloading)
   3. HTTP 下载 tar.gz → 解压 → install_path
   4. 解析 plugin.json (PluginBundleManifest)：
-     mcp_inline{} → installBundleMCP() → mcp_servers + 子 extension_instances
-     mcp_servers（.mcp.json）→ 同上（safeJoin 路径校验）
-     skills[] → installBundleSkill() → skills + 子 extension_instances（强制追加插件名前缀，形如 `pluginName-skillName`，实现 LLM 工具调用命名空间隔离）
-     hooks{} → 写入 ~/.polarisagi/harness/hooks/，注册到 M7 HookRunner
-     外部格式 → adapter.ParseManifestDir() → 按类型分发
-  5. INSERT plugins (021) 写 bundle 入口元数据
-  6. UPDATE parent extension_instances SET status=installed
+     mcp_inline / .mcp.json → 构建默认 mcp_policy（所有子 MCP 默认 enabled=true）
+     hooks{} → 执行 install hook（路径防穿越校验）
+     外部格式 → adapter.ParseManifestDir() → 仅提取 mcp 命名，写入 mcp_policy
+  5. INSERT plugins(021)：install_path, enabled, mcp_policy, manifest 快照
+  6. UPDATE extension_instances SET status=installed
+
+运行时加载（非安装时）：
+  启动时: MCPManager.LoadFromPlugins() → 读 plugins WHERE enabled=1 → LoadOnePlugin()
+  按需:   MCPManager.LoadOnePlugin(pluginID, installPath, mcpPolicy)
+  Skill:  injectSystemPrompt() 扫描 install_path/skills/ 找 exec_mode=ambient 的 SKILL.md
+```
+
+**LLM 感知**：`injectSystemPrompt` 从 `plugins` 表读取已启用插件，生成 `## INSTALLED PLUGINS` 系统提示块（格式：`display_name: description [MCPs: scopedName ✓/✗]`），配合工具 schema 层使 LLM 具备插件级上下文认知。
+
+**管理 API**：
+```
+GET    /v1/plugins                      已安装插件列表（含子 MCP 运行时状态）
+PUT    /v1/plugins/{id}                 启用/停用插件或更新 mcp_policy（实时同步 MCPManager）
+PATCH  /v1/plugins/{id}/mcp/{name}     切换单个子 MCP 启用状态（实时 Remove/LoadOnePlugin）
 ```
 
 ### 5.4 Automation
@@ -222,7 +238,7 @@ DELETE /v1/plugins/{ext_id}
   2. 按 ext_type 清理运行时：
      mcp    → MCPManager.Remove() + DELETE mcp_servers
      skill  → SkillRegistry.Deprecate() 或 DELETE skills
-     plugin → DELETE plugins + 递归卸载子组件
+     plugin → MCPManager.Remove() 清除所有 plugin_{id}_* MCP → DELETE plugins
      automation → Scheduler.Deregister() + DELETE automations
      agent  → MCPManager.Remove()
   3. safeRemoveAll(install_path)（禁止 HTTP Handler 裸写 os.RemoveAll）
@@ -277,7 +293,7 @@ DELETE /v1/plugins/{ext_id}
 | `POST /v1/plugins/install` | ✅ | — |
 | `POST /v1/mcp/create` | ✅ | — |
 | `POST /v1/mcp-servers`（运维管理接口） | ✅ **不可例外** | 直接写库，无 PolicyGate |
-| Plugin Bundle 内 `installBundleMCP()` | ✅ **每个子 MCP 独立过门** | 父插件通过后子 MCP 无审查 |
+| `PUT /v1/plugins/{id}` / `PATCH /v1/plugins/{id}/mcp/{name}` | ✅ | 修改 mcp_policy 后实时 Remove/LoadOnePlugin |
 | `PUT /v1/mcp-servers/{id}`（更新） | ✅ | — |
 
 ### 6.2 安全门 nil 不等于可选
@@ -286,7 +302,7 @@ DELETE /v1/plugins/{ext_id}
 
 ### 6.3 Plugin Bundle 子组件门控
 
-Plugin Bundle（`§5.3`）安装时会展开子 MCP / 子 Skill。子组件不能继承父插件的门控结果——**每个子 MCP 必须独立调用 `Manager.InstallExtension`**，失败则跳过该子组件并记录 Warn，不中断父插件安装整体。
+Plugin Bundle（`§5.3`）采用文件边界隔离设计：安装时子 MCP / 子 Skill **不**写入 `mcp_servers` / `skills` 全局表，因此无需为每个子组件独立过安全门。安全边界收敛在：① 父插件安装时的 Cedar Gate；② 运行时 `MCPManager.LoadOnePlugin` 依据 `mcp_policy` 按需启动（trust_tier 继承自 plugins 表）。`PUT /v1/plugins/{id}/mcp/{name}` 变更 mcp_policy 同属修改已授权的安装范围，无需重走 InstallExtension。
 
 ### 6.4 HasHooks 判断规则
 
