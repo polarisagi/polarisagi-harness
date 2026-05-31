@@ -183,6 +183,11 @@ Alpine.store('plugins', {
     }
   },
 
+  async upgrade(entry) {
+    await this.uninstall(entry)
+    this.tryInstall(entry)
+  },
+
   resetCreateForm() {
     this.createForm = {
       name: '', description: '', repo_url: '', entrypoint: '',

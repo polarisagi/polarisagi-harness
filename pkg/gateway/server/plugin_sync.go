@@ -412,9 +412,22 @@ func (s *Server) syncMarketplace(ctx context.Context, mp protocol.Marketplace, t
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err == nil {
 		_, _ = tx.ExecContext(ctx, "DELETE FROM extension_catalog WHERE marketplace_id = ?", mp.ID)
-		for _, e := range entries {
+		
+		// 获取最新 commit hash 作为默认版本号
+		cmd := exec.Command("git", "-C", mpDir, "rev-parse", "--short", "HEAD")
+		out, errCmd := cmd.Output()
+		var defaultVersion string
+		if errCmd == nil {
+			defaultVersion = strings.TrimSpace(string(out))
+		}
+
+		for i := range entries {
+			e := &entries[i]
 			e.Publisher = mp.Publisher
 			e.TrustTier = mp.TrustTier
+			if e.Version == "" && defaultVersion != "" {
+				e.Version = defaultVersion
+			}
 			payload, _ := json.Marshal(e)
 
 			_, _ = tx.ExecContext(ctx,

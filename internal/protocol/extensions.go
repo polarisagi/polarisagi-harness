@@ -31,6 +31,10 @@ type RegistryEntry struct {
 	Icon             string `json:"icon,omitempty" yaml:"icon,omitempty"`
 	// 运行时叠加：是否已安装（extension_instances 表中存在同 catalog_id）
 	Installed bool `json:"installed" yaml:"installed"`
+	// 版本标识，若原数据无则自动填充为所在 repo 的 commit hash前缀
+	Version string `json:"version,omitempty" yaml:"version,omitempty"`
+	// 运行时叠加：本地已安装的版本标识
+	InstalledVersion string `json:"installed_version,omitempty" yaml:"-"`
 	// 运行时叠加：所属市场的排序权重（用于列表展示）
 	MarketplaceSortOrder int `json:"marketplace_sort_order,omitempty" yaml:"-"`
 }

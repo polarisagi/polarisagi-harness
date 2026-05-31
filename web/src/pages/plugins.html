@@ -115,12 +115,25 @@
                     </button>
                   </template>
                   <template x-if="entry.installed">
-                    <div class="flex gap-2 flex-1 items-center">
-                      <span class="text-success text-xs font-bold flex-1 flex items-center gap-1">✓ <span x-text="$store.i18n.t('plugins_installed')"></span></span>
-                      <button class="btn btn-ghost btn-sm text-error hover:bg-error/10" :disabled="!!$store.plugins.uninstalling[entry.id]" @click="$store.plugins.uninstall(entry)">
-                        <span x-show="$store.plugins.uninstalling[entry.id]" class="loading loading-spinner loading-xs"></span>
-                        <span x-show="!$store.plugins.uninstalling[entry.id]" x-text="$store.i18n.t('plugins_uninstall')"></span>
-                      </button>
+                    <div class="flex gap-2 flex-1 items-center w-full">
+                      <template x-if="entry.version && entry.installed_version && entry.version !== entry.installed_version">
+                        <div class="flex gap-2 flex-1 items-center">
+                          <span class="text-warning text-xs font-bold flex-1 flex items-center gap-1">💡 发现新版本</span>
+                          <button class="btn btn-warning btn-sm text-warning-content hover:brightness-110" :disabled="!!$store.plugins.installing[entry.id] || !!$store.plugins.uninstalling[entry.id]" @click="$store.plugins.upgrade(entry)">
+                            <span x-show="$store.plugins.installing[entry.id] || $store.plugins.uninstalling[entry.id]" class="loading loading-spinner loading-xs"></span>
+                            <span x-show="!($store.plugins.installing[entry.id] || $store.plugins.uninstalling[entry.id])">🚀 升级</span>
+                          </button>
+                        </div>
+                      </template>
+                      <template x-if="!entry.version || !entry.installed_version || entry.version === entry.installed_version">
+                        <div class="flex gap-2 flex-1 items-center">
+                          <span class="text-success text-xs font-bold flex-1 flex items-center gap-1">✓ <span x-text="$store.i18n.t('plugins_installed')"></span></span>
+                          <button class="btn btn-ghost btn-sm text-error hover:bg-error/10" :disabled="!!$store.plugins.uninstalling[entry.id]" @click="$store.plugins.uninstall(entry)">
+                            <span x-show="$store.plugins.uninstalling[entry.id]" class="loading loading-spinner loading-xs"></span>
+                            <span x-show="!$store.plugins.uninstalling[entry.id]" x-text="$store.i18n.t('plugins_uninstall')"></span>
+                          </button>
+                        </div>
+                      </template>
                     </div>
                   </template>
                 </div>

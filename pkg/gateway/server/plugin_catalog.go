@@ -21,20 +21,27 @@ import (
 	"github.com/polarisagi/polarisagi-harness/internal/protocol"
 )
 
-// getInstalledCatalogIDs 返回所有已安装的 catalog_id 集合。
+// getInstalledCatalogIDs 返回所有已安装的 catalog_id 到 installed_version 的映射。
 // SSoT：仅查 extension_instances，不再 UNION 多表。
-func (s *Server) getInstalledCatalogIDs(ctx context.Context) map[string]bool {
-	installed := map[string]bool{}
+func (s *Server) getInstalledCatalogIDs(ctx context.Context) map[string]string {
+	installed := map[string]string{}
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT catalog_id FROM extension_instances WHERE catalog_id != ''`)
+		`SELECT catalog_id, config FROM extension_instances WHERE catalog_id != ''`)
 	if err != nil {
 		return installed
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var cid string
-		if rows.Scan(&cid) == nil {
-			installed[cid] = true
+		var cid, configStr string
+		if rows.Scan(&cid, &configStr) == nil {
+			version := ""
+			var cfg map[string]any
+			if json.Unmarshal([]byte(configStr), &cfg) == nil {
+				if v, ok := cfg["version"].(string); ok {
+					version = v
+				}
+			}
+			installed[cid] = version
 		}
 	}
 	return installed
@@ -42,7 +49,7 @@ func (s *Server) getInstalledCatalogIDs(ctx context.Context) map[string]bool {
 
 // appendCustomCatalogs 追加用户自建扩展（origin=user）到目录列表。
 // 全走 extension_instances，不再散查 skills/plugins/apps 三表。
-func (s *Server) appendCustomCatalogs(ctx context.Context, result []protocol.RegistryEntry, _ map[string]bool) []protocol.RegistryEntry {
+func (s *Server) appendCustomCatalogs(ctx context.Context, result []protocol.RegistryEntry, _ map[string]string) []protocol.RegistryEntry {
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT id, ext_type, name, publisher, trust_tier, config
 		 FROM extension_instances
@@ -76,7 +83,7 @@ func (s *Server) appendCustomCatalogs(ctx context.Context, result []protocol.Reg
 }
 
 // appendCachedCatalogs 追加市场同步缓存条目，叠加安装状态。
-func (s *Server) appendCachedCatalogs(ctx context.Context, result []protocol.RegistryEntry, installed map[string]bool) []protocol.RegistryEntry {
+func (s *Server) appendCachedCatalogs(ctx context.Context, result []protocol.RegistryEntry, installed map[string]string) []protocol.RegistryEntry {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT c.payload, COALESCE(m.sort_order, 999) 
 		FROM extension_catalog c 
@@ -96,7 +103,12 @@ func (s *Server) appendCachedCatalogs(ctx context.Context, result []protocol.Reg
 		if err := json.Unmarshal([]byte(payload), &entry); err != nil {
 			continue
 		}
-		entry.Installed = installed[entry.ID]
+		if ver, ok := installed[entry.ID]; ok {
+			entry.Installed = true
+			entry.InstalledVersion = ver
+		} else {
+			entry.Installed = false
+		}
 		entry.MarketplaceSortOrder = sortOrder
 		result = append(result, entry)
 	}
@@ -293,14 +305,20 @@ func (s *Server) internalInstallMCP(ctx context.Context, extID string, entry *pr
 	}
 	envBytes, _ := json.Marshal(cfg.Env)
 
+	configMap := map[string]any{}
+	if entry.Version != "" {
+		configMap["version"] = entry.Version
+	}
+	configJSON, _ := json.Marshal(configMap)
+
 	_, err := s.db.ExecContext(ctx,
 		`INSERT INTO extension_instances
 		 (id, ext_type, origin, catalog_id, name, publisher, trust_tier, enabled,
-		  runtime_id, install_path, status, created_at, updated_at)
-		 VALUES(?,?,?,?,?,?,?,1,?,?,'installed',?,?)`,
+		  runtime_id, install_path, config, status, created_at, updated_at)
+		 VALUES(?,?,?,?,?,?,?,1,?,?,?,'installed',?,?)`,
 		extID, "mcp", "marketplace", req.CatalogID,
 		cfg.Name, entry.Publisher, entry.TrustTier,
-		mcpID, "", now, now)
+		mcpID, "", string(configJSON), now, now)
 	if err != nil {
 		return nil, err
 	}
@@ -347,11 +365,15 @@ func (s *Server) internalInstallGeneric(ctx context.Context, extID string, entry
 	name := cond(req.Name != "", req.Name, entry.Name)
 	url := cond(req.URL != "", req.URL, entry.URL)
 
-	configJSON, _ := json.Marshal(map[string]any{
+	configMap := map[string]any{
 		"url":        url,
 		"repo_url":   url,
 		"entrypoint": "",
-	})
+	}
+	if entry.Version != "" {
+		configMap["version"] = entry.Version
+	}
+	configJSON, _ := json.Marshal(configMap)
 
 	status := "installed"
 	if entry.Type == "skill" || entry.Type == "plugin" {
