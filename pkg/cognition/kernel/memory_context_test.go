@@ -96,7 +96,7 @@ func TestBuildPerceiveContext(t *testing.T) {
 	}
 
 	content := msgs[1].Content
-	if !strings.Contains(content, "相关历史记忆") {
+	if !strings.Contains(content, "Relevant Historical Episodic Memories") {
 		t.Errorf("expected episodic memory context, got: %s", content)
 	}
 	if !strings.Contains(content, "migrate database") {

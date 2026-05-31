@@ -142,6 +142,7 @@ func (c *MCPMarketplaceClient) Install(ctx context.Context, pkg protocol.Registr
 	}
 
 	pluginDir := filepath.Join(c.baseInstallDir, strings.ReplaceAll(pkg.ID, "/", "_"))
+	_ = os.RemoveAll(pluginDir)
 	if err := os.MkdirAll(pluginDir, 0755); err != nil {
 		return "", perrors.Wrap(perrors.CodeInternal, "marketplace: failed to create directory", err)
 	}
