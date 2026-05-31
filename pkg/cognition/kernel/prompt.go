@@ -1,6 +1,7 @@
 package kernel
 
 import (
+	"github.com/polarisagi/polarisagi-harness/configs"
 	"github.com/polarisagi/polarisagi-harness/internal/protocol"
 	"github.com/polarisagi/polarisagi-harness/pkg/substrate"
 )
@@ -24,6 +25,15 @@ func (b *PromptBuilder) WriteInstruction(safe substrate.SafeString) {
 	b.messages = append(b.messages, protocol.Message{
 		Role:    "system",
 		Content: safe.Content(),
+	})
+}
+
+// WriteSystemEnvironment 将系统静态上下文（通常在初始化时生成一次快照）注入 System 角色。
+// 这保证了 Agent 能立刻感知其所处的 OS、架构、时区和用户身份。
+func (b *PromptBuilder) WriteSystemEnvironment(snapshot string) {
+	b.messages = append(b.messages, protocol.Message{
+		Role:    "system",
+		Content: snapshot,
 	})
 }
 
@@ -56,36 +66,16 @@ func (b *PromptBuilder) WriteComputerUsePolicy(mode string, anyAppEnabled, chrom
 		mode = "auto_review"
 	}
 
-	policy := `Computer Use Confirmations Policy:
-You have access to computer control tools. Here are the rules for using them based on the current user configuration:
-- Mode: ` + mode + `
-- anyAppEnabled: `
-	if anyAppEnabled {
-		policy += "true"
-	} else {
-		policy += "false"
-	}
-	policy += "\n- chromeEnabled: "
-	if chromeEnabled {
-		policy += "true"
-	} else {
-		policy += "false"
+	data := map[string]any{
+		"Mode":          mode,
+		"AnyAppEnabled": anyAppEnabled,
+		"ChromeEnabled": chromeEnabled,
 	}
 
-	policy += "\n\n"
-	if mode == "default" {
-		policy += "You MUST ask for user confirmation before performing any action that interacts with the computer or browser."
-	} else if mode == "auto_review" {
-		policy += "You may perform safe actions (read, scroll, search) without asking. You MUST ask for user confirmation before performing any dangerous action (write, delete, purchase, login)."
-	} else if mode == "full_access" {
-		policy += "You have full access to the computer and browser. You do not need to ask for user confirmation before performing any action."
-	}
-
-	if !anyAppEnabled {
-		policy += "\nYou are NOT allowed to interact with any application other than the explicitly enabled ones."
-	}
-	if chromeEnabled {
-		policy += "\nYou are allowed to control Google Chrome via the browser_use tool."
+	policy, err := configs.LoadPromptTemplate("kernel/computer_use_policy.md", data)
+	if err != nil {
+		// Fallback safely if configs missing, though this should not happen in production.
+		policy = "Computer Use Confirmations Policy: mode=" + mode
 	}
 
 	b.messages = append(b.messages, protocol.Message{

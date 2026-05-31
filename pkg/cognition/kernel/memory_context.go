@@ -18,7 +18,7 @@ import (
 func buildPerceiveContext(ctx context.Context, memory protocol.Memory, sCtx *StateContext) ([]protocol.Message, error) {
 	if memory == nil {
 		return []protocol.Message{
-			{Role: "system", Content: "将用户意图结构化为 TaskModel JSON。"},
+			{Role: "system", Content: "Structure the user intent into a TaskModel JSON."},
 		}, nil
 	}
 
@@ -34,7 +34,7 @@ func buildPerceiveContext(ctx context.Context, memory protocol.Memory, sCtx *Sta
 
 	var episodicCtx string
 	if len(events) > 0 {
-		episodicCtx = "相关历史记忆：\n"
+		episodicCtx = "Relevant Historical Episodic Memories:\n"
 		for _, e := range events {
 			episodicCtx += fmt.Sprintf("- [%s] %s: %s\n", e.Event.CreatedAt.Format(time.RFC3339), e.Event.Type, string(e.Event.Payload))
 		}
@@ -42,9 +42,9 @@ func buildPerceiveContext(ctx context.Context, memory protocol.Memory, sCtx *Sta
 
 	// 2. 组装 WorkingMemory（ImmutableCore 规范等）
 	// 此处仅做示例拼接，实际由 ImmutableCore.PrependToMessages 统一处理
-	baseContent := "将用户意图结构化为 TaskModel JSON。\n\n"
+	baseContent := "Structure the user intent into a TaskModel JSON.\n\n"
 	if len(sCtx.ReasoningState) > 0 {
-		baseContent += "上一轮的推理状态（ReasoningState）：\n" + string(sCtx.ReasoningState) + "\n\n"
+		baseContent += "Reasoning State from the previous iteration:\n" + string(sCtx.ReasoningState) + "\n\n"
 	}
 	if episodicCtx != "" {
 		baseContent += episodicCtx + "\n"
@@ -68,7 +68,7 @@ func buildPerceiveContext(ctx context.Context, memory protocol.Memory, sCtx *Sta
 func buildPlanContext(ctx context.Context, memory protocol.Memory, sCtx *StateContext, tools protocol.ToolRegistry) ([]protocol.Message, error) {
 	if memory == nil {
 		return []protocol.Message{
-			{Role: "system", Content: "基于 TaskModel 生成执行 DAG。"},
+			{Role: "system", Content: "Generate an execution DAG based on the TaskModel."},
 		}, nil
 	}
 
@@ -88,20 +88,20 @@ func buildPlanContext(ctx context.Context, memory protocol.Memory, sCtx *StateCo
 
 	var episodicCtx string
 	if len(events) > 0 {
-		episodicCtx = "可供参考的历史执行经验：\n"
+		episodicCtx = "Historical execution experiences for reference:\n"
 		for _, e := range events {
 			episodicCtx += fmt.Sprintf("- [%s] %s: %s\n", e.Event.CreatedAt.Format(time.RFC3339), e.Event.Type, string(e.Event.Payload))
 		}
 	}
 
-	baseContent := "基于 TaskModel 生成执行 DAG。\n\n"
+	baseContent := "Generate an execution DAG based on the TaskModel.\n\n"
 	if episodicCtx != "" {
 		baseContent += episodicCtx + "\n"
 	}
 
 	if sCtx.TaskModel != nil {
 		taskJson, _ := json.Marshal(sCtx.TaskModel)
-		baseContent += "已解析的任务模型：\n" + string(taskJson) + "\n\n"
+		baseContent += "Parsed TaskModel:\n" + string(taskJson) + "\n\n"
 	}
 
 	// 注入可用工具列表，LLM 必须仅使用列表中的工具名称（action 字段）
@@ -123,17 +123,20 @@ func buildPlanContext(ctx context.Context, memory protocol.Memory, sCtx *StateCo
 // buildToolListSection 将注册表中所有工具格式化为 LLM 可读的工具定义段落。
 // 格式与 DAGNode.Action + DAGNode.Params 字段对齐，便于 LLM 直接引用。
 func buildToolListSection(tools protocol.ToolRegistry) string {
+	if tools == nil {
+		return ""
+	}
 	list := tools.List()
 	if len(list) == 0 {
 		return ""
 	}
 	var sb strings.Builder
-	sb.WriteString("可用工具列表（DAG 节点的 action 字段必须为以下名称之一）：\n")
+	sb.WriteString("Available Tools List (The 'action' field of DAG nodes MUST be one of the following names):\n")
 	for _, t := range list {
 		sb.WriteString(fmt.Sprintf("- %s: %s", t.Name, t.Description))
 		if t.InputSchema != nil {
 			if schemaBytes, err := json.Marshal(t.InputSchema); err == nil {
-				sb.WriteString(fmt.Sprintf("（参数 schema: %s）", string(schemaBytes)))
+				sb.WriteString(fmt.Sprintf(" (Parameters schema: %s)", string(schemaBytes)))
 			}
 		}
 		sb.WriteByte('\n')
@@ -146,14 +149,14 @@ func buildToolListSection(tools protocol.ToolRegistry) string {
 func buildReflectContext(ctx context.Context, memory protocol.Memory, sCtx *StateContext) ([]protocol.Message, error) {
 	if memory == nil {
 		return []protocol.Message{
-			{Role: "system", Content: "反思执行结果，评估目标达成度。"},
+			{Role: "system", Content: "Reflect on the execution result and evaluate the completion of the goal."},
 		}, nil
 	}
 
-	baseContent := "反思执行结果，评估目标达成度。\n\n"
+	baseContent := "Reflect on the execution result and evaluate the completion of the goal.\n\n"
 
 	if len(sCtx.ExecuteResult) > 0 {
-		baseContent += "执行结果摘要：\n" + string(sCtx.ExecuteResult) + "\n\n"
+		baseContent += "Execution Result Summary:\n" + string(sCtx.ExecuteResult) + "\n\n"
 	}
 
 	msgs := []protocol.Message{

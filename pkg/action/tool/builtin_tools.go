@@ -18,6 +18,7 @@ import (
 
 	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 	"github.com/polarisagi/polarisagi-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/internal/sysenv"
 	"github.com/polarisagi/polarisagi-harness/pkg/action"
 )
 
@@ -47,6 +48,7 @@ func RegisterBuiltinTools(
 		{"diff_text", diffTextFn},
 		{"tts_edge", ExecuteEdgeTTS},
 		{"video_analysis", ExecuteVideoAnalysis},
+		{"sys_probe", sysProbeFn},
 	}
 
 	for _, d := range defs {
@@ -327,6 +329,13 @@ var getDatetimeFn action.InProcessFn = func(_ context.Context, _ []byte) ([]byte
 		"timezone": now.Location().String(),
 	}
 	return json.Marshal(result)
+}
+
+// ─── sys_probe ───────────────────────────────────────────────────────────────
+
+var sysProbeFn action.InProcessFn = func(_ context.Context, _ []byte) ([]byte, error) {
+	info := sysenv.GetSystemInfo()
+	return json.Marshal(info)
 }
 
 // ─── csv_parse ────────────────────────────────────────────────────────────────

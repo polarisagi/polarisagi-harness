@@ -2,5 +2,5 @@ package configs
 
 import "embed"
 
-//go:embed *.yaml *.toml *.md prompts
+//go:embed *.yaml *.toml prompts
 var FS embed.FS

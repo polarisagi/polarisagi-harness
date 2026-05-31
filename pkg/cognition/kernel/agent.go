@@ -8,6 +8,7 @@ import (
 
 	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 	"github.com/polarisagi/polarisagi-harness/internal/protocol"
+	"github.com/polarisagi/polarisagi-harness/internal/sysenv"
 	"github.com/polarisagi/polarisagi-harness/pkg/cognition/prm"
 	"github.com/polarisagi/polarisagi-harness/pkg/substrate"
 	"github.com/polarisagi/polarisagi-harness/pkg/substrate/observability"
@@ -55,8 +56,9 @@ func NewAgent(id string, db *sql.DB, taintGate TaintGate, provider protocol.Prov
 		intent: make(chan protocol.AgentTrigger, 10),
 		sm:     NewStateMachine(),
 		sCtx: &StateContext{
-			AgentID:   id,
-			MaxReplan: 3,
+			AgentID:        id,
+			MaxReplan:      3,
+			SysEnvSnapshot: sysenv.GetSystemInfo().FormatMarkdown(),
 		},
 		ctx:       ctx,
 		cancel:    cancel,

@@ -196,7 +196,7 @@ func NewServer(addr string, dataDir string, agent *kernel.Agent, bb protocol.Bla
 	prefs, _ := LoadAllPreferences(context.Background(), db)
 	sysTmpl, ok := prefs["system_prompt_template"]
 	if !ok {
-		if b, err := os.ReadFile("configs/system_prompt.md"); err == nil {
+		if b, err := os.ReadFile("configs/prompts/system_prompt.md"); err == nil {
 			sysTmpl = string(b)
 			_, _ = db.Exec("INSERT INTO preferences(key, value) VALUES('system_prompt_template', ?)", sysTmpl)
 			prefs["system_prompt_template"] = sysTmpl

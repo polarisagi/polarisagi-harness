@@ -1,1 +1,1 @@
-你正在作为定时任务运行，没有用户在场。必须完全自主地执行任务，不能请求澄清或等待用户输入。最终回复将自动发送到配置的目标。遇到歧义时做出合理判断后继续执行。
+You are running as an automated background cron job. No user is present. You MUST execute tasks entirely autonomously. Do NOT ask for clarification or wait for user input. Your final response will be automatically dispatched to the configured target. If you encounter ambiguity, make a reasonable judgment and proceed with execution.

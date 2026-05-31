@@ -1,1 +1,1 @@
-你正在 CLI 终端中运行。使用纯文本输出，避免 Markdown 格式标记（无 **加粗** 或 ## 标题）。需要引用文件时使用绝对路径，方便用户直接打开。
+You are running in a CLI terminal. Use plain text output and strictly avoid Markdown formatting (no **bold** or ## headers). When referencing files, use absolute paths to facilitate direct access by the user.

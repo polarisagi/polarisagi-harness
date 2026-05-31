@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/polarisagi/polarisagi-harness/configs"
 	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 	"github.com/polarisagi/polarisagi-harness/internal/protocol"
 	"github.com/polarisagi/polarisagi-harness/pkg/substrate"
@@ -93,6 +94,9 @@ type StateContext struct {
 
 	// 挂起原因（如 capability_gap）
 	SuspendReason string
+
+	// SysEnvSnapshot 是启动时获取的系统静态快照，注入到每个 Prompt 头部
+	SysEnvSnapshot string
 }
 
 // TaskModel LLM 填槽产出——将自然语言任务结构化。
@@ -281,8 +285,12 @@ func (sm *StateMachine) promptPerceive(sCtx *StateContext, pCtx protocol.StateCo
 	}
 
 	b := NewPromptBuilder()
+	if sCtx.SysEnvSnapshot != "" {
+		b.WriteSystemEnvironment(sCtx.SysEnvSnapshot)
+	}
+	tmpl, _ := configs.LoadPromptTemplate("kernel/perceive.md", nil)
 	safeInst, _ := substrate.SanitizeToSafe(substrate.NewTaintedString(
-		"将用户意图结构化为 TaskModel JSON",
+		tmpl,
 		substrate.TaintSource{OriginTaintLevel: protocol.TaintNone},
 		"system_prompt",
 	))
@@ -308,15 +316,15 @@ func (sm *StateMachine) promptPlan(sCtx *StateContext, pCtx protocol.StateContex
 	}
 
 	b := NewPromptBuilder()
-
-	// 基础规划指令
-	instText := "基于 TaskModel 生成执行 DAG"
-	// 无记忆系统时也注入工具列表（保证 LLM 知道可用工具）
-	if pCtx.Tools != nil {
-		instText += "\n\n" + buildToolListSection(pCtx.Tools)
+	if sCtx.SysEnvSnapshot != "" {
+		b.WriteSystemEnvironment(sCtx.SysEnvSnapshot)
 	}
+
+	tmpl, _ := configs.LoadPromptTemplate("kernel/plan.md", map[string]any{
+		"ToolsSection": buildToolListSection(pCtx.Tools),
+	})
 	safeInst, _ := substrate.SanitizeToSafe(substrate.NewTaintedString(
-		instText,
+		tmpl,
 		substrate.TaintSource{OriginTaintLevel: protocol.TaintNone},
 		"system_prompt",
 	))
@@ -363,8 +371,12 @@ func (sm *StateMachine) promptReflect(sCtx *StateContext, pCtx protocol.StateCon
 	}
 
 	b := NewPromptBuilder()
+	if sCtx.SysEnvSnapshot != "" {
+		b.WriteSystemEnvironment(sCtx.SysEnvSnapshot)
+	}
+	tmpl, _ := configs.LoadPromptTemplate("kernel/reflect.md", nil)
 	safeInst, _ := substrate.SanitizeToSafe(substrate.NewTaintedString(
-		"反思执行结果，评估目标达成度",
+		tmpl,
 		substrate.TaintSource{OriginTaintLevel: protocol.TaintNone},
 		"system_prompt",
 	))

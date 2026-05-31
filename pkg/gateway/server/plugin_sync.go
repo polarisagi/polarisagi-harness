@@ -407,12 +407,17 @@ func (s *Server) syncMarketplace(ctx context.Context, mp protocol.Marketplace, t
 		return 0
 	}
 
+	return s.insertMarketplaceEntries(ctx, mp, mpDir, entries)
+}
+
+// insertMarketplaceEntries 将 entries 插入数据库，减少外层函数的圈复杂度。
+func (s *Server) insertMarketplaceEntries(ctx context.Context, mp protocol.Marketplace, mpDir string, entries []protocol.RegistryEntry) int {
 	syncedCount := 0
 	// 对当前有更新的市场单独开启事务
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err == nil {
 		_, _ = tx.ExecContext(ctx, "DELETE FROM extension_catalog WHERE marketplace_id = ?", mp.ID)
-		
+
 		// 获取最新 commit hash 作为默认版本号
 		cmd := exec.Command("git", "-C", mpDir, "rev-parse", "--short", "HEAD")
 		out, errCmd := cmd.Output()
