@@ -27,10 +27,21 @@ type Config struct {
 }
 
 type SystemConfig struct {
-	Tier         int    `toml:"tier"`
-	MaxAgents    int    `toml:"max_agents"`
-	GoMemLimitMB int    `toml:"go_memlimit_mb"`
-	DataDir      string `toml:"data_dir"`
+	Tier         int        `toml:"tier"`
+	MaxAgents    int        `toml:"max_agents"`
+	GoMemLimitMB int        `toml:"go_memlimit_mb"`
+	DataDir      string     `toml:"data_dir"`
+	Dirs         DirsConfig `toml:"dirs"`
+}
+
+// DirsConfig 允许 Operator 将特定子目录挂载到其他磁盘/分区。
+// 未设置的字段自动从 DataDir 派生（见 DataLayout.NewDataLayout）。
+// 典型场景：logs_dir 指向中央日志盘；db_dir 指向高速 NVMe；workspace_dir 指向 tmpfs。
+type DirsConfig struct {
+	LogsDir      string `toml:"logs_dir"`      // 覆盖 DataDir/logs
+	DBDir        string `toml:"db_dir"`        // 覆盖 DataDir/data（数据库文件）
+	WorkspaceDir string `toml:"workspace_dir"` // 覆盖 DataDir/workspace（Agent VFS 沙箱）
+	ModelsDir    string `toml:"models_dir"`    // 覆盖 DataDir/models（AI 模型文件）
 }
 
 type InferenceConfig struct {

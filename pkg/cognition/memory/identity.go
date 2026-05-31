@@ -26,10 +26,29 @@ var toolUseEnforcementModels = []string{
 // configs.FS 由 M13 Interface 层通过 memory.SetEmbeddedPrompts() 传入。
 var embeddedPromptsFS fs.FS
 
+// userConfigDir 由 server 启动时通过 SetConfigDir 注入（DataLayout.Config）。
+// 默认回退到 ~/.polarisagi/harness/config（兼容未注入场景）。
+var userConfigDir string
+
 // SetEmbeddedPrompts 由 server 启动时注入 configs.FS，供 ReadPrompt 使用。
 // 必须在 NewServer() 之前调用，否则 embedded 路径不可用（回退到 fallback 常量）。
 func SetEmbeddedPrompts(fsys fs.FS) {
 	embeddedPromptsFS = fsys
+}
+
+// SetConfigDir 由 server 启动时注入 DataLayout.Config，消除 identity/prompt 路径的 hardcode home。
+// 必须在首次调用 ReadPrompt / LoadSoulMD / WriteUserPrompt 之前完成。
+func SetConfigDir(dir string) {
+	userConfigDir = dir
+}
+
+// resolveConfigDir 返回运行时配置目录（注入值优先，兜底 home 路径）。
+func resolveConfigDir() string {
+	if userConfigDir != "" {
+		return userConfigDir
+	}
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".polarisagi/harness", "config")
 }
 
 // ReadPrompt 按三所有权层优先级读取提示词文件内容。
@@ -85,35 +104,25 @@ func ModelSpecificGuidance(modelID string) string {
 	return ""
 }
 
-// LoadSoulMD 从 ~/.polarisagi/harness/config/SOUL.md 加载用户自定义身份文件。
-// 向后兼容旧路径，新路径为 ~/.polarisagi/harness/config/prompts/identity.md。
-// SOUL.md 存在时作为 identity.md 的同义词使用；两者都存在时 identity.md 优先。
+// LoadSoulMD 加载用户自定义身份文件。
+// 优先读 config/prompts/identity.md；兼容旧路径 config/SOUL.md。
 func LoadSoulMD() string {
-	// 先看新路径
 	if content := loadUserPromptFile("identity.md"); content != "" {
 		return content
 	}
 	// 兼容旧路径 SOUL.md
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return ""
-	}
-	b, err := os.ReadFile(filepath.Join(home, ".polarisagi/harness", "config", "SOUL.md"))
+	b, err := os.ReadFile(filepath.Join(resolveConfigDir(), "SOUL.md"))
 	if err != nil {
 		return ""
 	}
 	return strings.TrimSpace(string(b))
 }
 
-// WriteUserPrompt 将用户编辑的提示词写入 ~/.polarisagi/harness/config/prompts/{name}。
+// WriteUserPrompt 将用户编辑的提示词写入 config/prompts/{name}。
 // name 只允许 identity.md 和 custom_instructions.md 两个值（安全限制）。
 // 调用方负责校验 name 合法性（见 server/prompts.go allowedUserPrompts）。
 func WriteUserPrompt(name, content string) error {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return err
-	}
-	dir := filepath.Join(home, ".polarisagi/harness", "config", "prompts")
+	dir := filepath.Join(resolveConfigDir(), "prompts")
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
@@ -123,12 +132,8 @@ func WriteUserPrompt(name, content string) error {
 // DeleteUserPrompt 删除用户自定义提示词文件，恢复到 embedded 默认。
 // 文件不存在时静默返回 nil（幂等）。
 func DeleteUserPrompt(name string) error {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return err
-	}
-	path := filepath.Join(home, ".polarisagi/harness", "config", "prompts", name)
-	err = os.Remove(path)
+	path := filepath.Join(resolveConfigDir(), "prompts", name)
+	err := os.Remove(path)
 	if os.IsNotExist(err) {
 		return nil
 	}
@@ -147,11 +152,7 @@ func ReadPromptDefault(name string) string {
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
 func loadUserPromptFile(name string) string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return ""
-	}
-	b, err := os.ReadFile(filepath.Join(home, ".polarisagi/harness", "config", "prompts", name))
+	b, err := os.ReadFile(filepath.Join(resolveConfigDir(), "prompts", name))
 	if err != nil {
 		return ""
 	}

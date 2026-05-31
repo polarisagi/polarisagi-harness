@@ -92,12 +92,15 @@ func logLevel() slog.Level {
 }
 
 // SetupLogger configures rotating dual-track logging.
-// It creates polaris.log (all levels) and polaris.error.log (Warn/Error) in dataDir.
+// It creates polaris.log (all levels) and polaris.error.log (Warn/Error) in dataDir/logs/.
 func SetupLogger(dataDir string) io.Closer {
 	var closers []io.Closer
 
+	logsDir := filepath.Join(dataDir, "logs")
+	_ = os.MkdirAll(logsDir, 0o700) // 确保 logs/ 存在（MkdirAll 前已调用，防御性保留）
+
 	// Main logger
-	mainPath := filepath.Join(dataDir, "polaris.log")
+	mainPath := filepath.Join(logsDir, "polaris.log")
 	mainWriter := &lumberjack.Logger{
 		Filename:   mainPath,
 		MaxSize:    50, // megabytes
@@ -122,7 +125,7 @@ func SetupLogger(dataDir string) io.Closer {
 	mainHandler := slog.NewTextHandler(mainMw, mainOpts)
 
 	// Error logger
-	errorPath := filepath.Join(dataDir, "polaris.error.log")
+	errorPath := filepath.Join(logsDir, "polaris.error.log")
 	errorWriter := &lumberjack.Logger{
 		Filename:   errorPath,
 		MaxSize:    50,

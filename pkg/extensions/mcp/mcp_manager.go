@@ -38,11 +38,12 @@ type mcpEntry struct {
 
 // MCPManager 管理所有 MCP Server 连接，动态注册工具到 InProcessSandbox。
 type MCPManager struct {
-	mu         sync.RWMutex
-	entries    map[string]*mcpEntry
-	sandbox    *action.InProcessSandbox
-	httpClient *http.Client
-	policy     protocol.PolicyGate // 对 CallTool 直接路径执行安全检查
+	mu             sync.RWMutex
+	entries        map[string]*mcpEntry
+	sandbox        *action.InProcessSandbox
+	httpClient     *http.Client
+	policy         protocol.PolicyGate // 对 CallTool 直接路径执行安全检查
+	onToolsChanged func()              // 工具集变更时通知调用方（如清除 buildToolSchemas 缓存）
 }
 
 func NewMCPManager(sandbox *action.InProcessSandbox, httpClient *http.Client, policy protocol.PolicyGate) *MCPManager {
@@ -54,6 +55,13 @@ func NewMCPManager(sandbox *action.InProcessSandbox, httpClient *http.Client, po
 	}
 }
 
+// SetOnToolsChanged 注册工具集变更回调，异步连接完成后触发。
+func (m *MCPManager) SetOnToolsChanged(fn func()) {
+	m.mu.Lock()
+	m.onToolsChanged = fn
+	m.mu.Unlock()
+}
+
 // Add 连接一个 MCP Server，发现工具并注册到 sandbox。
 // 连接失败时仍写入 tombstone entry（errMsg 非空），使 ListServers 能向 UI 暴露失败原因。
 // name 必须满足 ^[a-zA-Z0-9_-]+$，否则拒绝安装。
@@ -63,7 +71,6 @@ func (m *MCPManager) Add(ctx context.Context, serverID, name string, cfg MCPClie
 	}
 
 	m.mu.Lock()
-	defer m.mu.Unlock()
 
 	if old, ok := m.entries[serverID]; ok {
 		if old.client != nil {
@@ -74,6 +81,7 @@ func (m *MCPManager) Add(ctx context.Context, serverID, name string, cfg MCPClie
 
 	storeFailed := func(err error) error {
 		m.entries[serverID] = &mcpEntry{name: name, cfg: cfg, errMsg: err.Error()}
+		m.mu.Unlock()
 		return err
 	}
 
@@ -101,7 +109,14 @@ func (m *MCPManager) Add(ctx context.Context, serverID, name string, cfg MCPClie
 		cfg:    cfg,
 		tools:  validTools,
 	}
+	notify := m.onToolsChanged
+	m.mu.Unlock()
+
 	slog.Info("mcp_manager: server connected", "id", serverID, "tools", len(tools))
+	// 锁外触发回调，避免回调内反向加锁导致死锁
+	if notify != nil {
+		notify()
+	}
 	return nil
 }
 
@@ -321,6 +336,7 @@ func (m *MCPManager) LoadOnePlugin(ctx context.Context, pluginID, pluginName, in
 			Command:    def.Command,
 			Args:       args,
 			Env:        def.Env,
+			WorkDir:    installPath, // uv/npm 等工具依赖项目根目录的 pyproject.toml / package.json
 			URL:        resolvedURL,
 			Timeout:    30 * time.Second,
 			ServerName: scopedName,

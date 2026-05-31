@@ -136,7 +136,11 @@ func run() error { //nolint:gocyclo
 	if err != nil {
 		return err
 	}
-	initDirectories(dataDir)
+	layout := config.NewDataLayout(dataDir, cfg.System.Dirs)
+	if err := layout.MkdirAll(); err != nil {
+		slog.Warn("polaris: failed to create data directories", "err", err)
+	}
+	layout.Migrate() // 旧路径文件迁移到规范位置（幂等）
 
 	// ─── 0.3.5 Thresholds 覆盖加载 ────────────────────────────────────────────
 	thresholds, err := config.LoadThresholds(dataDir)
@@ -197,13 +201,12 @@ func run() error { //nolint:gocyclo
 	slog.Info("polaris: memory pressure monitor started", "poll_interval_s", 5)
 
 	// ─── 2. 存储初始化 (L0 基础设施) ─────────────────────────────────────────
-	dbPath := filepath.Join(dataDir, "polaris.db")
-	store, err := storage.OpenSQLite(dbPath, schema.FS)
+	store, err := storage.OpenSQLite(layout.SQLiteDB, schema.FS)
 	if err != nil {
 		return errors.Wrap(errors.CodeInternal, "storage.OpenSQLite", err)
 	}
 	defer store.Close()
-	slog.Info("polaris: storage initialized", "db", dbPath)
+	slog.Info("polaris: storage initialized", "db", layout.SQLiteDB)
 
 	// ─── 2.5 SurrealDB Core 认知存储（FeatureSurrealDBCore 门控，Tier0 内存，Tier1+ HNSW）──
 	// 门控必须在此检查：无 FFI 隔离时 OpenSurrealDBCore 在内存压力下可触发 OOM。
@@ -211,8 +214,7 @@ func run() error { //nolint:gocyclo
 	if autoConf != nil && autoConf.Gate.State(observability.FeatureSurrealDBCore) != observability.FeatureDisabled {
 		useHNSW := autoConf.Config.SurrealVecMode == observability.SurrealVecHNSW
 		tier := int32(autoConf.Config.Tier)
-		surrealDBPath := filepath.Join(dataDir, "surreal_rust.db")
-		if surrealCore, sErr := storage.OpenSurrealDBCore(tier, surrealDBPath, useHNSW); sErr != nil {
+		if surrealCore, sErr := storage.OpenSurrealDBCore(tier, layout.SurrealDB, useHNSW); sErr != nil {
 			slog.Warn("polaris: SurrealDB Core init failed, cognitive axis falls back to SQLite", "err", sErr)
 		} else {
 			surrealStore = surrealCore
@@ -276,7 +278,7 @@ func run() error { //nolint:gocyclo
 	slog.Info("polaris: mutation bus (database writer) started")
 
 	// ─── 2.9 AuditTrail 初始化 ─────────────────────────────────────────────────
-	auditTrail := substrate.NewAuditTrail(store.DB(), filepath.Join(dataDir, "audit", "archive"))
+	auditTrail := substrate.NewAuditTrail(store.DB(), layout.AuditArchive)
 	if err := auditTrail.RecoverOnStartup(); err != nil {
 		slog.Error("polaris: AuditTrail recovery failed", "err", err)
 		return err
@@ -284,7 +286,7 @@ func run() error { //nolint:gocyclo
 	slog.Info("polaris: audit trail recovered and initialized")
 
 	// ─── 月度成本报告 (M13 §1.1) ──────────────────────────────────────────────────
-	scheduler.StartMonthlyCostReport(ctx, filepath.Join(dataDir, "reports"), store.DB())
+	scheduler.StartMonthlyCostReport(ctx, layout.Reports, store.DB())
 
 	// ─── 3. 策略引擎 (L0 PolicyGate) ─────────────────────────────────────────
 	gate := policy.NewGate(func() {
@@ -382,7 +384,7 @@ func run() error { //nolint:gocyclo
 	toolReg := polartool.NewInMemoryToolRegistry(nil)
 	mcpMgr := mcp.NewMCPManager(inProcSandbox, safeHTTPClient, gate)
 
-	mktClient := marketplace.NewMCPMarketplaceClient("", filepath.Join(cfg.System.DataDir, "plugins"))
+	mktClient := marketplace.NewMCPMarketplaceClient("", layout.Extensions)
 
 	hitlGateway := hitl.NewGateway(store)
 	prefsRepo := server.NewSQLPreferencesRepo(store.DB())
@@ -631,16 +633,12 @@ func run() error { //nolint:gocyclo
 	if key := os.Getenv("POLARIS_SKILL_SIGNING_KEY"); key != "" { //nolint:nestif
 		skillSigningKey = []byte(key)
 	} else {
-		keyPath := filepath.Join(dataDir, "config", "skill_signing.key")
-		if b, err := os.ReadFile(keyPath); err == nil && len(b) > 0 {
+		if b, err := os.ReadFile(layout.SkillSignKey); err == nil && len(b) > 0 {
 			skillSigningKey = b
 		} else {
-			h := sha256.Sum256([]byte(fmt.Sprintf("polaris-local-%d", time.Now().UnixNano())))
+			h := sha256.Sum256(fmt.Appendf(nil, "polaris-local-%d", time.Now().UnixNano()))
 			skillSigningKey = h[:]
-			if err := os.MkdirAll(filepath.Dir(keyPath), 0755); err != nil {
-				slog.Warn("polaris: failed to create config dir for skill_signing.key", "err", err)
-			}
-			if err := os.WriteFile(keyPath, skillSigningKey, 0600); err != nil {
+			if err := os.WriteFile(layout.SkillSignKey, skillSigningKey, 0600); err != nil {
 				slog.Warn("polaris: failed to write skill_signing.key", "err", err)
 			}
 		}
@@ -750,22 +748,6 @@ func resolveDataDirBase(cfg *config.Config) (string, error) {
 		dir = filepath.Join(home, dir[2:])
 	}
 	return dir, nil
-}
-
-func initDirectories(dataDir string) {
-	dirs := []string{
-		dataDir,
-		filepath.Join(dataDir, "logs"),
-		filepath.Join(dataDir, "hooks"),
-		filepath.Join(dataDir, "cache"),
-		filepath.Join(dataDir, "transcripts"),
-		filepath.Join(dataDir, "reports"),
-	}
-	for _, d := range dirs {
-		if err := os.MkdirAll(d, 0o700); err != nil {
-			slog.Warn("polaris: failed to create directory", "dir", d, "err", err)
-		}
-	}
 }
 
 // resolveBuiltinSkillsDir 解析内置技能目录的绝对路径。

@@ -77,7 +77,12 @@ func (s *Server) SetScriptRunner(r marketplace.HookRunner) { s.scriptRunner = r 
 func (s *Server) SetSkillSigningKey(k []byte)              { s.skillSignKey = k }
 
 // SetMCPManager 注入 MCPManager（NewServer 之后、Start 之前调用）。
-func (s *Server) SetMCPManager(m *mcp.MCPManager) { s.mcpMgr = m }
+// 同时注册缓存失效回调：异步插件 MCP 连接完成时自动清除 toolSchemaCache，
+// 确保 LLM 在下次推理时能看到新工具，而非返回连接前构建的过期缓存。
+func (s *Server) SetMCPManager(m *mcp.MCPManager) {
+	s.mcpMgr = m
+	m.SetOnToolsChanged(s.clearToolSchemaCache)
+}
 
 // SetToolRegistry 注入 ToolRegistry（NewServer 之后、Start 之前调用）。
 func (s *Server) SetToolRegistry(r protocol.ToolRegistry) { s.toolReg = r }
@@ -174,7 +179,7 @@ func (s *Server) clearToolSchemaCache() {
 // NewServer 创建新的 HTTP Server。
 // DEV_MODE=1 时将静态资源请求反向代理到 Vite dev server (:5173)。
 func NewServer(addr string, dataDir string, agent *kernel.Agent, bb protocol.Blackboard, hitlGateway protocol.HITL, db *sql.DB, registry *inference.ProviderRegistry, httpClient *http.Client, safeDialer protocol.SafeDialer) *Server {
-	tDir := filepath.Join(dataDir, "transcripts")
+	tDir := filepath.Join(dataDir, "sessions")
 	go PruneTranscripts(tDir, 30) // 启动时异步清理 30 天前的 transcript
 
 	s := &Server{
@@ -216,9 +221,10 @@ func NewServer(addr string, dataDir string, agent *kernel.Agent, bb protocol.Bla
 		}
 	}
 
-	// 注入 embedded FS 到 memory 包（三层提示词加载的 Layer 0）
+	// 注入 embedded FS 和运行时配置目录到 memory 包（三层提示词加载的 Layer 0/1）
 	// 必须在 LoadSoulMD / DefaultIdentity 之前完成
 	memory.SetEmbeddedPrompts(configs.FS)
+	memory.SetConfigDir(filepath.Join(dataDir, "config"))
 
 	// 加载用户身份（三层优先级：user prompts/identity.md > SOUL.md > embedded default）
 	s.soulMDContent = memory.LoadSoulMD()

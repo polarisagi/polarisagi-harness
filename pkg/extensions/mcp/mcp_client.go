@@ -56,6 +56,7 @@ type MCPClientConfig struct {
 	Command    string            // stdio: 可执行命令
 	Args       []string          // stdio: 命令参数
 	Env        map[string]string // stdio: 附加环境变量
+	WorkDir    string            // stdio: 进程工作目录；空字符串则继承父进程
 	URL        string            // sse / streamable_http: 端点 URL
 	Timeout    time.Duration     // 单次请求超时，0 → 30s
 	ServerName string            // 用于 TaintPreservingDecoder 溯源
@@ -116,6 +117,9 @@ func (c *MCPClient) connectStdio(ctx context.Context) error {
 		return perrors.New(perrors.CodeInternal, "mcp: stdio transport requires command")
 	}
 	cmd := exec.CommandContext(ctx, c.cfg.Command, c.cfg.Args...)
+	if c.cfg.WorkDir != "" {
+		cmd.Dir = c.cfg.WorkDir
+	}
 	// 始终从消毒后的父进程环境开始（过滤密钥类变量），再叠加显式配置的 MCP 自定义变量。
 	// 不依赖 len(c.cfg.Env) > 0 的条件分支：Go exec.Command 在 cmd.Env==nil 时
 	// 同样会继承完整父进程环境，必须显式赋值才能隔离。

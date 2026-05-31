@@ -124,12 +124,12 @@ func (r *Registry) ScanDir(dir string) (int, error) {
 }
 
 // DefaultScanPaths 返回惯例扫描路径（内置级 + 项目级 + 用户级）。
-func DefaultScanPaths() []string {
-	home, _ := os.UserHomeDir()
+// dataDir 为 DataLayout.Root（~/.polarisagi/harness），用户安装路径为 dataDir/extensions。
+func DefaultScanPaths(dataDir string) []string {
 	cwd, _ := os.Getwd()
 	return []string{
 		filepath.Join(cwd, "plugins", "builtin"),
-		filepath.Join(home, ".polarisagi/harness", "plugins"),
+		filepath.Join(dataDir, "extensions"),
 		filepath.Join(cwd, ".polaris", "plugins"),
 	}
 }

@@ -535,7 +535,6 @@ func (s *Server) downloadAndInstallExtension(ctx context.Context, extID, catalog
 	// 1. 获取本地 tmp 目录路径
 	// marketplace_id 本身可含 "/"（如 "polarisagi/polarisagi-plugins-official"），
 	// 不能在第一个 "/" 处分割，必须从 extension_catalog 读取准确值。
-	home, _ := os.UserHomeDir()
 	var mpID string
 	if err := s.db.QueryRowContext(ctx,
 		`SELECT marketplace_id FROM extension_catalog WHERE id=?`, catalogID).Scan(&mpID); err != nil {
@@ -545,8 +544,8 @@ func (s *Server) downloadAndInstallExtension(ctx context.Context, extID, catalog
 	relPath := filepath.FromSlash(strings.TrimPrefix(catalogID, mpID+"/"))
 
 	safeMpID := strings.ReplaceAll(mpID, "/", "_")
-	srcDir := filepath.Join(home, ".polarisagi/harness", "tmp", "marketplaces", safeMpID, relPath)
-	destDir := filepath.Join(home, ".polarisagi/harness", "extensions", extID)
+	srcDir := filepath.Join(s.dataDir, "tmp", "marketplaces", safeMpID, relPath)
+	destDir := filepath.Join(s.dataDir, "extensions", extID)
 
 	// 2. 拷贝目录
 	if err := os.MkdirAll(filepath.Dir(destDir), 0755); err != nil {
