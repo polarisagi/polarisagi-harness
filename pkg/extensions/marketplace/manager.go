@@ -117,7 +117,12 @@ func (m *Manager) InstallExtension(ctx context.Context, req InstallRequest) erro
 //
 //nolint:nestif
 func (m *Manager) UninstallExtension(ctx context.Context, catalogID string) error {
-	rows, err := m.db.QueryContext(ctx, "SELECT id, ext_type, runtime_id, install_path, origin FROM extension_instances WHERE catalog_id=?", catalogID)
+	rows, err := m.db.QueryContext(ctx, `
+		SELECT id, ext_type, runtime_id, install_path, origin 
+		FROM extension_instances 
+		WHERE catalog_id=? OR parent_id IN (
+			SELECT id FROM extension_instances WHERE catalog_id=?
+		)`, catalogID, catalogID)
 	if err != nil {
 		return err
 	}

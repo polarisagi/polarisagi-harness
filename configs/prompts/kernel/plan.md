@@ -13,6 +13,11 @@ Your objective is to generate an executable Directed Acyclic Graph (DAG) based o
 {{.ToolsSection}}
 {{end}}
 
+{{if .ExtensionsSection}}
+## INSTALLED EXTENSIONS
+{{.ExtensionsSection}}
+{{end}}
+
 ## SCHEMA
 {
   "Nodes": [

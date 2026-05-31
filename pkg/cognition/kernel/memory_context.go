@@ -49,6 +49,9 @@ func buildPerceiveContext(ctx context.Context, memory protocol.Memory, sCtx *Sta
 	if episodicCtx != "" {
 		baseContent += episodicCtx + "\n"
 	}
+	if sCtx.InstalledExtensionsInfo != "" {
+		baseContent += sCtx.InstalledExtensionsInfo + "\n\n"
+	}
 
 	msgs := []protocol.Message{
 		{Role: "system", Content: baseContent},
@@ -102,6 +105,10 @@ func buildPlanContext(ctx context.Context, memory protocol.Memory, sCtx *StateCo
 	if sCtx.TaskModel != nil {
 		taskJson, _ := json.Marshal(sCtx.TaskModel)
 		baseContent += "Parsed TaskModel:\n" + string(taskJson) + "\n\n"
+	}
+
+	if sCtx.InstalledExtensionsInfo != "" {
+		baseContent += sCtx.InstalledExtensionsInfo + "\n\n"
 	}
 
 	// 注入可用工具列表，LLM 必须仅使用列表中的工具名称（action 字段）

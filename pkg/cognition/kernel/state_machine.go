@@ -97,6 +97,9 @@ type StateContext struct {
 
 	// SysEnvSnapshot 是启动时获取的系统静态快照，注入到每个 Prompt 头部
 	SysEnvSnapshot string
+
+	// InstalledExtensionsInfo 包含当前系统已安装的扩展清单
+	InstalledExtensionsInfo string
 }
 
 // TaskModel LLM 填槽产出——将自然语言任务结构化。
@@ -288,7 +291,9 @@ func (sm *StateMachine) promptPerceive(sCtx *StateContext, pCtx protocol.StateCo
 	if sCtx.SysEnvSnapshot != "" {
 		b.WriteSystemEnvironment(sCtx.SysEnvSnapshot)
 	}
-	tmpl, _ := configs.LoadPromptTemplate("kernel/perceive.md", nil)
+	tmpl, _ := configs.LoadPromptTemplate("kernel/perceive.md", map[string]any{
+		"ExtensionsSection": sCtx.InstalledExtensionsInfo,
+	})
 	safeInst, _ := substrate.SanitizeToSafe(substrate.NewTaintedString(
 		tmpl,
 		substrate.TaintSource{OriginTaintLevel: protocol.TaintNone},
@@ -321,7 +326,8 @@ func (sm *StateMachine) promptPlan(sCtx *StateContext, pCtx protocol.StateContex
 	}
 
 	tmpl, _ := configs.LoadPromptTemplate("kernel/plan.md", map[string]any{
-		"ToolsSection": buildToolListSection(pCtx.Tools),
+		"ToolsSection":      buildToolListSection(pCtx.Tools),
+		"ExtensionsSection": sCtx.InstalledExtensionsInfo,
 	})
 	safeInst, _ := substrate.SanitizeToSafe(substrate.NewTaintedString(
 		tmpl,

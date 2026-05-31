@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 
 	perrors "github.com/polarisagi/polarisagi-harness/internal/errors"
 	"github.com/polarisagi/polarisagi-harness/internal/protocol"
@@ -87,6 +88,9 @@ func (a *Agent) Run(ctx context.Context) error {
 		a.sCtx.MaxStepsLimit = a.Config.MaxSteps
 	}
 	for {
+		// 动态加载已安装插件信息
+		a.refreshInstalledExtensions(ctx)
+
 		select {
 		case trigger := <-a.intent:
 			// Adaptive Max-Steps: 步骤计数 + 预算熔断
@@ -299,4 +303,36 @@ var (
 // isTerminalState 判断是否为终态（S_COMPLETE 或 S_FAILED）。
 func isTerminalState(s protocol.AgentState) bool {
 	return s == protocol.AgentStateComplete || s == protocol.AgentStateFailed
+}
+
+// refreshInstalledExtensions 从 extension_instances 表动态查询已安装插件并存入 StateContext。
+func (a *Agent) refreshInstalledExtensions(ctx context.Context) {
+	if a.db == nil {
+		a.sCtx.InstalledExtensionsInfo = ""
+		return
+	}
+
+	rows, err := a.db.QueryContext(ctx, "SELECT ext_type, name, publisher, version FROM extension_instances WHERE status = 'installed' AND parent_id = ''")
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+
+	var exts []string
+	for rows.Next() {
+		var extType, name, pub, ver string
+		if err := rows.Scan(&extType, &name, &pub, &ver); err == nil {
+			exts = append(exts, fmt.Sprintf("- [%s] %s/%s (v%s)", extType, pub, name, ver))
+		}
+	}
+
+	if err := rows.Err(); err != nil {
+		return
+	}
+
+	if len(exts) > 0 {
+		a.sCtx.InstalledExtensionsInfo = "Installed Extensions:\n" + strings.Join(exts, "\n")
+	} else {
+		a.sCtx.InstalledExtensionsInfo = ""
+	}
 }
