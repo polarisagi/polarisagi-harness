@@ -46,8 +46,13 @@ type OpenAIStreamChunk struct {
 }
 
 // SendStreamRequest 发送一个流式的 HTTP 请求并返回解析事件的 channel。
-func (c *OpenAICompatibleClient) SendStreamRequest(ctx context.Context, apiKey string, req *OpenAIRequest) (<-chan protocol.StreamEvent, error) { //nolint:gocyclo
+// estimatedInputTokens 由调用方通过 MultimodalTokenizer.EstimateRequest 预估；
+// 当 ctx 被取消时，StreamCancelled 事件用该值作为 InputTokens 补偿计费。
+func (c *OpenAICompatibleClient) SendStreamRequest(ctx context.Context, apiKey string, req *OpenAIRequest, estimatedInputTokens int) (<-chan protocol.StreamEvent, error) { //nolint:gocyclo
 	req.Stream = true
+	// 要求 API 在最后一个 chunk 附带完整 usage，供精确计费
+	req.StreamOptions = &OpenAIStreamOptions{IncludeUsage: true}
+
 	reqBytes, err := json.Marshal(req)
 	if err != nil {
 		return nil, perrors.Wrap(perrors.CodeInternal, "failed to marshal request", err)
@@ -90,10 +95,20 @@ func (c *OpenAICompatibleClient) SendStreamRequest(ctx context.Context, apiKey s
 			arguments strings.Builder
 		}
 		toolBuilders := map[int]*toolCallState{}
+		accumulatedOutputTokens := 0
 
 		for scanner.Scan() {
 			select {
 			case <-ctx.Done():
+				// 用户主动取消：发出补偿计费事件后退出。
+				// InputTokens 用预估值（完整请求已发给 API），OutputTokens 为已收到的实际数量。
+				ch <- protocol.StreamEvent{
+					Type: protocol.StreamCancelled,
+					Usage: protocol.Usage{
+						InputTokens:  estimatedInputTokens,
+						OutputTokens: accumulatedOutputTokens,
+					},
+				}
 				return
 			default:
 			}
@@ -123,6 +138,8 @@ func (c *OpenAICompatibleClient) SendStreamRequest(ctx context.Context, apiKey s
 					InputTokens:  chunk.Usage.PromptTokens,
 					OutputTokens: chunk.Usage.CompletionTokens,
 				}
+				// API 返回的精确值优先；更新累计输出 token，供后续 cancel 补偿用
+				accumulatedOutputTokens = chunk.Usage.CompletionTokens
 			}
 
 			if len(chunk.Choices) == 0 {
@@ -142,6 +159,10 @@ func (c *OpenAICompatibleClient) SendStreamRequest(ctx context.Context, apiKey s
 
 			// 文本 delta
 			if delta.Content != "" {
+				// 无精确 usage 时累计字符估算，供 cancel 补偿参考
+				if chunk.Usage == nil {
+					accumulatedOutputTokens += len([]rune(delta.Content)) / 3
+				}
 				ch <- protocol.StreamEvent{Type: protocol.StreamTextDelta, Content: delta.Content, Usage: currentUsage}
 			}
 

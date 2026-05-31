@@ -23,6 +23,20 @@ Alpine.data('chatInput', () => ({
     window.addEventListener('stt-result', (e) => {
       this.input += (this.input ? ' ' : '') + e.detail;
     });
+    // 恢复编辑：将中断的用户消息填回输入框并聚焦
+    window.addEventListener('restore-input', (e) => {
+      this.input = e.detail || '';
+      this.rows = Math.min(8, (this.input.match(/\n/g) || []).length + 1);
+      this.$nextTick(() => {
+        const ta = document.getElementById('input');
+        if (ta) {
+          ta.style.height = 'auto';
+          ta.style.height = Math.min(ta.scrollHeight, 192) + 'px';
+          ta.focus();
+          ta.setSelectionRange(ta.value.length, ta.value.length);
+        }
+      });
+    });
   },
 
   processFiles(files) {

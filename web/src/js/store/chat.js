@@ -21,6 +21,7 @@ Alpine.store('chat', {
   isRecording: false,
   _mediaRecorder: null,
   _audioChunks: [],
+  lastAbortedInput: null,  // 上次被中断的用户输入内容，用于恢复编辑按钮
 
   get isActive() { return this.state !== 'IDLE' && this.state !== 'COMPLETE' && this.state !== 'ERROR' },
 
@@ -163,6 +164,9 @@ Alpine.store('chat', {
   async submit(input) {
     if (!input.trim() && this.attachments.length === 0 || this.isActive) return
 
+    // 新消息发出，清除上次中断状态
+    this.lastAbortedInput = null
+
     // 幂等 runID
     const runID = dedupeRunID(this.sessionID || '', input)
 
@@ -198,6 +202,11 @@ Alpine.store('chat', {
 
   interrupt(action = 'abort') {
     if (!this.taskID) return
+    // 记录最后一条用户消息内容，供"恢复编辑"按钮使用
+    if (action === 'abort') {
+      const lastUser = [...this.messages].reverse().find(m => m.role === 'user')
+      this.lastAbortedInput = lastUser ? lastUser.content : null
+    }
     fetch(`/v1/agent/${this.taskID}/interrupt`, {
       method: 'POST',
       headers: authHeaders(),
@@ -207,6 +216,13 @@ Alpine.store('chat', {
     if (action === 'abort' && this.currentTokens) {
       this._finalizeMessage(true)
     }
+  },
+
+  // restoreInput 将上次中断的用户消息恢复到输入框，并清除中断状态
+  restoreInput() {
+    if (!this.lastAbortedInput) return
+    window.dispatchEvent(new CustomEvent('restore-input', { detail: this.lastAbortedInput }))
+    this.lastAbortedInput = null
   },
 
   speakText(text) {
@@ -326,6 +342,7 @@ Alpine.store('chat', {
     this.thinkingText = ''
     this.errorMsg = ''
     this.state = 'IDLE'
+    this.lastAbortedInput = null
     window._activeSseClient?.stop()
     window._activeSseClient = null
     this.taskID = null

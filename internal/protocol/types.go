@@ -65,6 +65,9 @@ type ImagePart struct {
 	MediaType string // "image/jpeg" | "image/png" | "image/webp" | "image/gif"
 	Data      []byte // base64 decoded raw bytes
 	URL       string // 互斥于 Data，远程 URL 路径
+	Width     int    // 可选，0=未知；token 计算用
+	Height    int    // 可选，0=未知；token 计算用
+	Detail    string // "low" | "high" | "auto"，空串等同 "auto"
 }
 
 type VideoPart struct {
@@ -115,6 +118,9 @@ const (
 	StreamToolCall
 	StreamThinking
 	StreamError
+	// StreamCancelled 用户主动取消时发出，Usage 字段携带补偿计费数据：
+	// InputTokens=估算的输入 token（完整请求已发出），OutputTokens=已收到的输出 token 数。
+	StreamCancelled
 )
 
 type StreamEvent struct {
@@ -139,6 +145,22 @@ type ProviderCapabilities struct {
 type TokenizerAdapter interface {
 	CountTokens(text string) int
 	CountTokensBatch(texts []string) []int
+}
+
+// MultimodalTokenizer 扩展接口，支持多模态 token 精确计算。
+// 由具体 tokenizer 实现（如 TiktokenTokenizer），调用方用类型断言升级。
+// 基础 TokenizerAdapter 实现无需实现此接口（向后兼容）。
+type MultimodalTokenizer interface {
+	TokenizerAdapter
+	// CountImageTokens 按 OpenAI GPT-4V tile 规则计算图片 token。
+	// detail: "low"=85 tokens 固定；"high"/"auto"/""=按 tile 公式。
+	// width/height=0 时用默认 1024×1024 估算。
+	CountImageTokens(width, height int, detail string) int
+	// CountVideoTokens 估算视频 token（每秒 fps 帧，每帧按 512×512 high detail 计）。
+	CountVideoTokens(durationSecs float64, fps float64) int
+	// EstimateRequest 估算完整 InferRequest 的输入 token 数（含文本+多模态）。
+	// 用于流式请求取消时的补偿计费。
+	EstimateRequest(req *InferRequest) int
 }
 
 // ============================================================================

@@ -49,8 +49,8 @@ func (d *DeepSeekAdapter) Capabilities() protocol.ProviderCapabilities {
 }
 
 func (d *DeepSeekAdapter) Tokenizer() protocol.TokenizerAdapter {
-	// MVP: 我们假装这里有一个 Tokenizer
-	return nil
+	// DeepSeek 词表与 cl100k_base 高度兼容，用 tiktoken cl100k_base 估算误差 <5%
+	return newTiktokenTokenizer("deepseek-v4")
 }
 
 // Infer 阻塞执行单次全量推理。
@@ -95,7 +95,8 @@ func (d *DeepSeekAdapter) StreamInfer(ctx context.Context, req *protocol.InferRe
 
 	apiReq.Model = resolveDeepSeekModel(apiReq.Model)
 
-	return d.client.SendStreamRequest(ctx, apiKey, apiReq)
+	tok := newTiktokenTokenizer("deepseek-v4")
+	return d.client.SendStreamRequest(ctx, apiKey, apiReq, tok.EstimateRequest(req))
 }
 
 // resolveDeepSeekModel 负责将旧模型名称迁移到新模型名称（90天过渡期 fallback）

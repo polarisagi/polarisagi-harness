@@ -450,7 +450,8 @@ func max64(a, b float64) float64 {
 	return b
 }
 
-// simpleTokenizer 简单 token 估算（4 字符/token），用于非本地 Provider。
+// simpleTokenizer 简单 token 估算（4 字符/token），用于本地 Provider（Ollama 等）。
+// 精确计算请使用 tiktokenTokenizer（OpenAI/DeepSeek 适配器的默认实现）。
 type simpleTokenizer struct{}
 
 func (t *simpleTokenizer) CountTokens(text string) int { return len(text) / 4 }
@@ -460,4 +461,20 @@ func (t *simpleTokenizer) CountTokensBatch(texts []string) []int {
 		result[i] = len(s) / 4
 	}
 	return result
+}
+
+// estimateRequestTokens 估算请求总 token 数，供流式 cancel 补偿用。
+func (t *simpleTokenizer) estimateRequestTokens(req *protocol.InferRequest) int {
+	total := 0
+	for _, msg := range req.Messages {
+		total += 4 + t.CountTokens(msg.Content)
+		for _, p := range msg.Parts {
+			if m, ok := p.(map[string]any); ok {
+				if txt, ok := m["text"].(string); ok {
+					total += t.CountTokens(txt)
+				}
+			}
+		}
+	}
+	return total + 3
 }

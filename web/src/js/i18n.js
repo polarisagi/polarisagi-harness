@@ -509,6 +509,7 @@ export const zh = {
   chat_collapse_all:      '收起全部',
   chat_click_expand_all:  '点击展开全部',
   chat_clear_session:     '清空会话',
+  chat_restore_input:     '↺ 恢复编辑',
 }
 
 export const en = {
@@ -1009,4 +1010,5 @@ export const en = {
   chat_click_expand_all: 'Click to expand all',
   chat_clear_session: 'Clear Session',
   chat_interrupt: 'Interrupt',
+  chat_restore_input: '↺ Restore',
 }

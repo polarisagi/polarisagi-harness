@@ -79,5 +79,6 @@ func (a *OllamaAdapter) Infer(ctx context.Context, req *protocol.InferRequest) (
 func (a *OllamaAdapter) StreamInfer(ctx context.Context, req *protocol.InferRequest) (<-chan protocol.StreamEvent, error) {
 	apiReq := translateRequest(req)
 	apiReq.Model = a.model
-	return a.client.SendStreamRequest(ctx, "", apiReq)
+	tok := &simpleTokenizer{}
+	return a.client.SendStreamRequest(ctx, "", apiReq, tok.estimateRequestTokens(req))
 }

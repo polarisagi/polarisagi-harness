@@ -62,8 +62,7 @@ func (a *OpenAIAdapter) Capabilities() protocol.ProviderCapabilities {
 }
 
 func (a *OpenAIAdapter) Tokenizer() protocol.TokenizerAdapter {
-	// MVP 暂用简单估算，或未来对接 tiktoken
-	return &simpleTokenizer{}
+	return newTiktokenTokenizer(a.model)
 }
 
 func (a *OpenAIAdapter) Infer(ctx context.Context, req *protocol.InferRequest) (*protocol.InferResponse, error) {
@@ -123,7 +122,8 @@ func (a *OpenAIAdapter) StreamInfer(ctx context.Context, req *protocol.InferRequ
 	apiKey := a.credentialFn()
 	defer clearString(&apiKey)
 
-	return a.client.SendStreamRequest(ctx, apiKey, apiReq)
+	tok := newTiktokenTokenizer(a.model)
+	return a.client.SendStreamRequest(ctx, apiKey, apiReq, tok.EstimateRequest(req))
 }
 
 func resolveOpenAIModel(requested string) string {

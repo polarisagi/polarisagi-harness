@@ -31,6 +31,13 @@ type OpenAIRequest struct {
 	// 可选字段
 	ResponseFormat *OpenAIResponseFormat `json:"response_format,omitempty"`
 	Tools          []OpenAITool          `json:"tools,omitempty"`
+	StreamOptions  *OpenAIStreamOptions  `json:"stream_options,omitempty"`
+}
+
+// OpenAIStreamOptions 控制流式响应附加行为。
+// IncludeUsage=true 时，API 在最后一个 chunk 中返回完整 usage（prompt+completion tokens）。
+type OpenAIStreamOptions struct {
+	IncludeUsage bool `json:"include_usage"`
 }
 
 type OpenAIMessage struct {
