@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/exec"
@@ -642,11 +643,14 @@ func parseGoogleSkillsEntry(path, mpDir string, mp protocol.Marketplace) ([]prot
 
 // handleSyncMarketplaces 刷新/同步市场
 func (s *Server) handleSyncMarketplaces(w http.ResponseWriter, r *http.Request) {
+	slog.Info("polaris-server: manual sync marketplaces triggered")
 	syncedCount, err := s.SyncAllMarketplaces(r.Context())
 	if err != nil {
+		slog.Error("polaris-server: manual sync marketplaces failed", "err", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	slog.Info("polaris-server: manual sync marketplaces finished", "synced_count", syncedCount)
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{"status": "synced", "synced_count": syncedCount})
 }
