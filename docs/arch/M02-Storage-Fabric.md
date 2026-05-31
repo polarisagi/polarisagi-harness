@@ -245,7 +245,7 @@ Tier 0 默认禁用自动归档（HT0 无磁盘压力），仅在磁盘水位触
 
 ## 4. WorkspaceManager — 重型中间物文件系统
 
-大规模爬取结果、AST dump、diff patch、二进制文件不入 SQLite（Blob 膨胀），不入 Working Memory（[Tier-0-Limit]）。Working Memory 仅持有路径+摘要。物理路径：`~/.polarisagi/harness/workspaces/<task_id>/`，权限 0700。
+大规模爬取结果、AST dump、diff patch、二进制文件不入 SQLite（Blob 膨胀），不入 Working Memory（[Tier-0-Limit]）。Working Memory 仅持有路径+摘要。物理路径：`~/.polarisagi/harness/workspace/<task_id>/`，权限 0700。
 
 实现见 `pkg/substrate/workspace_manager.go`：
 
@@ -289,7 +289,7 @@ BEFORE DELETE trigger 自动递减引用计数，引用归零入队 GC。4KB 硬
 
 ## 5. Schema 迁移策略
 
-**当前阶段（上线前）**：Schema 变更直接修改 `internal/protocol/schema/NNN_*.sql` 原始 DDL 文件，删库重建（`rm ~/.polarisagi/harness/polaris.db`）。禁止以 ALTER TABLE/ADD COLUMN 补丁文件打补丁。
+**当前阶段（上线前）**：Schema 变更直接修改 `internal/protocol/schema/NNN_*.sql` 原始 DDL 文件，删库重建（`rm ~/.polarisagi/harness/data/polaris.db`）。禁止以 ALTER TABLE/ADD COLUMN 补丁文件打补丁。
 
 **上线后**：新增编号迁移文件（ALTER TABLE / 数据迁移），实现由 `pkg/substrate/schema_manager.go` 的 `SchemaManager` 负责：按版本升序执行，每次迁移前后通过 `BeginMigration`/`CompleteMigration` 向 `sys_config` 写入状态标记（idle / in_progress / completed）。崩溃恢复：`Recover()` 启动时检查 `migration_status`，检测到 `in_progress` 则拒绝启动，要求操作员重置后重启。
 
@@ -365,7 +365,7 @@ Outbox Worker 消费事件走写连接（保证读己写）。Agent 查询 Episo
   - > [!IMPORTANT]
     > **Tier 分级存储策略 (纯内存 vs 磁盘持久化)**
     > - **Tier 0 (≤8GB)**: 项目自建兼容内存实现（`BTreeMap` + 暴力扫描），**不引入 surrealdb crate**，保持 Tier-0 依赖最小化；进程重启后认知数据丢失，完全依赖 SQLite Outbox 投影在启动时重建。
-    > - **Tier 1+ (≥16GB)**: 启用真正的 `surrealdb` crate（嵌入模式 + `kv-rocksdb` 后端），数据持久化写入 `~/.polarisagi/harness/surreal_rust.db`，HNSW 索引自动激活，实现高性能本地存储落盘。
+    > - **Tier 1+ (≥16GB)**: 启用真正的 `surrealdb` crate（嵌入模式 + `kv-rocksdb` 后端），数据持久化写入 `~/.polarisagi/harness/data/surreal.db`，HNSW 索引自动激活，实现高性能本地存储落盘。
 - 引擎: **[Storage-Ristretto]** (纯 Go)
   - 用途: 热缓存轴。纯内存态的 L0 Working Memory。
 

@@ -84,7 +84,7 @@ SupervisorEpoch: 启动时 [Storage-SQLite] sys_config 原子递增 `orchestrato
 阶段1(1s): Lock 扫描, 跳过 Suspended/Compensating → Claimed/Executing+ExpiresAt过期 → `cancel(agent.ContextCancel)` + 等待 5s 宽限期（供工具 ctx.Done() 感知取消并中止，闭合 M7 §4.6 TOCTOU PostCheck 的孤儿副作用窗口）→ Version++ + 重置(ClaimedBy=nil,Status=Pending) → 发射 EventTaskReaped。Version++ 确保 [MutationBus] 残留 Intent 在乐观锁 `WHERE version=oldVersion` 失败。5s 宽限期内若工具已完成并进入 PostCheck，PostCheck 发现 Version 不匹配 → 审计 side_effect_orphaned + 写入 decision_log（M7 §4.6）。
 **崩溃恢复重建时**，扫描到的所有已过期 Executing/Claimed 任务**并发 cancel**（errgroup），等待 max(5s) 统一宽限期，而非串行等待。时间复杂度 O(max(5s))，而非 O(N×5s)。
 
-阶段2(30s, [Tier-0-Limit] 内存守卫): Lock 内 Status∈{Done,Failed}+UpdatedAt+5min<now+DependsOn反向索引满足 → `delete(tasks,taskID)`, len>50000 追加驱逐 → 释放 Lock → 逐条 MutationIntent→[MutationBus].Submit 归档; 失败→WARN+`~/.polarisagi/harness/workspaces/reaper_fallback/{taskID}.pb`
+阶段2(30s, [Tier-0-Limit] 内存守卫): Lock 内 Status∈{Done,Failed}+UpdatedAt+5min<now+DependsOn反向索引满足 → `delete(tasks,taskID)`, len>50000 追加驱逐 → 释放 Lock → 逐条 MutationIntent→[MutationBus].Submit 归档; 失败→WARN+`~/.polarisagi/harness/workspace/reaper_fallback/{taskID}.pb`
 
 ### 1.8 Agent 看板监听
 

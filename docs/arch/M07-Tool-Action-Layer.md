@@ -208,7 +208,7 @@ Syscall 防逃逸: Go 堆缓冲区（严禁线性内存切片）→ 独立 gorou
 
 `workspace_write(artifactID,data)->(int,error)`:
 - 0 路径白名单校验: 仅允许写入以下三类路径:
-  (a) `~/.polarisagi/harness/workspaces/<task_id>/`（M2 WorkspaceManager 托管目录）
+  (a) `~/.polarisagi/harness/workspace/<task_id>/`（M2 WorkspaceManager 托管目录）
   (b) 经 [Sandbox-L2] 显式挂载的临时目录 `/tmp/sandbox/{skill_id}/`
   (c) 启动时传入的 Workspace Root（用户项目根目录），需经 [Cedar-Gate] 显式授权——Cedar 策略 `permit write_local when resource.path in WorkspaceRoot` 控制可写子路径范围
   默认拒绝所有其他绝对和相对路径。白名单外路径 → ErrWorkspacePathNotAllowed + WARN + 审计
