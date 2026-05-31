@@ -103,8 +103,6 @@ func (s *Server) appendCachedCatalogs(ctx context.Context, result []protocol.Reg
 	return result
 }
 
-
-
 // handleListPluginCatalog 返回扩展目录列表（用户自建 + 市场缓存）。
 // 排序规则：已安装优先 → 官方市场优先（SortOrder == 0）→ 名字字母序。
 // 已安装的条目只出现一次（installed=true），不在未安装区重复展示。
