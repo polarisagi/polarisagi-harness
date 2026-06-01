@@ -116,9 +116,9 @@ type MCPConfig struct {
 //   - 字符串路径（Codex 标准）："hooks": "./hooks/hooks.json"  → HooksFile
 //   - 映射（Polaris 扩展，install/uninstall）："hooks": {"install":"..."}  → Hooks
 type PluginBundleManifest struct {
-	Name        string                  `json:"name"`
-	Version     string                  `json:"version"`
-	Description string                  `json:"description"`
+	Name           string                  `json:"name"`
+	Version        string                  `json:"version"`
+	Description    string                  `json:"description"`
 	Entrypoint     string                  `json:"entrypoint,omitempty"`
 	MCPFile        string                  `json:"mcpServers,omitempty"` // 指向 .mcp.json 的相对路径
 	MCPFileSnake   string                  `json:"mcp_servers,omitempty"`
@@ -137,17 +137,17 @@ type PluginBundleManifest struct {
 // bundleManifestWire 是 PluginBundleManifest 的 JSON 解码中间结构，
 // 用于处理 "skills" 和 "hooks" 字段的多态性。
 type bundleManifestWire struct {
-	Name        string                  `json:"name"`
-	Version     string                  `json:"version"`
-	Description string                  `json:"description"`
+	Name           string                  `json:"name"`
+	Version        string                  `json:"version"`
+	Description    string                  `json:"description"`
 	Entrypoint     string                  `json:"entrypoint,omitempty"`
 	MCPFile        string                  `json:"mcpServers,omitempty"`
 	MCPFileSnake   string                  `json:"mcp_servers,omitempty"`
 	MCPInline      map[string]MCPServerDef `json:"mcpInline,omitempty"`
 	MCPInlineSnake map[string]MCPServerDef `json:"mcp_inline,omitempty"`
 	Interface      *PluginInterface        `json:"interface,omitempty"`
-	SkillsRaw   json.RawMessage         `json:"skills,omitempty"`
-	HooksRaw    json.RawMessage         `json:"hooks,omitempty"`
+	SkillsRaw      json.RawMessage         `json:"skills,omitempty"`
+	HooksRaw       json.RawMessage         `json:"hooks,omitempty"`
 }
 
 // UnmarshalJSON 处理 "skills" 和 "hooks" 字段的多态解码：

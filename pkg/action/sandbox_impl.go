@@ -184,9 +184,9 @@ type WasmSandbox struct {
 	runtime *WazeroRuntime
 }
 
-func NewWasmSandbox(ctx context.Context) *WasmSandbox {
+func NewWasmSandbox(ctx context.Context, concurrency int) *WasmSandbox {
 	return &WasmSandbox{
-		runtime: NewWazeroRuntime(ctx),
+		runtime: NewWazeroRuntime(ctx, concurrency),
 	}
 }
 

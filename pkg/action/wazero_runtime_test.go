@@ -12,7 +12,7 @@ import (
 )
 
 func TestWazeroRuntime_TOCTOU_DeadlineInjection(t *testing.T) {
-	wr := NewWazeroRuntime(context.Background())
+	wr := NewWazeroRuntime(context.Background(), 4)
 
 	// Lease 在 100ms 后过期
 	leaseExpiresAt := time.Now().Add(100 * time.Millisecond).Unix()
@@ -44,7 +44,7 @@ func TestWazeroRuntime_TOCTOU_DeadlineInjection(t *testing.T) {
 }
 
 func TestWazeroRuntime_TOCTOU_LeaseValid(t *testing.T) {
-	wr := NewWazeroRuntime(context.Background())
+	wr := NewWazeroRuntime(context.Background(), 4)
 
 	// Lease 在 5 秒后过期
 	leaseExpiresAt := time.Now().Add(5 * time.Second).Unix()
@@ -65,7 +65,7 @@ func TestWazeroRuntime_TOCTOU_LeaseValid(t *testing.T) {
 }
 
 func TestWazeroRuntime_TOCTOU_ReadOnlyNoDeadline(t *testing.T) {
-	wr := NewWazeroRuntime(context.Background())
+	wr := NewWazeroRuntime(context.Background(), 4)
 
 	emptyWasm := []byte{0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00}
 
@@ -101,7 +101,7 @@ func TestWazeroRuntime_ABI(t *testing.T) {
 		t.Skipf("impl.wasm 未找到，跳过真实 Wasm 测试 (需执行 scripts/build_skills.sh): %v", err)
 	}
 
-	wr := NewWazeroRuntime(context.Background())
+	wr := NewWazeroRuntime(context.Background(), 4)
 
 	// 输入参数
 	input := []byte(`{"pattern":"hello (\\w+)","text":"hello world, hello golang"}`)

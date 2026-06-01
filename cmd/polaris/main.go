@@ -161,7 +161,7 @@ func run() error { //nolint:gocyclo
 		observability.GlobalKillswitchStage.Store(int32(newState))
 	}
 
-	// ─── 0.4 日志初始化（stdout + ~/.polarisagi/harness/polaris.log）─────────────
+	// ─── 0.4 日志初始化（stdout + ~/.polarisagi/harness/logs/polaris.log）─────────────
 	if logFile := observability.SetupLogger(dataDir); logFile != nil {
 		defer logFile.Close()
 	}
@@ -371,8 +371,12 @@ func run() error { //nolint:gocyclo
 	inProcSandbox := action.NewInProcessSandbox()
 	var wasmSandbox *action.WasmSandbox
 	if autoConf == nil || autoConf.Gate.State(observability.FeatureL2Sandbox) != observability.FeatureDisabled {
-		wasmSandbox = action.NewWasmSandbox(ctx)
-		slog.Info("polaris: L2 Wasm sandbox initialized")
+		wasmConcurrency := 4
+		if autoConf != nil {
+			wasmConcurrency = autoConf.Config.WasmConcurrency
+		}
+		wasmSandbox = action.NewWasmSandbox(ctx, wasmConcurrency)
+		slog.Info("polaris: L2 Wasm sandbox initialized", "concurrency", wasmConcurrency)
 	} else {
 		slog.Info("polaris: L2 Wasm sandbox disabled by FeatureGate")
 	}
@@ -424,7 +428,11 @@ func run() error { //nolint:gocyclo
 		slog.Info("polaris: builtin skills seeded", "dir", skillsDir)
 	}
 
-	wasmRT := action.NewWazeroRuntime(ctx)
+	wasmConcurrencyRT := 4
+	if autoConf != nil {
+		wasmConcurrencyRT = autoConf.Config.WasmConcurrency
+	}
+	wasmRT := action.NewWazeroRuntime(ctx, wasmConcurrencyRT)
 	wasmRunner := action.NewWasmRunnerAdapter(wasmRT)
 	// 所有技能（builtin + marketplace）均通过 SkillMeta.WasmPath 加载，loader=nil。
 	skillExecutor := skill.NewWasmSkillExecutor(skillRegistry, wasmRunner, nil)

@@ -68,7 +68,7 @@ func TestInProcessSandbox_Timeout(t *testing.T) {
 // ─── WasmSandbox 测试 ─────────────────────────────────────────────────────────
 
 func TestWasmSandbox_StubExecution(t *testing.T) {
-	sb := NewWasmSandbox(context.Background())
+	sb := NewWasmSandbox(context.Background(), 4)
 	emptyWasm := []byte{0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00}
 	result, err := sb.Run(context.Background(), SandboxSpec{
 		ToolName:    "test-tool",
@@ -91,7 +91,7 @@ func TestSandboxRouter_BuiltinGoesToInProcess(t *testing.T) {
 	inProc.Register("list-files", func(_ context.Context, _ []byte) ([]byte, error) {
 		return []byte(`["a","b"]`), nil
 	})
-	router := NewSandboxRouter(inProc, NewWasmSandbox(context.Background()), nil, runtime.GOOS, 0)
+	router := NewSandboxRouter(inProc, NewWasmSandbox(context.Background(), 4), nil, runtime.GOOS, 0)
 
 	tool := protocol.Tool{
 		Name:        "list-files",
@@ -110,7 +110,7 @@ func TestSandboxRouter_BuiltinGoesToInProcess(t *testing.T) {
 }
 
 func TestSandboxRouter_MCPGoesToWasm(t *testing.T) {
-	wasmSb := NewWasmSandbox(context.Background())
+	wasmSb := NewWasmSandbox(context.Background(), 4)
 	emptyWasm := []byte{0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00}
 	wasmSb.PreWarmCache("mcp-tool", emptyWasm)
 
@@ -135,7 +135,7 @@ func TestSandboxRouter_PrivilegedGoesToWasmOnNonLinux(t *testing.T) {
 	if runtime.GOOS == "linux" {
 		t.Skip("skip non-linux fallback test on Linux")
 	}
-	router := NewSandboxRouter(NewInProcessSandbox(), NewWasmSandbox(context.Background()), nil, runtime.GOOS, 0)
+	router := NewSandboxRouter(NewInProcessSandbox(), NewWasmSandbox(context.Background(), 4), nil, runtime.GOOS, 0)
 
 	tool := protocol.Tool{
 		Name:        "sys-tool",

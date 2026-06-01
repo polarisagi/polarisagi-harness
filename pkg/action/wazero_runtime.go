@@ -24,10 +24,11 @@ type WazeroRuntime struct {
 	goldCache   map[string]wazero.CompiledModule
 	silverCache map[string]wazero.CompiledModule
 	bronzeCache map[string]*BronzeEntry
+	semaphore   chan struct{}
 }
 
 // NewWazeroRuntime 初始化 wazero 运行时。
-func NewWazeroRuntime(ctx context.Context) *WazeroRuntime {
+func NewWazeroRuntime(ctx context.Context, concurrency int) *WazeroRuntime {
 	// 读取配置
 	cfg := config.Get()
 	var memLimitPages uint32 = 4096 // default 256MB
@@ -41,6 +42,11 @@ func NewWazeroRuntime(ctx context.Context) *WazeroRuntime {
 		WithMemoryLimitPages(memLimitPages).
 		WithCloseOnContextDone(true)
 
+	if concurrency <= 0 {
+		concurrency = 4 // Fallback 默认值 (Tier-0)
+	}
+	sem := make(chan struct{}, concurrency)
+
 	r := wazero.NewRuntimeWithConfig(ctx, rc)
 	wasi_snapshot_preview1.MustInstantiate(ctx, r)
 	return &WazeroRuntime{
@@ -48,6 +54,7 @@ func NewWazeroRuntime(ctx context.Context) *WazeroRuntime {
 		goldCache:   make(map[string]wazero.CompiledModule),
 		silverCache: make(map[string]wazero.CompiledModule),
 		bronzeCache: make(map[string]*BronzeEntry),
+		semaphore:   sem,
 	}
 }
 
@@ -104,9 +111,10 @@ func (wr *WazeroRuntime) ExecuteTool(ctx context.Context, skillName string, inpu
 	}
 
 	select {
+	case wr.semaphore <- struct{}{}:
+		defer func() { <-wr.semaphore }()
 	case <-ctx.Done():
 		return nil, ctx.Err()
-	default:
 	}
 
 	var compiled wazero.CompiledModule
@@ -306,9 +314,10 @@ func (wr *WazeroRuntime) RunWasm(ctx context.Context, skillName string, input []
 	}
 
 	select {
+	case wr.semaphore <- struct{}{}:
+		defer func() { <-wr.semaphore }()
 	case <-ctx.Done():
 		return nil, ctx.Err()
-	default:
 	}
 
 	var compiled wazero.CompiledModule

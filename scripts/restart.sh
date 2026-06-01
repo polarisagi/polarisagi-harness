@@ -27,7 +27,7 @@ done
 PORT=29999
 DATA_DIR="${POLARIS_DATA_DIR:-$HOME/.polarisagi/harness}"
 mkdir -p "$DATA_DIR"
-LOG_FILE="$DATA_DIR/polaris.log"
+LOG_FILE="$DATA_DIR/logs/polaris.log"
 LOG_MAX_BYTES=10485760  # 10 MB，超过则截断
 
 # ── 平台检测 ─────────────────────────────────────────────
