@@ -1,4 +1,4 @@
-# pkg/gateway/ (L3 对外网关: HTTP API / WebUI / 多渠道适配)
+# pkg/gateway/ (L3 对外网关: HTTP API / WebUI / 多第三方接入适配)
 
 > Canonical arch doc: [M13-Interface-Scheduler.md](../../docs/arch/M13-Interface-Scheduler.md)
 
@@ -26,7 +26,7 @@
 - [参照] `server/cron.go`: Automation/Cron 任务调度
 - [参照] `server/sse.go`: SSE 流式推送
 - [参照] `server/openai_compat.go`: OpenAI 兼容接口
-- [参照] `channels/manager.go`: 多渠道 poller 管理 (Telegram/Slack/Discord 等)
+- [参照] `channels/manager.go`: 多第三方接入 poller 管理 (Telegram/Slack/Discord 等)
 - [参照] `channels/dispatch.go`: 消息分发路由
 
 **跨模块**:

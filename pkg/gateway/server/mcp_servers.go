@@ -54,6 +54,8 @@ func (s *Server) handleListMCPServers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	list := []*MCPServerConfig{}
+	seenIDs := make(map[string]bool)
+
 	for rows.Next() {
 		c := &MCPServerConfig{}
 		var enabled int
@@ -71,7 +73,62 @@ func (s *Server) handleListMCPServers(w http.ResponseWriter, r *http.Request) {
 			c.Error = info.Error
 		}
 		list = append(list, c)
+		seenIDs[c.ID] = true
 	}
+
+	// 从 plugins 表中读取内嵌的 MCP 服务器，遵循 State-in-DB 原则
+	pluginRows, err := s.db.QueryContext(r.Context(),
+		`SELECT id, name, mcp_policy, enabled, trust_tier, COALESCE(catalog_id,''), created_at, updated_at
+         FROM plugins WHERE install_path != '' ORDER BY created_at`)
+	if err == nil {
+		defer pluginRows.Close()
+		for pluginRows.Next() {
+			var pID, pName, mcpPolicyJSON, pCatID, pCreated, pUpdated string
+			var pEnabled, pTrustTier int
+			if err := pluginRows.Scan(&pID, &pName, &mcpPolicyJSON, &pEnabled, &pTrustTier, &pCatID, &pCreated, &pUpdated); err != nil {
+				continue
+			}
+
+			var mcpPolicy map[string]map[string]any
+			if json.Unmarshal([]byte(mcpPolicyJSON), &mcpPolicy) == nil {
+				for serverName, policy := range mcpPolicy {
+					serverID := "plugin_" + pID + "_" + serverName
+					if seenIDs[serverID] {
+						continue
+					}
+
+					enabled := pEnabled == 1
+					if serverEnabled, ok := policy["enabled"].(bool); ok && !serverEnabled {
+						enabled = false
+					}
+
+					c := &MCPServerConfig{
+						ID:        serverID,
+						Name:      pName + "-" + serverName,
+						Transport: "stdio/sse", // 插件中具体类型在文件里，这里统一显示
+						Command:   "(内嵌于插件)",
+						Enabled:   enabled,
+						Timeout:   30,
+						TrustTier: pTrustTier,
+						CatalogID: pCatID,
+						CreatedAt: pCreated,
+						UpdatedAt: pUpdated,
+					}
+
+					if info, ok := runtimeMap[serverID]; ok {
+						c.Connected = info.Connected
+						c.ToolCount = len(info.Tools)
+						c.Error = info.Error
+						c.Transport = info.Transport // 如果在运行，使用真实的 Transport
+					}
+
+					list = append(list, c)
+					seenIDs[serverID] = true
+				}
+			}
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{"mcp_servers": list}) //nolint:errcheck
 }

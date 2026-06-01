@@ -5,7 +5,7 @@ import { authHeaders, levelGe, sanitizeContent } from '../utils.js'
 // ══════════════════════════════════════════════════════════════════════════
 Alpine.store('onboard', {
   show: false,
-  step: 1,  // 1 欢迎 | 2 Provider | 3 模型 | 4 渠道（可选）
+  step: 1,  // 1 欢迎 | 2 Provider | 3 模型 | 4 接入（可选）
 
   // Step 2
   providerForm: { name: '', type: 'openai_compat', base_url: '', api_key: '', project_id: '', location: 'us-central1' },
@@ -152,7 +152,7 @@ Alpine.store('onboard', {
 
   // ── Step 4 ────────────────────────────────────────────────────────────
   async saveChannel() {
-    if (!this.channelForm.name.trim()) { Alpine.store('toast').show('error', '请填写渠道名称'); return false }
+    if (!this.channelForm.name.trim()) { Alpine.store('toast').show('error', '请填写接入名称'); return false }
     this.saving = true
     try {
       const r = await fetch('/v1/channels', {

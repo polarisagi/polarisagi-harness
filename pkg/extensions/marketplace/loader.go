@@ -137,6 +137,14 @@ func loadMCPConfig(path string) (*protocol.MCPConfig, error) {
 	// 注意：Claude Code 官方 .mcp.json 格式是 {"mcpServers":{...}}，不走此分支。
 	// 扁平解析仅在标准解析得到空集合时触发，避免误解析含其他顶层字段的 JSON。
 	if len(c.MCPServers) == 0 {
+		var snakeCfg struct {
+			MCPServers map[string]protocol.MCPServerDef `json:"mcp_servers"`
+		}
+		if json.Unmarshal(data, &snakeCfg) == nil && len(snakeCfg.MCPServers) > 0 {
+			c.MCPServers = snakeCfg.MCPServers
+		}
+	}
+	if len(c.MCPServers) == 0 {
 		if flat := parseFlatMCPConfig(data); flat != nil {
 			c.MCPServers = flat
 		}
@@ -152,7 +160,7 @@ func parseFlatMCPConfig(data []byte) map[string]protocol.MCPServerDef {
 	// 过滤掉 JSON 根对象中非 MCPServerDef 的字段（如 "mcpServers" 本身为空时）
 	filtered := make(map[string]protocol.MCPServerDef, len(flat))
 	for k, v := range flat {
-		if k == "mcpServers" {
+		if k == "mcpServers" || k == "mcp_servers" {
 			continue // 标准 key，不视为服务器名
 		}
 		// 有效的服务器定义：必须有 command（stdio）或 url（HTTP/SSE）

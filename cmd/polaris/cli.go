@@ -292,7 +292,7 @@ func runInit() error { //nolint:gocyclo
 	}
 	fmt.Println()
 
-	// ── Step 3: 消息渠道（可选）────────────────────────────────────────────────
+	// ── Step 3: 第三方接入（可选）────────────────────────────────────────────────
 	fmt.Println(clr(ansiBold, t("init_s3_title")))
 	fmt.Println(clr(ansiDim, t("init_s3_desc")))
 

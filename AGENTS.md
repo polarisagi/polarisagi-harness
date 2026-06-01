@@ -55,7 +55,7 @@ pkg/extensions/   L2: 官方扩展包（Skill/MCP/Plugin/Browser，对齐 OpenAI
 pkg/swarm/        L2: orchestrator/self_improve/knowledge
 pkg/governance/   L3: eval
 pkg/edge/         L3: scheduler
-pkg/gateway/      L3: HTTP API Server + 多渠道适配（Telegram/Slack/Discord 等）
+pkg/gateway/      L3: HTTP API Server + 多第三方接入适配（Telegram/Slack/Discord 等）
 
 internal/config/   配置加载 + 编译期不变量
 internal/errors/   统一错误类型（禁裸 error 泄漏）

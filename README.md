@@ -1,6 +1,6 @@
 # polarisagi-harness
 
-面向 2026+ 的**开源自托管** AI Agent 系统。严格遵循 Harness Engineering 六条架构不变量构建。单机 8GB 内存可运行，支持 Telegram / Discord / Slack / 飞书等主流渠道，终端用户无需修改源码即可通过 Shell Script Hooks 自定义生命周期行为。
+面向 2026+ 的**开源自托管** AI Agent 系统。严格遵循 Harness Engineering 六条架构不变量构建。单机 8GB 内存可运行，支持 Telegram / Discord / Slack / 飞书等主流第三方接入，终端用户无需修改源码即可通过 Shell Script Hooks 自定义生命周期行为。
 
 ## 定位与约束
 

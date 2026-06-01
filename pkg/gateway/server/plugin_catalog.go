@@ -668,6 +668,13 @@ func (s *Server) downloadAndInstallExtension(ctx context.Context, extID, catalog
 				}
 			}
 		}
+
+		// 5. 启动内嵌的 MCP Server
+		if s.mcpMgr != nil {
+			home, _ := os.UserHomeDir()
+			dataDir := filepath.Join(home, ".polarisagi/harness")
+			go s.mcpMgr.LoadOnePlugin(context.Background(), runtimeID, name, destDir, string(mcpPolicyBytes), entry.TrustTier, dataDir)
+		}
 	}
 
 	// 4. 更新 extension_instances 为 installed

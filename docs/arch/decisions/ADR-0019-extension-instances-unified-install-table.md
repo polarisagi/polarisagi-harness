@@ -49,3 +49,18 @@
 - `internal/protocol/schema/`：新增 034、035、036 迁移文件
 - `M13-bis-Extension-Registry.md`：安装流完整描述
 - M9 Self-Improvement Engine：promote 路径必须经 `extension_instances` → `SkillRegistry`（inv_M6_02）
+
+---
+
+## 补充设计 (2026-06-01)：插件内嵌组件的封装与展现
+
+在统一安装实例的基础上，系统明确了**插件内嵌组件（Skills / MCPs）的处理边界**：
+
+1. **组件封装而非打平 (Encapsulation over Flattening)**：
+   - 插件自带的组件（如 `mcp_policy` 声明的 MCP 服务器，或通过 Wasm 打包的 Skill）**禁止打平落盘到全局的 `skills` 或 `mcp_servers` 基础表中**。
+   - 基础表仅服务于“散装”原生组件。插件必须作为一个整体单元保持隔离，其生命周期与组件同生共死。
+
+2. **前端监控页面的展示层契约 (SSoT 分离)**：
+   - **配置的事实来源 (Config SSoT)**：必须基于底层数据库（如解析 `plugins.mcp_policy`）。前端展示列表时，应从数据库生成完整的配置名册，而不是逆向去读取内存 `runtimeMap`。
+   - **状态的事实来源 (Status SSoT)**：实时的连接状态和错误信息（Connected / Error）则读取内存中的 `runtimeMap`，并与配置名册进行**叠加渲染**。
+   - **防死角机制**：如果仅依靠内存数据渲染前端，一旦插件因环境异常启动失败未进入内存，前端列表将发生“隐身”从而阻断排查。故确立“配置读库，状态读内存”的强规则。
