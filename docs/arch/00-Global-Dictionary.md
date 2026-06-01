@@ -307,7 +307,7 @@ PII 检测与红化 (11-Policy-Safety, §5.1)。Tier 0 使用 Go 原生正则检
 
 ### [Extension-Uninstall] (彻底卸载策略)
 扩展的卸载行为取决于其 `origin` 来源。若属非内置扩展（如第三方社区 `is_builtin=0` 市场或 `origin='user'` 的手动安装）：
-卸载不仅仅是从运行时表（`extension_instances`, `mcp_servers`, `skills`, `plugins`）中摘除，还必须实现**彻底销毁**：
+卸载不仅仅是从安装记录（`extension_instances`）及对应的运行时表（`mcp_servers`, `skills`, `plugins`）中摘除，还必须实现**彻底销毁**：
 1. **DB 级联清除**：连同其在 `extension_catalog` 的展示元数据一并删除，确保不再在前端列表中残留。
 2. **物理文件清除**：通过底层封装的文件系统接口彻底移除 `install_path` 目录。
 卸载操作必须由底层管理接口统一执行，严禁在 HTTP Handler 业务层直接写裸 `os.RemoveAll`。

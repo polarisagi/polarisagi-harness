@@ -29,7 +29,7 @@
 - `install_path`：文件系统绝对路径；MCP/App 为空字符串
 - `status`：`downloading` | `installed` | `error` | `disabled`
 
-删除 `skill_sources`、`apps` 两表 DDL。`plugins` 表曾一度被删除，但后续（参见 021_plugins.sql）被重新引入，专门作为独立脚本型应用插件的运行时记录。Schema 整体重整为 001-021 标准编号。
+删除 `skill_sources`、`apps` 两表 DDL（`app` 类型的扩展不再有独立表，其运行 URL 直接保存在 `extension_instances` 的 `config` 或 `install_path` 中）。`plugins` 表（021）作为 Plugin Bundle 的专用运行时记录被保留，负责管理插件的包清单（manifest）和子 MCP 启停策略（mcp_policy）。至此，所有扩展的安装状态统归 `extension_instances`（Layer 1），而运行参数（Layer 2）被严格拆分到 `mcp_servers`（仅限独立 MCP）、`skills`（仅限独立技能）和 `plugins`（聚合插件包）三表中，插件内的子组件不再跨越边界污染基础表。Schema 整体重整为 001-021 标准编号。
 
 ---
 
