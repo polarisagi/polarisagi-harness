@@ -31,9 +31,10 @@ type MCPServerConfig struct {
 	CreatedAt string `json:"created_at,omitempty"`
 	UpdatedAt string `json:"updated_at,omitempty"`
 	// 只读，运行时状态
-	Connected bool   `json:"connected,omitempty"`
-	ToolCount int    `json:"tool_count,omitempty"`
-	Error     string `json:"error,omitempty"`
+	Connected  bool   `json:"connected,omitempty"`
+	ToolCount  int    `json:"tool_count,omitempty"`
+	Error      string `json:"error,omitempty"`
+	PluginName string `json:"plugin_name,omitempty"`
 }
 
 func (s *Server) handleListMCPServers(w http.ResponseWriter, r *http.Request) {
@@ -116,16 +117,17 @@ func (s *Server) appendPluginMCPServers(ctx context.Context, list *[]*MCPServerC
 			}
 
 			c := &MCPServerConfig{
-				ID:        serverID,
-				Name:      pName + "-" + serverName,
-				Transport: "stdio/sse", // 插件中具体类型在文件里，这里统一显示
-				Command:   "(内嵌于插件)",
-				Enabled:   enabled,
-				Timeout:   30,
-				TrustTier: pTrustTier,
-				CatalogID: pCatID,
-				CreatedAt: pCreated,
-				UpdatedAt: pUpdated,
+				ID:         serverID,
+				Name:       serverName,
+				PluginName: pName,
+				Transport:  "stdio/sse", // 插件中具体类型在文件里，这里统一显示
+				Command:    "(内嵌于插件)",
+				Enabled:    enabled,
+				Timeout:    30,
+				TrustTier:  pTrustTier,
+				CatalogID:  pCatID,
+				CreatedAt:  pCreated,
+				UpdatedAt:  pUpdated,
 			}
 
 			if info, ok := runtimeMap[serverID]; ok {

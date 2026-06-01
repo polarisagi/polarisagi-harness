@@ -264,6 +264,7 @@ func (s *Server) handleInstallPlugin(w http.ResponseWriter, r *http.Request) { /
 		s.installGenericExtension(w, r, extID, &entry, req, now)
 	}
 	s.clearToolSchemaCache()
+	slog.Info("marketplace: installed extension", "id", extID, "type", entry.Type, "name", entry.Name)
 }
 
 // installMCPExtension 安装 MCP 类型：写 extension_instances + mcp_servers + 异步启动。

@@ -365,6 +365,9 @@
                   <div class="flex items-center gap-3 p-3 bg-base-100 rounded-box border border-base-300 shadow-sm">
                     <div class="w-2.5 h-2.5 rounded-full shrink-0" :class="srv.connected ? 'bg-success shadow-[0_0_8px_rgba(0,255,0,0.4)]' : 'bg-error'"></div>
                     <span class="font-bold text-sm flex-1 truncate" x-text="srv.name"></span>
+                    <template x-if="srv.plugin_name">
+                      <span class="badge badge-xs badge-ghost font-mono shrink-0" x-text="'PLUGIN ' + srv.plugin_name"></span>
+                    </template>
                     <span class="badge badge-xs badge-ghost font-mono uppercase" x-text="srv.transport"></span>
                     <span x-show="srv.tool_count > 0" class="badge badge-xs badge-primary badge-outline font-bold" x-text="`${$store.i18n.t('monitor_tools').replace('{0}', srv.tool_count)}`"></span>
                     <span class="text-xs font-bold" :class="srv.connected ? 'text-success' : 'text-error'" x-text="srv.connected ? $store.i18n.t('agents_connected') : $store.i18n.t('agents_disconnected')"></span>
