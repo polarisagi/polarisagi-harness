@@ -70,6 +70,8 @@ func (m *MCPManager) Add(ctx context.Context, serverID, name string, cfg MCPClie
 		return perrors.Wrap(perrors.CodeInvalidInput, fmt.Sprintf("mcp: server name %q invalid (must match ^[a-zA-Z0-9_-]+$)", name), err)
 	}
 
+	slog.Info("mcp_manager: starting mcp server", "id", serverID, "name", name, "transport", cfg.Transport, "command", cfg.Command)
+
 	m.mu.Lock()
 
 	if old, ok := m.entries[serverID]; ok {
@@ -82,6 +84,7 @@ func (m *MCPManager) Add(ctx context.Context, serverID, name string, cfg MCPClie
 	storeFailed := func(err error) error {
 		m.entries[serverID] = &mcpEntry{name: name, cfg: cfg, errMsg: err.Error()}
 		m.mu.Unlock()
+		slog.Error("mcp_manager: start server failed", "id", serverID, "name", name, "err", err)
 		return err
 	}
 
