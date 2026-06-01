@@ -76,7 +76,7 @@ type PluginJSON struct {
 	Name        string           `json:"name"`
 	Version     string           `json:"version"`
 	Description string           `json:"description"`
-	Author      string           `json:"author,omitempty"`
+	Author      any              `json:"author,omitempty"` // Change to any to support both string and object
 	Homepage    string           `json:"homepage,omitempty"`
 	Repository  string           `json:"repository,omitempty"`
 	License     string           `json:"license,omitempty"`
