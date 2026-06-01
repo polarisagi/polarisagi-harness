@@ -34,6 +34,7 @@ Layer 2  Runtime（运行时层）
   skills（008）         script/wasm 执行元数据 + instructions 全文
   plugins（021）        插件运行时状态表（install_path + enabled + mcp_policy + manifest 快照）
                         消费方：MCPManager.LoadOnePlugin（子 MCP 动态启动）/ SSE ambient 扫描（skills/ 动态注入）/ 已安装插件管理 API
+  apps（028）           富交互应用表（Codex App 概念），管理前端 Web UI 和 Widget 的独立路由与状态
   automations（017）    触发器 + Agent 任务配置；M13 Scheduler 消费方
 ```
 
@@ -50,7 +51,7 @@ Layer 2  Runtime（运行时层）
 | `mcp` | 外部工具进程（JSON-RPC 2.0 over stdio/HTTP） | `mcp_servers` → MCPManager | marketplace / user |
 | `skill` | 行为指令集（SKILL.md）或 Wasm 执行单元 | `skills`（008） | marketplace / learned |
 | `plugin` | Skills + MCP + Hooks 的打包分发单元 | `plugins`（021）；子 MCP/Skill **不**注入全局表，保留在 install_path 文件边界内，运行时动态加载 | marketplace |
-| `app` | URL 应用，通过 WebProxy HTTP 代理访问 | 无独立表（URL 存 extension_instances） | marketplace / user |
+| `app` | 独立的图形交互界面（Web UI/Widget），参考 Codex App 概念 | `apps`（028）；拥有独立的 URL 端点和权限状态 | marketplace / user |
 | `automation` | 触发器 + Agent 任务（cron/webhook/both/manual；规划：event/github） | `automations`（017） | user / marketplace |
 | `agent` | 外部 AI Agent 端点（A2A 协议）暴露为工具 | `mcp_servers`（transport=a2a） | marketplace / user |
 
@@ -558,6 +559,7 @@ M9 Self-Improvement Engine promote 候选技能时：
 | `plugins` | 021 | plugin_catalog.go（bundle 元数据） |
 | `automations` | 017 | M13 Scheduler（`pkg/gateway/server/cron.go`） |
 | `automation_runs` | 017 | M13 Scheduler — 执行历史 |
+| `apps` | 028 | M13 API / Web UI 路由引擎 |
 | `cron_jobs` | 014 | 旧版定时任务表，由 017_automations 接管，逐步废弃 |
 
-**已删除**（不再存在）：`skill_sources`、`apps`——职责归入 `extension_instances`（020）。
+**已删除**（不再存在）：`skill_sources`——职责归入 `extension_instances`（020）。

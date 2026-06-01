@@ -29,7 +29,7 @@
 - `install_path`：文件系统绝对路径；MCP/App 为空字符串
 - `status`：`downloading` | `installed` | `error` | `disabled`
 
-删除 `skill_sources`、`apps` 两表 DDL（`app` 类型的扩展不再有独立表，其运行 URL 直接保存在 `extension_instances` 的 `config` 或 `install_path` 中）。`plugins` 表（021）作为 Plugin Bundle 的专用运行时记录被保留，负责管理插件的包清单（manifest）和子 MCP 启停策略（mcp_policy）。至此，所有扩展的安装状态统归 `extension_instances`（Layer 1），而运行参数（Layer 2）被严格拆分到 `mcp_servers`（仅限独立 MCP）、`skills`（仅限独立技能）和 `plugins`（聚合插件包）三表中，插件内的子组件不再跨越边界污染基础表。Schema 整体重整为 001-021 标准编号。
+删除 `skill_sources` 表的 DDL。曾经废除过 `apps` 表，但在后续（2026-06-01 对齐 Codex App 概念）决议中**撤销了废除 apps 表的决定**。`apps` 表（028）被恢复，专门作为富交互前端应用（Web UI/Widget）的独立运行时表。`plugins` 表（021）作为 Plugin Bundle 的专用运行时记录被保留，负责管理插件的包清单（manifest）和子 MCP 启停策略（mcp_policy）。至此，所有扩展的安装状态统归 `extension_instances`（Layer 1），而运行参数（Layer 2）被严格拆分到 `mcp_servers`（仅限独立 MCP）、`skills`（仅限独立技能）、`plugins`（聚合插件包）和 `apps`（独立交互应用）四表中，插件内的子组件不再跨越边界污染基础表。Schema 整体重整为 001-028 标准编号。
 
 ---
 

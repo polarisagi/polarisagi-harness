@@ -296,8 +296,8 @@ PII 检测与红化 (11-Policy-Safety, §5.1)。Tier 0 使用 Go 原生正则检
 ### [Codex-Plugin] (Plugin / Skill / MCP 统一范式)
 参考 OpenAI Codex 官方文档定义的行业标准共识。在 Polaris 中，“插件(Plugin)”并非指编译进核心二进制的代码，而是**聚合了 Skill (可复用的认知与 Prompt 工作流) 与 App Integration / MCP (外部工具与应用集成)** 的标准能力分发载体（Bundle）。Plugin 机制负责统一定义生命周期、依赖和权限声明，而底层具体执行则完全委托给 M7 (MCP Manager) 和 M6 (Skill Registry) 进行物理隔离。
 
-### [App] (第三方应用集成与 Connector)
-参考 ChatGPT Apps (原名 Connectors) 行业共识。在 Polaris 架构中，应用（App）指的是 **外部第三方软件或服务（如 Github、Zillow、Apple Music 等）的集成连接器**。App 的底层通信标准正是 **MCP (Model Context Protocol)**。开发者通过搭建一个 MCP Server，将第三方系统的数据和操作能力暴露给大模型。在 Polaris 中，用户可以在会话中直接挂载这些 App，让 Agent 真正拥有与外部真实商业软件系统互联互通的能力。部分高级 App 还可以下发自定义的交互式前端组件（UI Widgets）到聊天流中。
+### [App] (富交互前端扩展)
+参考 OpenAI Codex App 与 ChatGPT Apps SDK 概念。在 Polaris 架构中，App 代表了**独立于单纯后端工具（MCP）和文本技能（Skill）的富交互层**。它为大模型或用户提供独立的 UI Widget（前端组件）、工作流视图或独立的 Web Endpoint。与 MCP（纯后端无头服务）不同，App 拥有前端路由与用户状态交互能力，允许深度集成（如工作树、本地环境、自动化任务管理等），能够下发自定义的交互式卡片到聊天流中，甚至包含认证和状态流。App 在架构中有专属的运行时表（`apps`）以管理其独立的权限与路由端点。
 
 ### [Marketplace] (插件与技能应用市场)
 参考 MCP Registry (registry.modelcontextprotocol.io) 与第三方市场生态 (如 mcp.so)。Marketplace 是系统发现、安装和分发外部 Plugin、Skill 和 App 的中心枢纽。Polaris 系统并非依靠用户手动编写模板来安装第三方能力，而是内置对接开源市场协议，支持大模型在会话中根据用户意图直接向 Marketplace 检索可用扩展，获取安装与配置指令（如 `npx` 执行参数或下载链接），然后全自动完成配置并注册生效。
