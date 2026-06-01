@@ -194,22 +194,26 @@ func (m *Manager) removeRuntime(ctx context.Context, extType, runtimeID, catalog
 		}
 	case "plugin":
 		// 通过 runtime_id 删除，与 extension_instances.runtime_id 对齐
-		if runtimeID != "" {
-			var mcpPolicy string
-			_ = m.db.QueryRowContext(ctx, "SELECT mcp_policy FROM plugins WHERE id=?", runtimeID).Scan(&mcpPolicy)
-			if mcpPolicy != "" {
-				if remover, ok := m.mcpMgr.(mcpRemover); ok {
-					var policy map[string]any
-					if json.Unmarshal([]byte(mcpPolicy), &policy) == nil {
-						for serverName := range policy {
-							remover.Remove("plugin_" + runtimeID + "_" + serverName)
-						}
-					}
-				}
+		if runtimeID == "" {
+			break
+		}
+		remover, _ := m.mcpMgr.(mcpRemover)
+		m.removePluginRuntime(ctx, runtimeID, remover)
+	}
+}
+
+func (m *Manager) removePluginRuntime(ctx context.Context, runtimeID string, remover interface{ Remove(id string) }) {
+	var mcpPolicy string
+	_ = m.db.QueryRowContext(ctx, "SELECT mcp_policy FROM plugins WHERE id=?", runtimeID).Scan(&mcpPolicy)
+	if mcpPolicy != "" && remover != nil {
+		var policy map[string]any
+		if json.Unmarshal([]byte(mcpPolicy), &policy) == nil {
+			for serverName := range policy {
+				remover.Remove("plugin_" + runtimeID + "_" + serverName)
 			}
-			_, _ = m.db.ExecContext(ctx, "DELETE FROM plugins WHERE id=?", runtimeID)
 		}
 	}
+	_, _ = m.db.ExecContext(ctx, "DELETE FROM plugins WHERE id=?", runtimeID)
 }
 
 func (m *Manager) cleanCatalog(ctx context.Context, origin, catalogID string) {
