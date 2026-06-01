@@ -298,7 +298,8 @@ func (m *MCPManager) LoadOnePlugin(ctx context.Context, pluginID, pluginName, in
 		URL     string            `json:"url"`
 	}
 	type mcpFile struct {
-		MCPServers map[string]mcpServerEntry `json:"mcpServers"`
+		MCPServers      map[string]mcpServerEntry `json:"mcpServers"`
+		MCPServersSnake map[string]mcpServerEntry `json:"mcp_servers"` // 兼容历史/第三方格式
 	}
 
 	mcpData, err := readFileBytes(installPath + "/.mcp.json")
@@ -312,7 +313,15 @@ func (m *MCPManager) LoadOnePlugin(ctx context.Context, pluginID, pluginName, in
 		return
 	}
 
-	for serverName, def := range fileCfg.MCPServers {
+	servers := fileCfg.MCPServers
+	if servers == nil {
+		servers = make(map[string]mcpServerEntry)
+	}
+	for k, v := range fileCfg.MCPServersSnake {
+		servers[k] = v
+	}
+
+	for serverName, def := range servers {
 		if policy, ok := mcpPolicy[serverName]; ok {
 			if enabled, ok := policy["enabled"].(bool); ok && !enabled {
 				slog.Info("mcp_manager: plugin mcp disabled by policy", "plugin", pluginName, "server", serverName)

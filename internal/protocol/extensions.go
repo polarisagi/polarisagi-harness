@@ -102,7 +102,8 @@ type MCPServerDef struct {
 
 // MCPConfig 表示 .mcp.json 的结构（三家标准统一使用 mcpServers camelCase）。
 type MCPConfig struct {
-	MCPServers map[string]MCPServerDef `json:"mcpServers"`
+	MCPServers      map[string]MCPServerDef `json:"mcpServers"`
+	MCPServersSnake map[string]MCPServerDef `json:"mcp_servers"` // 兼容历史格式
 }
 
 // PluginBundleManifest 是多组件 Bundle 的扩展 plugin.json（M13-bis §2.1）。

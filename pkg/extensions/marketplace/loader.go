@@ -133,17 +133,13 @@ func loadMCPConfig(path string) (*protocol.MCPConfig, error) {
 	if err := json.Unmarshal(data, &c); err != nil {
 		return nil, err
 	}
-	// 兼容部分第三方工具的扁平格式（{"serverName":{...}}，无 mcpServers 包装层）。
-	// 注意：Claude Code 官方 .mcp.json 格式是 {"mcpServers":{...}}，不走此分支。
-	// 扁平解析仅在标准解析得到空集合时触发，避免误解析含其他顶层字段的 JSON。
-	if len(c.MCPServers) == 0 {
-		var snakeCfg struct {
-			MCPServers map[string]protocol.MCPServerDef `json:"mcp_servers"`
-		}
-		if json.Unmarshal(data, &snakeCfg) == nil && len(snakeCfg.MCPServers) > 0 {
-			c.MCPServers = snakeCfg.MCPServers
-		}
+	if c.MCPServers == nil {
+		c.MCPServers = make(map[string]protocol.MCPServerDef)
 	}
+	for k, v := range c.MCPServersSnake {
+		c.MCPServers[k] = v
+	}
+
 	if len(c.MCPServers) == 0 {
 		if flat := parseFlatMCPConfig(data); flat != nil {
 			c.MCPServers = flat
