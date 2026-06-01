@@ -119,10 +119,12 @@ type PluginBundleManifest struct {
 	Name        string                  `json:"name"`
 	Version     string                  `json:"version"`
 	Description string                  `json:"description"`
-	Entrypoint  string                  `json:"entrypoint,omitempty"`
-	MCPFile     string                  `json:"mcpServers,omitempty"` // 指向 .mcp.json 的相对路径
-	MCPInline   map[string]MCPServerDef `json:"mcpInline,omitempty"`  // 内联 MCP 服务器映射
-	Interface   *PluginInterface        `json:"interface,omitempty"`  // UI 展示元数据
+	Entrypoint     string                  `json:"entrypoint,omitempty"`
+	MCPFile        string                  `json:"mcpServers,omitempty"` // 指向 .mcp.json 的相对路径
+	MCPFileSnake   string                  `json:"mcp_servers,omitempty"`
+	MCPInline      map[string]MCPServerDef `json:"mcpInline,omitempty"` // 内联 MCP 服务器映射
+	MCPInlineSnake map[string]MCPServerDef `json:"mcp_inline,omitempty"`
+	Interface      *PluginInterface        `json:"interface,omitempty"` // UI 展示元数据
 
 	// Skills: 由 UnmarshalJSON 从 "skills" 字段解析，见下方注释。
 	Skills    []BundleSkillRef // array form: [{"path":"...","name":"..."}]
@@ -138,10 +140,12 @@ type bundleManifestWire struct {
 	Name        string                  `json:"name"`
 	Version     string                  `json:"version"`
 	Description string                  `json:"description"`
-	Entrypoint  string                  `json:"entrypoint,omitempty"`
-	MCPFile     string                  `json:"mcpServers,omitempty"`
-	MCPInline   map[string]MCPServerDef `json:"mcpInline,omitempty"`
-	Interface   *PluginInterface        `json:"interface,omitempty"`
+	Entrypoint     string                  `json:"entrypoint,omitempty"`
+	MCPFile        string                  `json:"mcpServers,omitempty"`
+	MCPFileSnake   string                  `json:"mcp_servers,omitempty"`
+	MCPInline      map[string]MCPServerDef `json:"mcpInline,omitempty"`
+	MCPInlineSnake map[string]MCPServerDef `json:"mcp_inline,omitempty"`
+	Interface      *PluginInterface        `json:"interface,omitempty"`
 	SkillsRaw   json.RawMessage         `json:"skills,omitempty"`
 	HooksRaw    json.RawMessage         `json:"hooks,omitempty"`
 }
@@ -159,7 +163,13 @@ func (m *PluginBundleManifest) UnmarshalJSON(data []byte) error {
 	m.Description = w.Description
 	m.Entrypoint = w.Entrypoint
 	m.MCPFile = w.MCPFile
+	if m.MCPFile == "" && w.MCPFileSnake != "" {
+		m.MCPFile = w.MCPFileSnake
+	}
 	m.MCPInline = w.MCPInline
+	if m.MCPInline == nil && w.MCPInlineSnake != nil {
+		m.MCPInline = w.MCPInlineSnake
+	}
 	m.Interface = w.Interface
 
 	// 解析 "skills"：先尝试字符串（Codex 路径形式），再尝试数组（Polaris 形式）
